@@ -1,0 +1,11 @@
+@import 'tailwindcss';
+
+@source '../**/*.jsx';
+@source '../**/*.js';
+@source '../**/*.blade.php';
+
+@theme {
+    --color-primary: #1FA4A9;
+    --color-neutralbg: #F4F6F8;
+    --color-crimson: #dc143c;
+}

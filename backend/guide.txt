@@ -1,0 +1,11 @@
+php artisan serve = live server
+npm run dev = run tailwind
+
+// open xampp and start apache and MySQL. go to MySQL admin and create clinic_app database. go back to vscode and command this in cmd
+-- php artisan migrate
+
+php artisan install:api
+
+acc:
+patient@clinic.com
+password123
