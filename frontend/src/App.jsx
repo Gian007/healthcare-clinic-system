@@ -26,6 +26,22 @@ import StaffNotifications from "./pages/staff/StaffNotifications";
 import StaffScan from "./pages/staff/StaffScan";
 import StaffSchedule from "./pages/staff/StaffSchedule";
 
+
+
+
+// ADMIN IMPORTS
+import AdminLayout from "./components/admin/AdminLayout";
+
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminDoctors from "./pages/admin/AdminDoctors";
+import AdminSchedules from "./pages/admin/AdminSchedules";
+import AdminServices from "./pages/admin/AdminServices";
+import AdminStaff from "./pages/admin/AdminStaff";
+import AdminPatients from "./pages/admin/AdminPatients";
+import AdminNotifications from "./pages/admin/AdminNotifications";
+import AdminReports from "./pages/admin/AdminReports";
+import AdminSettings from "./pages/admin/AdminSettings";
+
 // AUTH GUARD
 function RequireAuth({ children, role }) {
   const { user } = useAuth();
@@ -116,8 +132,30 @@ export default function App() {
           <Route path="notifications" element={<StaffNotifications />} />
         </Route>
 
-        {/* ================= FUTURE ================= */}
-        <Route path="/admin" element={<div className="p-6">Admin (soon)</div>} />
+        
+        {/* ================= Admin ================= */}
+        <Route
+          path="/admin"
+          element={
+            <RequireAuth role="admin">
+              <AdminLayout />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="doctors" element={<AdminDoctors />} />
+          <Route path="schedules" element={<AdminSchedules />} />
+          <Route path="services" element={<AdminServices />} />
+          <Route path="staff" element={<AdminStaff />} />
+          <Route path="patients" element={<AdminPatients />} />
+          <Route path="notifications" element={<AdminNotifications />} />
+          <Route path="reports" element={<AdminReports />} />
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
+
+
+
+          {/* ================= FUTURE ================= */}
         <Route path="/doctor" element={<div className="p-6">Doctor (soon)</div>} />
 
         {/* ================= FALLBACK ================= */}
