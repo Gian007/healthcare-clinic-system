@@ -29,18 +29,7 @@ import StaffSchedule from "./pages/staff/StaffSchedule";
 
 
 
-// ADMIN IMPORTS
-import AdminLayout from "./components/admin/AdminLayout";
 
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminDoctors from "./pages/admin/AdminDoctors";
-import AdminSchedules from "./pages/admin/AdminSchedules";
-import AdminServices from "./pages/admin/AdminServices";
-import AdminStaff from "./pages/admin/AdminStaff";
-import AdminPatients from "./pages/admin/AdminPatients";
-import AdminNotifications from "./pages/admin/AdminNotifications";
-import AdminReports from "./pages/admin/AdminReports";
-import AdminSettings from "./pages/admin/AdminSettings";
 
 // AUTH GUARD
 function RequireAuth({ children, role }) {
@@ -134,6 +123,7 @@ export default function App() {
 
         
         {/* ================= Admin ================= */}
+        
         
 
 
