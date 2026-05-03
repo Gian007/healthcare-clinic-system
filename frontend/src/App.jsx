@@ -134,25 +134,7 @@ export default function App() {
 
         
         {/* ================= Admin ================= */}
-        <Route
-          path="/admin"
-          element={
-            <RequireAuth role="admin">
-              <AdminLayout />
-            </RequireAuth>
-          }
-        >
-          <Route index element={<AdminDashboard />} />
-          <Route path="doctors" element={<AdminDoctors />} />
-          <Route path="schedules" element={<AdminSchedules />} />
-          <Route path="services" element={<AdminServices />} />
-          <Route path="staff" element={<AdminStaff />} />
-          <Route path="patients" element={<AdminPatients />} />
-          <Route path="notifications" element={<AdminNotifications />} />
-          <Route path="reports" element={<AdminReports />} />
-          <Route path="settings" element={<AdminSettings />} />
-        </Route>
-
+        
 
 
           {/* ================= FUTURE ================= */}
