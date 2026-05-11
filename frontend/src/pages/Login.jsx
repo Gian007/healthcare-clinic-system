@@ -1,12 +1,15 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { FaHeartbeat } from "react-icons/fa";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { FaHeartbeat, FaEye, FaEyeSlash } from "react-icons/fa";
 import { useAuth } from "../state/auth";
 
 export default function Login() {
-  const [email, setEmail] = useState("gianexample@gmail.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState("patient");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
   const nav = useNavigate();
@@ -14,19 +17,33 @@ export default function Login() {
 
   const next = useMemo(() => sp.get("next"), [sp]);
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setLoading(true);
 
-    // dummy login success
-    login({ email, role });
-
-    if (next) return nav(next);
-
-    if (role === "patient") return nav("/patient");
-    if (role === "admin") return nav("/admin");
-    if (role === "doctor") return nav("/doctor");
-    if (role === "staff") return nav("/staff");
-    return nav("/");
+    try {
+      const data = await login({ email, password, role });
+      
+      if (next) {
+        nav(next);
+      } else {
+        const returnedRole = data.role;
+        if (returnedRole === "patient") nav("/patient");
+        else if (returnedRole === "admin") nav("/admin");
+        else if (returnedRole === "doctor") nav("/doctor");
+        else if (returnedRole === "staff") nav("/staff");
+        else nav("/");
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message
+        || err.response?.data?.errors?.email?.[0]
+        || err.response?.data?.errors?.password?.[0]
+        || "Login failed. Please check your credentials and the role you selected.";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -45,6 +62,12 @@ export default function Login() {
         >
           <div className="font-semibold text-gray-900 mb-4">Login</div>
 
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4">
+              {error}
+            </div>
+          )}
+
           <label className="block text-sm font-medium text-gray-700">Login as</label>
           <select
             className="mt-2 w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30"
@@ -58,9 +81,11 @@ export default function Login() {
           </select>
 
           <label className="block text-sm font-medium text-gray-700 mt-4">
-            Email or Phone
+            Email
           </label>
           <input
+            type="email"
+            required
             className="mt-2 w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -70,25 +95,38 @@ export default function Login() {
           <label className="block text-sm font-medium text-gray-700 mt-4">
             Password
           </label>
-          <input
-            type="password"
-            className="mt-2 w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              required
+              className="mt-2 w-full border rounded-lg px-3 py-2 pr-10 outline-none focus:ring-2 focus:ring-primary/30"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 mt-1 text-gray-400 hover:text-gray-600"
+            >
+              {showPassword ? <FaEyeSlash /> : <FaEye />}
+            </button>
+          </div>
 
           <button
             type="submit"
-            className="mt-5 w-full bg-primary text-white py-2 rounded-lg font-medium hover:opacity-95"
+            disabled={loading}
+            className="mt-5 w-full bg-primary text-white py-2 rounded-lg font-medium hover:opacity-95 disabled:opacity-50"
           >
-            Login
+            {loading ? "Logging in..." : "Login"}
           </button>
 
-          <div className="text-center text-sm text-gray-600 mt-4">
-            Don&apos;t have an account?{" "}
-            <span className="text-primary font-medium cursor-pointer">Register here</span>
-          </div>
+          {role === 'patient' && (
+            <div className="text-center text-sm text-gray-600 mt-4">
+              Don&apos;t have an account?{" "}
+              <Link to="/register" className="text-primary font-medium cursor-pointer">Register here</Link>
+            </div>
+          )}
         </form>
       </div>
     </div>

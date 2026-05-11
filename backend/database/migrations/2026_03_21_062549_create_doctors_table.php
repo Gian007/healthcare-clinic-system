@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('license_number');
             $table->string('contact_number');
             $table->string('email')->unique();
+            $table->string('password');
             $table->enum('status', ['Available', 'Unavailable', 'Active', 'Inactive']);
             $table->integer('daily_booking_limit');
             $table->timestamps();

@@ -27,6 +27,7 @@ return new class extends Migration
         $table->string('appointment_type');
         $table->text('reason_for_visit');
         $table->enum('booking_status', ['Pending','Confirmed','Cancelled','Completed','No Show','Rescheduled']);
+        $table->text('completion_note')->nullable();
         $table->timestamp('checkin_deadline');
         $table->timestamps();
     });

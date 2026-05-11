@@ -1,6 +1,6 @@
 import { FaCalendarAlt } from "react-icons/fa";
 
-export default function DoctorCard({ doctor }) {
+export default function DoctorCard({ doctor, onViewAvailability }) {
   const available = doctor.status === "Available";
 
   return (
@@ -27,7 +27,10 @@ export default function DoctorCard({ doctor }) {
         <p className="text-sm text-primary mt-1">{doctor.specialty}</p>
 
         {available ? (
-          <button className="mt-4 w-full bg-primary text-white py-2 rounded-md text-sm inline-flex items-center justify-center gap-2">
+          <button 
+            onClick={() => onViewAvailability && onViewAvailability(doctor)}
+            className="mt-4 w-full bg-primary text-white py-2 rounded-md text-sm inline-flex items-center justify-center gap-2 hover:opacity-90"
+          >
             <FaCalendarAlt className="text-sm" />
             View Availability
           </button>

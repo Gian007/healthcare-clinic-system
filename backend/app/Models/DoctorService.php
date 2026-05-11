@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class DoctorService extends Model
 {
+    protected $table = 'doctor_service';
     protected $primaryKey = 'doctor_service_id';
     protected $fillable = [
         'doctor_id', 'service_id', 'status'

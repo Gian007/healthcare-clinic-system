@@ -16,7 +16,7 @@ return new class extends Migration
         $table->string('patient_number')->unique();
         $table->string('first_name');
         $table->string('last_name');
-        $table->string('middle_name');
+        $table->string('middle_name')->nullable();
         $table->date('birth_date');
         $table->enum('sex', ['Male', 'Female']);
         $table->string('civil_status');

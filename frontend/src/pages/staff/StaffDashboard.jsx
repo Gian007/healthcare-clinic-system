@@ -1,9 +1,30 @@
+import { useEffect, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import { activities, initialQueue, appointments } from "../../data/staffData";
 import StaffTableBadge from "../../components/staff/StaffTableBadge";
+import * as staffApi from "../../api/staffApi";
 
 export default function StaffDashboard() {
   const { dark } = useOutletContext();
+  const [data, setData] = useState({
+    appointments_today: [],
+    queues_today: [],
+    stats: { total_appointments: 0, active_queues: 0, total_patients: 0, walkins_today: 0 }
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const res = await staffApi.getDashboardData();
+        setData(res);
+      } catch (error) {
+        console.error("Failed to load staff dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   const card = dark
     ? "border-gray-800 bg-gray-900 text-white"
@@ -15,11 +36,18 @@ export default function StaffDashboard() {
 
   const muted = dark ? "text-gray-400" : "text-gray-500";
 
-  const stats = [
-    { label: "Total Patients Today", value: 48, sub: "+12%", icon: "👥" },
-    { label: "Active Queue Count", value: initialQueue.length, sub: "3 waiting", icon: "⏱️" },
-    { label: "Upcoming Appointments", value: appointments.length, sub: "Next: 2:30 PM", icon: "📅" },
-    { label: "Average Waiting Time", value: "18 min", sub: "-2 min", icon: "📈" },
+  if (loading) {
+    return <div className="p-10 text-center">Loading dashboard...</div>;
+  }
+
+  const { stats, queues_today, appointments_today } = data;
+
+  const summaryStats = [
+    { label: "Total Patients", value: stats.total_patients, sub: "Registered", icon: "👥", link: "/staff/patients" },
+    { label: "Active Queues", value: stats.active_queues, sub: "Currently waiting", icon: "⏱️", link: "/staff/queue" },
+    { label: "Today's Appointments", value: stats.total_appointments, sub: "Scheduled", icon: "📅", link: "/staff/appointments" },
+    { label: "Pending Verifications", value: stats.pending_verifications || 0, sub: "Requires review", icon: "🔍", link: "/staff/patients" },
+    { label: "Walk-ins Today", value: stats.walkins_today, sub: "Unscheduled", icon: "🚶", link: "/staff/walk-in" },
   ];
 
   const quickLinks = [
@@ -49,14 +77,15 @@ export default function StaffDashboard() {
         <h1 className={`text-2xl font-semibold ${dark ? "text-white" : "text-gray-900"}`}>
           Dashboard
         </h1>
-        <p className={`text-sm ${muted}`}>Clinic front desk overview</p>
+        <p className={`text-sm ${muted}`}>Clinic front desk overview - {new Date().toLocaleDateString()}</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => (
-          <div
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {summaryStats.map((stat) => (
+          <Link
             key={stat.label}
-            className={`rounded-2xl border p-5 shadow-sm ${card}`}
+            to={stat.link}
+            className={`rounded-2xl border p-5 shadow-sm block transition-all hover:-translate-y-1 hover:shadow-md ${card}`}
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -71,7 +100,7 @@ export default function StaffDashboard() {
                 {stat.icon}
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
@@ -98,35 +127,38 @@ export default function StaffDashboard() {
 
       <section className={`rounded-2xl border p-5 shadow-sm ${card}`}>
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Recent Activity</h2>
-
+          <h2 className="font-semibold">Recent Queue Activity</h2>
           <Link
-            to="/staff/notifications"
-            className="text-sm font-medium text-teal-600"
+            to="/staff/queue"
+            className="text-sm font-medium text-teal-600 hover:underline"
           >
-            View All
+            View Full Queue
           </Link>
         </div>
 
         <div className={`mt-4 divide-y ${dark ? "divide-gray-800" : "divide-gray-100"}`}>
-          {activities.map((a) => (
-            <div
-              key={`${a.time}-${a.title}`}
-              className="flex items-center justify-between gap-4 py-4"
-            >
-              <div>
-                <p className="text-sm font-semibold">{a.title}</p>
-                <p className={`text-xs ${muted}`}>{a.name}</p>
-              </div>
+          {queues_today.length === 0 ? (
+            <div className="py-8 text-center text-gray-500">No queues for today.</div>
+          ) : (
+            queues_today.slice(0, 5).map((q) => (
+              <div
+                key={q.queue_id}
+                className="flex items-center justify-between gap-4 py-4"
+              >
+                <div>
+                  <p className="text-sm font-semibold">Q-{q.queue_number} - {q.patient?.first_name} {q.patient?.last_name}</p>
+                  <p className={`text-xs ${muted}`}>Dr. {q.doctor?.last_name} • {q.queue_source}</p>
+                </div>
 
-              <div className="flex items-center gap-3">
-                <p className="hidden text-xs text-gray-400 sm:block">
-                  {a.time}
-                </p>
-                <StaffTableBadge status={a.status} />
+                <div className="flex items-center gap-3">
+                  <p className="hidden text-xs text-gray-400 sm:block">
+                    {new Date(q.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </p>
+                  <StaffTableBadge status={q.queue_status === 'Active' ? 'In Progress' : q.queue_status} />
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
     </div>

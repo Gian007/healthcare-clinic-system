@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../state/auth";
-import { staffUser } from "../../data/staffData";
 
 const links = [
   ["Dashboard", "/staff"],
@@ -17,15 +16,38 @@ const links = [
 export default function StaffLayout() {
   const [open, setOpen] = useState(false);
   const [settings, setSettings] = useState(false);
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState(() => {
+    const saved = localStorage.getItem("clinicTheme");
+    if (saved === "dark") {
+      document.documentElement.classList.add("dark");
+      return true;
+    }
+    return false;
+  });
 
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const nav = useNavigate();
 
   function handleLogout() {
     logout();
     nav("/");
   }
+
+  function toggleDark(val) {
+    setDark(val);
+    document.documentElement.classList.toggle("dark", val);
+    localStorage.setItem("clinicTheme", val ? "dark" : "light");
+  }
+
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const staffName = user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() : "Staff User";
+  const initials = user ? `${(user.first_name || "S")[0]}${(user.last_name || "")[0] || ""}` : "SU";
 
   const theme = {
     page: dark ? "bg-gray-950 text-white" : "bg-[#eefafa] text-gray-900",
@@ -39,7 +61,7 @@ export default function StaffLayout() {
   };
 
   return (
-    <div className={`min-h-screen ${theme.page}`}>
+    <div className={`min-h-screen ${theme.page} transition-colors`}>
       {open && (
         <button
           onClick={() => setOpen(false)}
@@ -50,7 +72,7 @@ export default function StaffLayout() {
       <aside
         className={`fixed left-0 top-0 z-50 h-screen w-64 border-r transition ${theme.panel} ${
           open ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0`}
+        } lg:translate-x-0 flex flex-col`}
       >
         <div className="flex items-center justify-between px-5 py-4">
           <Link to="/staff" className="flex items-center gap-2 font-semibold">
@@ -65,7 +87,7 @@ export default function StaffLayout() {
           </button>
         </div>
 
-        <nav className="space-y-1 px-3">
+        <nav className="space-y-1 px-3 flex-1 overflow-y-auto">
           {links.map(([name, path]) => (
             <NavLink
               key={path}
@@ -83,24 +105,24 @@ export default function StaffLayout() {
           ))}
         </nav>
 
-        <div className="absolute bottom-4 left-3 right-3">
+        <div className="p-3 border-t border-gray-200 dark:border-gray-800">
           <div
             className={`flex items-center justify-between rounded-xl p-3 ${theme.profile}`}
           >
             <div className="flex items-center gap-3">
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-teal-600 text-white">
-                JS
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-teal-600 text-white font-bold text-sm">
+                {initials}
               </div>
               <div>
-                <p className="text-sm font-semibold">{staffUser.name}</p>
-                <p className="text-xs text-gray-500">{staffUser.role}</p>
+                <p className="text-sm font-semibold">{staffName}</p>
+                <p className="text-xs text-gray-500">Staff</p>
               </div>
             </div>
 
             <button
               onClick={handleLogout}
               title="Logout"
-              className="text-gray-400 hover:text-red-500"
+              className="text-gray-400 hover:text-red-500 transition-colors"
             >
               ⎋
             </button>
@@ -123,7 +145,7 @@ export default function StaffLayout() {
             <div>
               <h1 className="font-semibold">Staff Panel</h1>
               <p className="hidden text-xs text-gray-500 sm:block">
-                Wednesday, April 29, 2026
+                {today}
               </p>
             </div>
           </div>
@@ -156,13 +178,13 @@ export default function StaffLayout() {
                   Account Info
                 </button>
 
-                <div className="my-2 border-t border-gray-200" />
+                <div className="my-2 border-t border-gray-200 dark:border-gray-700" />
 
                 <p className="px-3 text-xs text-gray-500">Theme</p>
 
                 <div className="mt-2 grid grid-cols-2 gap-2 px-2">
                   <button
-                    onClick={() => setDark(false)}
+                    onClick={() => toggleDark(false)}
                     className={`rounded-lg px-3 py-2 text-xs ${
                       !dark ? "bg-teal-600 text-white" : theme.menuBtn
                     }`}
@@ -171,7 +193,7 @@ export default function StaffLayout() {
                   </button>
 
                   <button
-                    onClick={() => setDark(true)}
+                    onClick={() => toggleDark(true)}
                     className={`rounded-lg px-3 py-2 text-xs ${
                       dark ? "bg-teal-600 text-white" : theme.menuBtn
                     }`}
@@ -180,11 +202,11 @@ export default function StaffLayout() {
                   </button>
                 </div>
 
-                <div className="my-2 border-t border-gray-200" />
+                <div className="my-2 border-t border-gray-200 dark:border-gray-700" />
 
                 <button
                   onClick={handleLogout}
-                  className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-500 hover:bg-red-50"
+                  className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
                   Logout
                 </button>

@@ -1,3 +1,5 @@
+// src/App.jsx
+
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 
@@ -8,10 +10,11 @@ import Queue from "./pages/Queue";
 import Announcements from "./pages/Announcements";
 
 import Login from "./pages/Login";
+import Register from "./pages/Register";
+import PatientLayout from "./components/patient/PatientLayout";
 import PatientDashboard from "./pages/patient/PatientDashboard";
 import BookAppointment from "./pages/patient/BookAppointment";
-import ReservationPayment from "./pages/patient/ReservationPayment";
-import PaymentSubmitted from "./pages/patient/PaymentSubmitted";
+import PatientProfile from "./pages/patient/PatientProfile";
 
 import { useAuth } from "./state/auth";
 
@@ -26,9 +29,30 @@ import StaffNotifications from "./pages/staff/StaffNotifications";
 import StaffScan from "./pages/staff/StaffScan";
 import StaffSchedule from "./pages/staff/StaffSchedule";
 
+// ADMIN IMPORTS
+import AdminLayout from "./components/admin/AdminLayout";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminDoctors from "./pages/admin/AdminDoctors";
+import AdminSchedules from "./pages/admin/AdminSchedules";
+import AdminServices from "./pages/admin/AdminServices";
+import AdminStaff from "./pages/admin/AdminStaff";
+import AdminPatients from "./pages/admin/AdminPatients";
+import AdminNotifications from "./pages/admin/AdminNotifications";
+import AdminReports from "./pages/admin/AdminReports";
+import AdminSettings from "./pages/admin/AdminSettings";
 
 
+// DOCTOR IMPORTS
+import DoctorLayout from "./components/doctor/DoctorLayout";
 
+import DoctorDashboard from "./pages/doctor/DoctorDashboard";
+import DoctorSchedule from "./pages/doctor/DoctorSchedule";
+import DoctorDayOff from "./pages/doctor/DoctorDayOff";
+import DoctorAppointments from "./pages/doctor/DoctorAppointments";
+import DoctorQueue from "./pages/doctor/DoctorQueue";
+import DoctorQRCode from "./pages/doctor/DoctorQRCode";
+import DoctorAttendance from "./pages/doctor/DoctorAttendance";
+import DoctorProfile from "./pages/doctor/DoctorProfile";
 
 
 // AUTH GUARD
@@ -44,11 +68,12 @@ function RequireAuth({ children, role }) {
 export default function App() {
   const location = useLocation();
 
-  // Hide public navbar for staff/admin/doctor
+  // Hide public navbar for staff/admin/doctor/patient (they all have their own layout)
   const hideNavbar =
     location.pathname.startsWith("/staff") ||
     location.pathname.startsWith("/admin") ||
-    location.pathname.startsWith("/doctor");
+    location.pathname.startsWith("/doctor") ||
+    location.pathname.startsWith("/patient");
 
   return (
     <div className="min-h-screen bg-neutralbg">
@@ -64,43 +89,21 @@ export default function App() {
 
         {/* ================= AUTH ================= */}
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
         {/* ================= PATIENT ================= */}
         <Route
           path="/patient"
           element={
             <RequireAuth role="patient">
-              <PatientDashboard />
+              <PatientLayout />
             </RequireAuth>
           }
-        />
-
-        <Route
-          path="/patient/book"
-          element={
-            <RequireAuth role="patient">
-              <BookAppointment />
-            </RequireAuth>
-          }
-        />
-
-        <Route
-          path="/patient/payment"
-          element={
-            <RequireAuth role="patient">
-              <ReservationPayment />
-            </RequireAuth>
-          }
-        />
-
-        <Route
-          path="/patient/payment-submitted"
-          element={
-            <RequireAuth role="patient">
-              <PaymentSubmitted />
-            </RequireAuth>
-          }
-        />
+        >
+          <Route index element={<PatientDashboard />} />
+          <Route path="book" element={<BookAppointment />} />
+          <Route path="profile" element={<PatientProfile />} />
+        </Route>
 
         {/* ================= STAFF ================= */}
         <Route
@@ -121,14 +124,45 @@ export default function App() {
           <Route path="notifications" element={<StaffNotifications />} />
         </Route>
 
-        
-        {/* ================= Admin ================= */}
-        
-        
+        {/* ================= ADMIN ================= */}
+        <Route
+          path="/admin"
+          element={
+            <RequireAuth role="admin">
+              <AdminLayout />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="doctors" element={<AdminDoctors />} />
+          <Route path="schedules" element={<AdminSchedules />} />
+          <Route path="services" element={<AdminServices />} />
+          <Route path="staff" element={<AdminStaff />} />
+          <Route path="patients" element={<AdminPatients />} />
+          <Route path="notifications" element={<AdminNotifications />} />
+          <Route path="reports" element={<AdminReports />} />
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
 
 
-          {/* ================= FUTURE ================= */}
-        <Route path="/doctor" element={<div className="p-6">Doctor (soon)</div>} />
+        <Route
+          path="/doctor"
+          element={
+            <RequireAuth role="doctor">
+              <DoctorLayout />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<DoctorDashboard />} />
+          <Route path="schedule" element={<DoctorSchedule />} />
+          <Route path="dayoff" element={<DoctorDayOff />} />
+          <Route path="appointments" element={<DoctorAppointments />} />
+          <Route path="queue" element={<DoctorQueue />} />
+          <Route path="qr" element={<DoctorQRCode />} />
+          <Route path="attendance" element={<DoctorAttendance />} />
+          <Route path="profile" element={<DoctorProfile />} />
+        </Route>
+
 
         {/* ================= FALLBACK ================= */}
         <Route path="*" element={<Navigate to="/" replace />} />

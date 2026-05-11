@@ -16,16 +16,16 @@ function QuickCard({ icon, title, desc, onClick, highlight = false }) {
     <button
       onClick={onClick}
       className={[
-        "bg-white rounded-2xl shadow-sm border p-8 text-center transition w-full",
+        "bg-white dark:bg-slate-900 rounded-2xl shadow-sm border p-8 text-center transition w-full",
         "hover:shadow-md hover:-translate-y-[1px]",
-        highlight ? "border-primary/60 ring-1 ring-primary/20" : "border-gray-100",
+        highlight ? "border-primary/60 ring-1 ring-primary/20" : "border-gray-100 dark:border-slate-800",
       ].join(" ")}
       type="button"
     >
       <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
         {icon}
       </div>
-      <h3 className="mt-4 font-semibold text-gray-900">{title}</h3>
+      <h3 className="mt-4 font-semibold text-gray-900 dark:text-white">{title}</h3>
       <p className="mt-2 text-sm text-gray-600">{desc}</p>
     </button>
   );
@@ -41,14 +41,14 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-[#eef2f3] min-h-screen">
+    <div className="bg-[#eef2f3] dark:bg-slate-950 min-h-screen transition-colors">
       <div className="max-w-6xl mx-auto px-6">
         {/* HERO */}
         <section className="pt-14 pb-10 text-center">
-          <h1 className="text-4xl md:text-5xl font-semibold text-gray-900">
+          <h1 className="text-4xl md:text-5xl font-semibold text-gray-900 dark:text-white">
             Welcome to HealthCare Clinic
           </h1>
-          <p className="mt-3 text-gray-600 max-w-2xl mx-auto">
+          <p className="mt-3 text-gray-600 dark:text-slate-400 max-w-2xl mx-auto">
             Your trusted partner for comprehensive dental care. Quality service{" "}
             <br className="hidden md:block" />
             with a smile.
@@ -67,7 +67,7 @@ export default function Home() {
         </section>
 
         {/* INFO BAR */}
-        <section className="bg-white/70 backdrop-blur rounded-2xl shadow-sm border border-gray-100 px-6 py-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section className="bg-white/70 dark:bg-slate-900/70 backdrop-blur rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 px-6 py-6 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="text-center">
             <div className="font-semibold text-gray-900">Hours</div>
             <div className="mt-2 text-sm text-gray-600 leading-6">
@@ -96,7 +96,7 @@ export default function Home() {
 
         {/* QUICK ACCESS */}
         <section className="py-14">
-          <h2 className="text-xl font-semibold text-gray-900 text-center">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white text-center">
             Quick Access
           </h2>
 
@@ -126,7 +126,7 @@ export default function Home() {
         {/* LATEST UPDATES */}
         <section className="pb-14">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <span className="inline-flex items-center justify-center w-7 h-7 rounded bg-primary/10 text-primary">
                 <FaPaperPlane className="text-sm" />
               </span>
@@ -141,18 +141,18 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="mt-4 bg-white/70 backdrop-blur rounded-2xl shadow-sm border border-gray-100 p-5">
+          <div className="mt-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-5">
             <div className="flex items-start gap-3">
               <span className="mt-2 w-2 h-2 rounded-full bg-primary" />
               <div>
-                <div className="font-semibold text-gray-900">
-                  Holiday Hours - February 14, 2026
+                <div className="font-semibold text-gray-900 dark:text-white">
+                  System Maintenance - May 25, 2026
                 </div>
-                <div className="text-sm text-gray-600 mt-1">
-                  Our clinic will be closed on Valentine&apos;s Day...
+                <div className="text-sm text-gray-600 dark:text-slate-400 mt-1">
+                  Our clinic queueing system will undergo scheduled maintenance this coming weekend...
                 </div>
                 <div className="text-xs text-gray-500 mt-2">
-                  February 5, 2026
+                  May 10, 2026
                 </div>
               </div>
             </div>

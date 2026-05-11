@@ -4,13 +4,13 @@ import { nowServing, upcomingQueue } from "../data/queue";
 
 export default function Queue() {
   return (
-    <div className="bg-neutralbg min-h-screen">
+    <div className="bg-neutralbg dark:bg-slate-950 min-h-screen transition-colors">
       <div className="max-w-6xl mx-auto px-6 py-10">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold text-gray-900">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
             Live Queue Status
           </h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">
             Real-time queue updates and estimated wait times
           </p>
         </div>
@@ -31,7 +31,7 @@ export default function Queue() {
 
           {/* UPCOMING */}
           <div className="mt-6">
-            <div className="flex items-center gap-2 text-gray-900 font-semibold mb-3">
+            <div className="flex items-center gap-2 text-gray-900 dark:text-white font-semibold mb-3">
               <FaClock className="text-primary" />
               Upcoming Queue
             </div>
@@ -42,7 +42,7 @@ export default function Queue() {
               ))}
             </div>
 
-            <div className="mt-6 bg-primary/10 text-gray-700 text-xs text-center py-4 rounded-xl">
+            <div className="mt-6 bg-primary/10 text-gray-700 dark:text-gray-300 text-xs text-center py-4 rounded-xl">
               Queue times are estimates and may vary. Thank you for your patience.
             </div>
           </div>

@@ -32,8 +32,7 @@ export default function ServiceCard({ service }) {
           {service.durationMin} minutes
         </span>
         <span className="inline-flex items-center gap-2">
-          <FaDollarSign className="text-xs" />
-          ${service.price}
+          ₱{service.price}
         </span>
       </div>
     </div>

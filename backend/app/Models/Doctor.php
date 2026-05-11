@@ -2,14 +2,18 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Doctor extends Model
+class Doctor extends Authenticatable
 {
+    use HasApiTokens;
     protected $primaryKey = 'doctor_id';
     protected $fillable = [
-        'first_name', 'last_name', 'specialization_id', 'license_number', 'contact_number', 'email', 'status', 'daily_booking_limita'
+        'first_name', 'last_name', 'specialization_id', 'license_number', 'contact_number', 'email', 'password', 'status', 'daily_booking_limit'
     ];
+    
+    protected $hidden = ['password'];
 
     public function specialization(){
         return $this->belongsTo(Specialization::class, 'specialization_id', 'specialization_id');
