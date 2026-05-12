@@ -10,7 +10,7 @@ class Staff extends Authenticatable
     use HasApiTokens;
     protected $primaryKey = 'staff_id';
     protected $fillable = [
-        'first_name', 'last_name', 'role', 'contact_number', 'email', 'password', 'account_status'
+        'first_name', 'last_name', 'middle_name', 'role', 'contact_number', 'email', 'password', 'account_status', 'profile_picture'
     ];
     protected $hidden = ['password'];
 

@@ -9,7 +9,16 @@ class Specialization extends Model
     protected $primaryKey = 'specialization_id';
     protected $fillable = ['specialization_name', 'description'];
 
-    public function doctors(){
+    // Virtual 'name' attribute for frontend compatibility
+    protected $appends = ['name'];
+
+    public function getNameAttribute(): string
+    {
+        return $this->specialization_name ?? '';
+    }
+
+    public function doctors()
+    {
         return $this->hasMany(Doctor::class, 'specialization_id', 'specialization_id');
     }
 }

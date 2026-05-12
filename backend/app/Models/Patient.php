@@ -15,7 +15,7 @@ class Patient extends Authenticatable
         'patient_number', 'first_name', 'last_name', 'middle_name',
         'birth_date', 'sex', 'civil_status', 'contact_number',
         'email', 'password', 'address', 'registration_type',
-        'account_status', 'verification_status'
+        'account_status', 'verification_status', 'profile_picture'
     ];
 
     protected $hidden = ['password'];
@@ -36,8 +36,13 @@ class Patient extends Authenticatable
     {
         return $this->hasMany(PatientVerification::class, 'patient_id', 'patient_id');
     }
-    public function notifications()
+    public function patientVerification()
     {
-        return $this->hasMany(Notification::class, 'patient_id', 'patient_id');
+        return $this->hasOne(PatientVerification::class, 'patient_id', 'patient_id');
+    }
+    public function systemNotifications()
+    {
+        return $this->hasMany(SystemNotification::class, 'notifiable_id', 'patient_id')
+            ->where('notifiable_type', 'patient');
     }
 }

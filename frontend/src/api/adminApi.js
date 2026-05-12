@@ -1,119 +1,34 @@
 import api from './axios';
 
-// ============ Dashboard ============
-export const getDashboardData = async () => {
-  const response = await api.get('/admin/dashboard');
-  return response.data;
-};
+export const getDashboard            = ()     => api.get('/admin/dashboard').then(r => r.data);
+export const updateProfile           = (data) => api.put('/admin/profile', data).then(r => r.data);
+export const updatePassword          = (data) => api.post('/admin/profile/password', data).then(r => r.data);
+export const uploadPhoto             = (fd)   => api.post('/admin/profile/photo', fd, { headers: { 'Content-Type': 'multipart/form-data' }}).then(r => r.data);
 
-// ============ Patients ============
-export const getPatients = async () => {
-  const response = await api.get('/admin/patients');
-  return response.data;
-};
+export const getPatients             = ()     => api.get('/admin/patients').then(r => r.data);
+export const updatePatientStatus     = (id,d) => api.put(`/admin/patients/${id}/status`, d).then(r => r.data);
 
-export const updatePatientStatus = async (id, status) => {
-  const response = await api.put(`/admin/patients/${id}/status`, { status });
-  return response.data;
-};
+export const getDoctors              = ()     => api.get('/admin/doctors').then(r => r.data);
+export const createDoctor            = (data) => api.post('/admin/doctors', data).then(r => r.data);
+export const updateDoctor            = (id,d) => api.put(`/admin/doctors/${id}`, d).then(r => r.data);
+export const updateDoctorStatus      = (id,d) => api.put(`/admin/doctors/${id}/status`, d).then(r => r.data);
 
-// ============ Doctors ============
-export const getDoctors = async () => {
-  const response = await api.get('/admin/doctors');
-  return response.data;
-};
+export const getStaff                = ()     => api.get('/admin/staff').then(r => r.data);
+export const createStaff             = (data) => api.post('/admin/staff', data).then(r => r.data);
+export const updateStaff             = (id,d) => api.put(`/admin/staff/${id}`, d).then(r => r.data);
 
-export const updateDoctorStatus = async (id, status) => {
-  const response = await api.put(`/admin/doctors/${id}/status`, { status });
-  return response.data;
-};
+export const getServices             = ()     => api.get('/admin/services').then(r => r.data);
+export const createService           = (data) => api.post('/admin/services', data).then(r => r.data);
+export const updateService           = (id,d) => api.put(`/admin/services/${id}`, d).then(r => r.data);
+export const deleteService           = (id)   => api.delete(`/admin/services/${id}`).then(r => r.data);
 
-// ============ Staff ============
-export const getStaff = async () => {
-  const response = await api.get('/admin/staff');
-  return response.data;
-};
+export const getSpecializations      = ()     => api.get('/admin/specializations').then(r => r.data);
 
-export const createStaff = async (data) => {
-  const response = await api.post('/admin/staff', data);
-  return response.data;
-};
+export const getSchedules            = ()     => api.get('/admin/schedules').then(r => r.data);
+export const createSchedule          = (data) => api.post('/admin/schedules', data).then(r => r.data);
+export const deleteSchedule          = (id)   => api.delete(`/admin/schedules/${id}`).then(r => r.data);
 
-export const updateStaff = async (id, data) => {
-  const response = await api.put(`/admin/staff/${id}`, data);
-  return response.data;
-};
+export const getReports              = (params) => api.get('/admin/reports', { params }).then(r => r.data);
 
-export const deleteStaff = async (id) => {
-  const response = await api.delete(`/admin/staff/${id}`);
-  return response.data;
-};
-
-// ============ Services ============
-export const getServices = async () => {
-  const response = await api.get('/admin/services');
-  return response.data;
-};
-
-export const createService = async (data) => {
-  const response = await api.post('/admin/services', data);
-  return response.data;
-};
-
-export const updateService = async (id, data) => {
-  const response = await api.put(`/admin/services/${id}`, data);
-  return response.data;
-};
-
-export const deleteService = async (id) => {
-  const response = await api.delete(`/admin/services/${id}`);
-  return response.data;
-};
-
-// ============ Schedules ============
-export const getSchedules = async () => {
-  const response = await api.get('/admin/schedules');
-  return response.data;
-};
-
-export const createSchedule = async (data) => {
-  const response = await api.post('/admin/schedules', data);
-  return response.data;
-};
-
-export const updateSchedule = async (id, data) => {
-  const response = await api.put(`/admin/schedules/${id}`, data);
-  return response.data;
-};
-
-export const deleteSchedule = async (id) => {
-  const response = await api.delete(`/admin/schedules/${id}`);
-  return response.data;
-};
-
-// ============ Notifications ============
-export const getNotificationTemplates = async () => {
-  const response = await api.get('/admin/notifications');
-  return response.data;
-};
-
-export const createNotificationTemplate = async (data) => {
-  const response = await api.post('/admin/notifications', data);
-  return response.data;
-};
-
-export const updateNotificationTemplate = async (id, data) => {
-  const response = await api.put(`/admin/notifications/${id}`, data);
-  return response.data;
-};
-
-export const deleteNotificationTemplate = async (id) => {
-  const response = await api.delete(`/admin/notifications/${id}`);
-  return response.data;
-};
-
-// ============ Reports ============
-export const getReports = async () => {
-  const response = await api.get('/admin/reports');
-  return response.data;
-};
+export const getDayOffRequests       = ()     => api.get('/admin/dayoffs').then(r => r.data);
+export const updateDayOffRequest     = (id,d) => api.put(`/admin/dayoffs/${id}`, d).then(r => r.data);
