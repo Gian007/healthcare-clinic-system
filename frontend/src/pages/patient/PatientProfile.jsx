@@ -31,7 +31,7 @@ function Section({ icon, title, children }) {
 }
 
 export default function PatientProfile() {
-  const { user, login } = useAuth();
+  const { user, login, fetchUser } = useAuth();
   const [success, setSuccess]     = useState('');
   const [error, setError]         = useState('');
   const [loading, setLoading]     = useState(false);
@@ -64,9 +64,8 @@ export default function PatientProfile() {
     try {
       const res = await patientApi.updateProfile(profile);
       setSuccess(res.message || 'Profile updated successfully!');
-      // Update local user state
-      if (res.user) {
-        // Refresh auth state by re-fetching
+      if (res.user && fetchUser) {
+        await fetchUser();
       }
     } catch (err) {
       if (err.response?.data?.errors) {
@@ -110,6 +109,7 @@ export default function PatientProfile() {
     fd.append('photo', file);
     try {
       const res = await patientApi.uploadPhoto(fd);
+      if (fetchUser) await fetchUser();
       setSuccess('Profile picture updated!');
     } catch {
       setError('Failed to upload photo. Max size 2MB.');
@@ -125,6 +125,7 @@ export default function PatientProfile() {
     fd.append('id_image', idFile);
     try {
       const res = await patientApi.uploadVerificationId(fd);
+      if (fetchUser) await fetchUser();
       setSuccess(res.message || 'ID submitted for review!');
       setIdFile(null);
     } catch (err) {

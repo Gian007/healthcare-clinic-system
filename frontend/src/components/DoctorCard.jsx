@@ -1,11 +1,11 @@
 import { FaCalendarAlt } from "react-icons/fa";
 
 export default function DoctorCard({ doctor, onViewAvailability }) {
-  const available = doctor.status === "Available";
+  const available = doctor.status === "Available" || doctor.status === "Active";
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="relative h-44 bg-gray-100">
+    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 overflow-hidden">
+      <div className="relative h-44 bg-gray-100 dark:bg-slate-800">
         <img
           src={doctor.image}
           alt={doctor.name}

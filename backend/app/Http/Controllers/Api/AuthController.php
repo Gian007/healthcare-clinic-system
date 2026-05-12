@@ -7,6 +7,11 @@ use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Staff;
 use App\Models\SystemNotification;
+use App\Mail\ResetPasswordMail;
+use App\Mail\PasswordResetAutoMail;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -118,5 +123,68 @@ class AuthController extends Controller
             'user'      => $request->user(),
             'abilities' => $request->user()->currentAccessToken()->abilities,
         ]);
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+        $email = $request->email;
+
+        // Find user in any table
+        $user = Patient::where('email', $email)->first() 
+             ?? Doctor::where('email', $email)->first() 
+             ?? Staff::where('email', $email)->first();
+
+        if (!$user) {
+            // Return success anyway to prevent email enumeration
+            return response()->json(['message' => 'If your email is registered, you will receive a new password shortly.']);
+        }
+
+        // Check if Admin (Staff with role Admin)
+        if (get_class($user) === Staff::class && $user->role === 'Admin') {
+            return response()->json(['message' => 'Admin password reset is restricted. Please contact system support.'], 403);
+        }
+
+        // Auto-generate new password
+        $newPassword = Str::random(10);
+        $user->password = Hash::make($newPassword);
+        $user->save();
+
+        try {
+            Mail::to($email)->send(new PasswordResetAutoMail($user, $newPassword));
+        } catch (\Exception $e) {
+            // Log error or handle as needed
+        }
+
+        return response()->json(['message' => 'If your email is registered, you will receive a new password shortly.']);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'token' => 'required',
+            'password' => 'required|min:8|confirmed'
+        ]);
+
+        $record = DB::table('password_reset_tokens')->where('email', $request->email)->first();
+
+        if (!$record || $record->token !== $request->token) {
+            throw ValidationException::withMessages(['email' => ['Invalid or expired reset token.']]);
+        }
+
+        // Find user and update
+        $user = Patient::where('email', $request->email)->first() 
+             ?? Doctor::where('email', $request->email)->first() 
+             ?? Staff::where('email', $request->email)->first();
+
+        if ($user) {
+            $user->password = Hash::make($request->password);
+            $user->save();
+        }
+
+        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+        return response()->json(['message' => 'Password reset successfully.']);
     }
 }

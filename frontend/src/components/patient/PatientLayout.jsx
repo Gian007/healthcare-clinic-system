@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuth } from "../../state/auth";
+import * as notifApi from "../../api/notificationApi";
 import {
   FaHeartbeat, FaCalendarAlt, FaCreditCard, FaBell, FaUser, FaSignOutAlt, FaBars, FaTimes, FaHome
 } from "react-icons/fa";
@@ -16,8 +17,25 @@ export default function PatientLayout() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [dark, setDark] = useState(() => localStorage.getItem("clinicTheme") === "dark");
+  const [notifications, setNotifications] = useState([]);
   const { user, logout } = useAuth();
   const nav = useNavigate();
+
+  useEffect(() => {
+    notifApi.getNotifications()
+      .then(setNotifications)
+      .catch(() => {});
+  }, []);
+
+  const handleMarkRead = async (id) => {
+    await notifApi.markRead(id);
+    setNotifications(prev => prev.map(n => n.notif_id === id ? { ...n, is_read: true } : n));
+  };
+
+  const handleMarkAllRead = async () => {
+    await notifApi.markAllRead();
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+  };
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -122,21 +140,40 @@ export default function PatientLayout() {
               className="text-sm text-gray-500 hover:text-gray-900 relative p-2"
             >
               <FaBell className="text-lg" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              {notifications.filter(n => !n.is_read).length > 0 && (
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+              )}
             </button>
 
             {notifOpen && (
-              <div className="absolute right-32 top-12 w-80 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-lg z-50 overflow-hidden">
-                <div className="p-3 border-b dark:border-slate-700 font-semibold text-gray-900 dark:text-white bg-gray-50 dark:bg-slate-900/50">Notifications</div>
-                <div className="max-h-64 overflow-y-auto">
-                  <div className="p-3 border-b dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Appointment Confirmed</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Your appointment with Dr. Santos is confirmed for tomorrow.</p>
-                  </div>
-                  <div className="p-3 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Welcome to HealthCare</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Please complete your profile verification.</p>
-                  </div>
+              <div className="absolute right-32 top-12 w-80 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-lg z-50 overflow-hidden flex flex-col max-h-[28rem]">
+                <div className="p-3 border-b dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50">
+                  <span className="font-semibold text-gray-900 dark:text-white">Notifications</span>
+                  {notifications.some(n => !n.is_read) && (
+                    <button onClick={handleMarkAllRead} className="text-xs text-primary hover:underline">Mark all as read</button>
+                  )}
+                </div>
+                <div className="overflow-y-auto flex-1">
+                  {notifications.length === 0 ? (
+                    <div className="p-6 text-center text-gray-500 text-sm">No notifications.</div>
+                  ) : (
+                    notifications.map(n => (
+                      <div key={n.notif_id} className={`p-3 border-b dark:border-slate-700 cursor-pointer transition ${!n.is_read ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'hover:bg-gray-50 dark:hover:bg-slate-700'}`}>
+                        <div className="flex justify-between items-start">
+                          <p className={`text-sm font-medium ${!n.is_read ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                            {n.title} {!n.is_read && <span className="inline-block w-2 h-2 bg-primary rounded-full ml-1" />}
+                          </p>
+                        </div>
+                        <p className={`text-xs mt-1 ${!n.is_read ? 'text-gray-600 dark:text-gray-400' : 'text-gray-500 dark:text-gray-500'}`}>{n.body}</p>
+                        <div className="flex justify-between items-center mt-2">
+                          <span className="text-[10px] text-gray-400">{new Date(n.created_at).toLocaleString()}</span>
+                          {!n.is_read && (
+                            <button onClick={(e) => { e.stopPropagation(); handleMarkRead(n.notif_id); }} className="text-xs text-primary hover:underline">Mark read</button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}

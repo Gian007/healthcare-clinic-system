@@ -11,6 +11,8 @@ import Announcements from "./pages/Announcements";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import PatientLayout from "./components/patient/PatientLayout";
 import PatientDashboard from "./pages/patient/PatientDashboard";
 import BookAppointment from "./pages/patient/BookAppointment";
@@ -90,6 +92,8 @@ export default function App() {
         {/* ================= AUTH ================= */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* ================= PATIENT ================= */}
         <Route

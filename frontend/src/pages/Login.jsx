@@ -47,30 +47,30 @@ export default function Login() {
   };
 
   return (
-    <div className="bg-neutralbg min-h-[calc(100vh-72px)] flex items-start justify-center pt-16 px-6">
+    <div className="bg-neutralbg dark:bg-slate-950 min-h-[calc(100vh-72px)] flex items-start justify-center pt-16 px-6 transition-colors">
       <div className="w-full max-w-md text-center">
         <div className="mx-auto w-20 h-20 rounded-full bg-primary flex items-center justify-center shadow-sm">
           <FaHeartbeat className="text-white text-3xl" />
         </div>
 
-        <h1 className="mt-6 text-3xl font-semibold text-gray-900">Welcome Back</h1>
-        <p className="text-sm text-gray-600 mt-2">Login to your account</p>
+        <h1 className="mt-6 text-3xl font-semibold text-gray-900 dark:text-white">Welcome Back</h1>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Login to your account</p>
 
         <form
           onSubmit={onSubmit}
-          className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-200 p-6 text-left"
+          className="mt-8 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 text-left"
         >
-          <div className="font-semibold text-gray-900 mb-4">Login</div>
+          <div className="font-semibold text-gray-900 dark:text-white mb-4">Login</div>
 
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4">
+            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm mb-4 border border-red-100 dark:border-red-800">
               {error}
             </div>
           )}
 
-          <label className="block text-sm font-medium text-gray-700">Login as</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Login as</label>
           <select
-            className="mt-2 w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30"
+            className="mt-2 w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30"
             value={role}
             onChange={(e) => setRole(e.target.value)}
           >
@@ -80,26 +80,34 @@ export default function Login() {
             <option value="admin">Admin</option>
           </select>
 
-          <label className="block text-sm font-medium text-gray-700 mt-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mt-4">
             Email
           </label>
           <input
             type="email"
             required
-            className="mt-2 w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30"
+            className="mt-2 w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your@email.com"
           />
 
-          <label className="block text-sm font-medium text-gray-700 mt-4">
-            Password
-          </label>
-          <div className="relative">
+          <div className="flex justify-between items-center mt-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Password
+            </label>
+            <Link 
+              to="/forgot-password" 
+              className="text-xs text-primary hover:underline font-medium"
+            >
+              Forgot Password?
+            </Link>
+          </div>
+          <div className="relative mt-2">
             <input
               type={showPassword ? "text" : "password"}
               required
-              className="mt-2 w-full border rounded-lg px-3 py-2 pr-10 outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 pr-10 outline-none focus:ring-2 focus:ring-primary/30"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter your password"
@@ -107,7 +115,7 @@ export default function Login() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 mt-1 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
               {showPassword ? <FaEyeSlash /> : <FaEye />}
             </button>
@@ -116,15 +124,15 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-5 w-full bg-primary text-white py-2 rounded-lg font-medium hover:opacity-95 disabled:opacity-50"
+            className="mt-6 w-full bg-primary text-white py-2.5 rounded-lg font-medium hover:opacity-95 disabled:opacity-50 shadow-sm"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
 
           {role === 'patient' && (
-            <div className="text-center text-sm text-gray-600 mt-4">
+            <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-6">
               Don&apos;t have an account?{" "}
-              <Link to="/register" className="text-primary font-medium cursor-pointer">Register here</Link>
+              <Link to="/register" className="text-primary font-medium hover:underline">Register here</Link>
             </div>
           )}
         </form>

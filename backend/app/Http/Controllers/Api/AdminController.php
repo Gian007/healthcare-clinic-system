@@ -11,6 +11,8 @@ use App\Models\Service;
 use App\Models\Specialization;
 use App\Models\Staff;
 use App\Models\SystemNotification;
+use App\Mail\AccountCreatedMail;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -134,6 +136,12 @@ class AdminController extends Controller
         // Welcome notification for doctor
         SystemNotification::createWelcome('doctor', $doctor->doctor_id, trim($doctor->first_name . ' ' . $doctor->last_name));
 
+        try {
+            Mail::to($doctor->email)->send(new AccountCreatedMail($doctor, $tempPassword, 'Doctor'));
+        } catch (\Exception $e) {
+            // Log or ignore if email fails
+        }
+
         return response()->json([
             'message'       => 'Doctor account created successfully.',
             'doctor'        => $doctor->load('specialization'),
@@ -192,6 +200,12 @@ class AdminController extends Controller
         ]);
 
         SystemNotification::createWelcome('staff', $staff->staff_id, trim($staff->first_name . ' ' . $staff->last_name));
+
+        try {
+            Mail::to($staff->email)->send(new AccountCreatedMail($staff, $tempPassword, $staff->role));
+        } catch (\Exception $e) {
+            // Log or ignore if email fails
+        }
 
         return response()->json([
             'message'       => 'Staff account created.',

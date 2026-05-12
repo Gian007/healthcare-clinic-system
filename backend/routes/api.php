@@ -9,8 +9,15 @@ use App\Http\Controllers\Api\StaffController;
 use Illuminate\Support\Facades\Route;
 
 /* ─────────────── Public Routes ─────────────── */
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login',    [AuthController::class, 'login']);
+Route::post('/register',        [AuthController::class, 'register']);
+Route::post('/login',           [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/reset-password',  [AuthController::class, 'resetPassword']);
+
+Route::get('/public/doctors',       [\App\Http\Controllers\Api\PublicController::class, 'getDoctors']);
+Route::get('/public/services',      [\App\Http\Controllers\Api\PublicController::class, 'getServices']);
+Route::get('/public/queue',         [\App\Http\Controllers\Api\PublicController::class, 'getQueue']);
+Route::get('/public/announcements', [\App\Http\Controllers\Api\PublicController::class, 'getAnnouncements']);
 
 /* ─────────────── Authenticated Routes ─────────────── */
 Route::middleware('auth:sanctum')->group(function () {

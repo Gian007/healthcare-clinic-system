@@ -5,14 +5,14 @@ export default function ServiceCard({ service }) {
 
   return (
     <div
-      className={`bg-white rounded-xl shadow-sm border p-5 ${
-        available ? "border-gray-200" : "border-gray-200 opacity-70"
+      className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm border p-5 ${
+        available ? "border-gray-200 dark:border-slate-800" : "border-gray-200 dark:border-slate-800 opacity-70"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-gray-900">{service.name}</h3>
-          <p className="text-sm text-gray-600 mt-1">{service.desc}</p>
+          <h3 className="font-semibold text-gray-900 dark:text-white">{service.name}</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{service.desc}</p>
         </div>
 
         <span
