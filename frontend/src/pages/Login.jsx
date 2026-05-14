@@ -84,7 +84,7 @@ export default function Login() {
             Email
           </label>
           <input
-            type="email"
+            type="text"
             required
             className="mt-2 w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30"
             value={email}

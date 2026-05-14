@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -82,33 +83,45 @@ class AuthController extends Controller
             'terms.accepted'        => 'You must accept the Terms and Conditions.',
         ]);
 
-        $patient = Patient::create([
-            'patient_number'      => 'PAT-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT),
-            'first_name'          => $request->first_name,
-            'last_name'           => $request->last_name,
-            'middle_name'         => $request->middle_name,
-            'birth_date'          => $request->birth_date,
-            'sex'                 => $request->sex,
-            'civil_status'        => $request->civil_status ?? 'Single',
-            'contact_number'      => $request->contact_number,
-            'email'               => $request->email,
-            'password'            => Hash::make($request->password),
-            'address'             => $request->address,
-            'registration_type'   => 'Online',
-            'account_status'      => 'Active',
-            'verification_status' => 'Pending',
-        ]);
+        try {
+            $patient = Patient::create([
+                'patient_number'      => 'PAT-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT),
+                'first_name'          => $request->first_name,
+                'last_name'           => $request->last_name,
+                'middle_name'         => $request->middle_name,
+                'birth_date'          => $request->birth_date,
+                'sex'                 => $request->sex,
+                'civil_status'        => $request->civil_status ?? 'Single',
+                'contact_number'      => $request->contact_number,
+                'email'               => $request->email,
+                'password'            => Hash::make($request->password),
+                'address'             => $request->address,
+                'registration_type'   => 'Online',
+                'account_status'      => 'Active',
+                'verification_status' => 'Pending',
+            ]);
 
-        // Create welcome notification
-        SystemNotification::createWelcome('patient', $patient->patient_id, trim($patient->first_name . ' ' . $patient->last_name));
+            // Create welcome notification
+            try {
+                SystemNotification::createWelcome('patient', $patient->patient_id, trim($patient->first_name . ' ' . $patient->last_name));
+            } catch (\Exception $e) {
+                Log::error("Registration notification failed: " . $e->getMessage());
+            }
 
-        $token = $patient->createToken('auth_token', ['patient'])->plainTextToken;
+            $token = $patient->createToken('auth_token', ['patient'])->plainTextToken;
 
-        return response()->json([
-            'user'  => $patient,
-            'role'  => 'patient',
-            'token' => $token,
-        ]);
+            return response()->json([
+                'user'  => $patient,
+                'role'  => 'patient',
+                'token' => $token,
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Registration failed: " . $e->getMessage());
+            return response()->json([
+                'message' => 'Registration failed. ' . $e->getMessage(),
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function logout(Request $request)

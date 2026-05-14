@@ -89,7 +89,7 @@ export default function AdminSettings() {
   };
 
   const photoUrl = user?.profile_picture 
-    ? (user.profile_picture.startsWith('http') ? user.profile_picture : `http://localhost:8000/storage/${user.profile_picture}`)
+    ? (user.profile_picture.startsWith('http') ? user.profile_picture : `${import.meta.env.VITE_BACKEND_URL}/storage/${user.profile_picture}`)
     : null;
 
   return (

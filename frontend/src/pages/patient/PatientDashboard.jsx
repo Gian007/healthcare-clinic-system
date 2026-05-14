@@ -95,7 +95,7 @@ export default function PatientDashboard() {
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center justify-between gap-4">
           <div>
             <p className="font-semibold text-amber-800 dark:text-amber-300">Verify Your Identity</p>
-            <p className="text-sm text-amber-700 dark:text-amber-400">Upload a valid government ID to get verified and access all features.</p>
+            <p className="text-sm text-amber-700 dark:text-amber-400">Upload a valid ID to get verified and access all features.</p>
           </div>
           <button onClick={() => nav('/patient/profile')}
             className="flex items-center gap-1 bg-amber-500 text-white px-4 py-2 rounded-xl font-medium text-sm shrink-0 hover:bg-amber-600 transition">
@@ -107,7 +107,7 @@ export default function PatientDashboard() {
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex items-center justify-between gap-4">
           <div>
             <p className="font-semibold text-red-800 dark:text-red-300">ID Verification Rejected</p>
-            <p className="text-sm text-red-700 dark:text-red-400">Your ID was rejected. Please re-upload a valid government ID.</p>
+            <p className="text-sm text-red-700 dark:text-red-400">Your ID was rejected. Please re-upload a valid ID.</p>
           </div>
           <button onClick={() => nav('/patient/profile')}
             className="flex items-center gap-1 bg-red-500 text-white px-4 py-2 rounded-xl font-medium text-sm shrink-0">

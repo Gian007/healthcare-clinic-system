@@ -7,7 +7,7 @@ import { Link } from "react-router-dom";
 function SkeletonRow() {
   return (
     <tr>
-      {[1,2,3,4].map(i => (
+      {[1, 2, 3, 4].map(i => (
         <td key={i} className="py-3"><div className="h-4 bg-gray-200 dark:bg-slate-700 rounded animate-pulse" /></td>
       ))}
     </tr>
@@ -32,7 +32,7 @@ export default function AdminDashboard() {
   const { stats, recent_patients, recent_appointments } = data;
 
   const STATUS_BADGE = {
-    Pending:   'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+    Pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
     Confirmed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
     Cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
     Completed: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
@@ -40,15 +40,15 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle={`Admin overview • ${new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}`} />
+      <PageHeader title="Dashboard" subtitle={`Admin overview • ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 mb-6">
-        <StatCard to="/admin/patients"  title="Total Patients"          value={loading ? '—' : stats.total_patients}         sub="registered patient accounts"   icon={Users}       />
-        <StatCard to="/admin/doctors"   title="Total Doctors"           value={loading ? '—' : stats.total_doctors}          sub="registered doctors"             icon={Stethoscope} />
-        <StatCard to="/admin/staff"     title="Total Staff"             value={loading ? '—' : stats.total_staff}            sub="registered staff members"       icon={Users}       />
-        <StatCard to="/admin/patients"  title="Appointments Today"      value={loading ? '—' : stats.appointments_today}     sub="all bookings today"             icon={CalendarCheck}/>
-        <StatCard to="/admin/patients"  title="Pending Verifications"   value={loading ? '—' : stats.pending_verifications}  sub="ID reviews needed"             icon={ShieldCheck}  />
-        <StatCard to="/admin/patients"  title="Active Appointments"     value={loading ? '—' : stats.active_appointments}    sub="Pending + Confirmed"           icon={Activity}     />
+        <StatCard to="/admin/patients" title="Total Patients" value={loading ? '—' : stats.total_patients} sub="registered patient accounts" icon={Users} />
+        <StatCard to="/admin/doctors" title="Total Doctors" value={loading ? '—' : stats.total_doctors} sub="registered doctors" icon={Stethoscope} />
+        <StatCard to="/admin/staff" title="Total Staff" value={loading ? '—' : stats.total_staff} sub="registered staff members" icon={Users} />
+        <StatCard to="/admin/patients" title="Appointments Today" value={loading ? '—' : stats.appointments_today} sub="all bookings today" icon={CalendarCheck} />
+        <StatCard to="/admin/patients" title="Pending Verifications" value={loading ? '—' : stats.pending_verifications} sub="ID reviews needed" icon={ShieldCheck} />
+        <StatCard to="/admin/patients" title="Active Appointments" value={loading ? '—' : stats.active_appointments} sub="Pending + Confirmed" icon={Activity} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
@@ -70,7 +70,7 @@ export default function AdminDashboard() {
               </thead>
               <tbody>
                 {loading ? (
-                  [1,2,3].map(i => <SkeletonRow key={i} />)
+                  [1, 2, 3].map(i => <SkeletonRow key={i} />)
                 ) : recent_patients.length === 0 ? (
                   <tr><td colSpan="4" className="py-8 text-center text-slate-500">No patients registered yet.</td></tr>
                 ) : (
@@ -79,12 +79,11 @@ export default function AdminDashboard() {
                       <td className="py-3 pr-4 font-semibold text-teal-700 dark:text-teal-400">{p.patient_number}</td>
                       <td className="pr-4">{p.first_name} {p.last_name}</td>
                       <td className="pr-4">
-                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                          p.verification_status === 'Approved'    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                          p.verification_status === 'Rejected'    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                          p.verification_status === 'Under Review'? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                                                                   'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                        }`}>
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${p.verification_status === 'Approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                            p.verification_status === 'Rejected' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                              p.verification_status === 'Under Review' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                          }`}>
                           {p.verification_status}
                         </span>
                       </td>
@@ -102,12 +101,12 @@ export default function AdminDashboard() {
           <h2 className="font-bold text-lg mb-4">Quick Actions</h2>
           <div className="space-y-3">
             {[
-              { to: '/admin/doctors',       label: '👨‍⚕️ Add New Doctor',       sub: 'Create a doctor account' },
-              { to: '/admin/staff',         label: '👤 Add Staff Member',        sub: 'Manage staff accounts' },
-              { to: '/admin/services',      label: '🩺 Manage Services',         sub: 'Add or edit clinic services' },
-              { to: '/admin/schedules',     label: '📅 Manage Schedules',        sub: 'Set doctor availability' },
-              { to: '/admin/patients',      label: '🔍 Verify Patient IDs',      sub: `${stats.pending_verifications} pending` },
-              { to: '/admin/reports',       label: '📊 View Reports',            sub: 'Analytics & statistics' },
+              { to: '/admin/doctors', label: '👨‍⚕️ Add New Doctor', sub: 'Create a doctor account' },
+              { to: '/admin/staff', label: '👤 Add Staff Member', sub: 'Manage staff accounts' },
+              { to: '/admin/services', label: '🩺 Manage Services', sub: 'Add or edit clinic services' },
+              { to: '/admin/schedules', label: '📅 Manage Schedules', sub: 'Set doctor availability' },
+              { to: '/admin/patients', label: '🔍 Verify Patient IDs', sub: `${stats.pending_verifications} pending` },
+              { to: '/admin/reports', label: '📊 View Reports', sub: 'Analytics & statistics' },
             ].map(a => (
               <Link key={a.to} to={a.to} className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-teal-50 dark:hover:bg-teal-900/20 p-3.5 transition group">
                 <div>
@@ -139,7 +138,7 @@ export default function AdminDashboard() {
             </thead>
             <tbody>
               {loading ? (
-                [1,2,3].map(i => <SkeletonRow key={i} />)
+                [1, 2, 3].map(i => <SkeletonRow key={i} />)
               ) : recent_appointments?.length === 0 ? (
                 <tr><td colSpan="5" className="py-8 text-center text-slate-500">No appointments yet.</td></tr>
               ) : (

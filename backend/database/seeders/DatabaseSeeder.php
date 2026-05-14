@@ -113,7 +113,7 @@ class DatabaseSeeder extends Seeder
             'appointment_type' => 'Online',
             'reason_for_visit' => 'Regular checkup',
             'booking_status' => 'Confirmed',
-            'checkin_deadline' => '08:45:00'
+            'checkin_deadline' => date('Y-m-d', strtotime('+1 day')) . ' 08:45:00'
         ]);
     }
 }

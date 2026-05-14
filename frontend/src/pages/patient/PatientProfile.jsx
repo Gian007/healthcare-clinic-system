@@ -51,6 +51,7 @@ export default function PatientProfile() {
   const [profileErrors, setProfileErrors] = useState({});
   const [pwErrors, setPwErrors]           = useState({});
   const [idFile, setIdFile]               = useState(null);
+  const [idPreview, setIdPreview]         = useState(null);
 
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
@@ -128,6 +129,7 @@ export default function PatientProfile() {
       if (fetchUser) await fetchUser();
       setSuccess(res.message || 'ID submitted for review!');
       setIdFile(null);
+      setIdPreview(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to submit ID.');
     }
@@ -168,7 +170,7 @@ export default function PatientProfile() {
         <div className="flex items-center gap-6 flex-wrap">
           <div className="w-20 h-20 rounded-full bg-primary/10 text-primary flex items-center justify-center text-4xl shrink-0 overflow-hidden">
             {user?.profile_picture
-              ? <img src={`http://localhost:8000/storage/${user.profile_picture}`} alt="avatar" className="w-full h-full object-cover" />
+              ? <img src={`${import.meta.env.VITE_BACKEND_URL}/storage/${user.profile_picture}`} alt="avatar" className="w-full h-full object-cover" />
               : <FaUser />}
           </div>
           <div>
@@ -194,17 +196,27 @@ export default function PatientProfile() {
           <form onSubmit={submitId} className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {verificationStatus === 'Rejected'
-                ? 'Your ID was rejected. Please upload a new valid government ID.'
-                : 'Upload a valid government ID to verify your account and unlock full booking access.'}
+                ? 'Your ID was rejected. Please upload a new valid ID.'
+                : 'Upload a valid ID to verify your account and unlock full booking access.'}
             </p>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ID Image (Government ID, max 5MB)</label>
-              <input type="file" ref={idRef} accept="image/*" onChange={e => setIdFile(e.target.files[0])} className="hidden" />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ID Image (Valid ID, max 5MB)</label>
+              <input type="file" ref={idRef} accept="image/*" onChange={e => {
+                const file = e.target.files[0];
+                if (file) {
+                  setIdFile(file);
+                  setIdPreview(URL.createObjectURL(file));
+                }
+              }} className="hidden" />
               <button type="button" onClick={() => idRef.current?.click()}
                 className="w-full border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl p-6 text-center hover:border-primary hover:bg-primary/5 transition">
-                {idFile ? (
-                  <div className="flex items-center justify-center gap-2 text-primary">
-                    <FaCheckCircle /> <span className="text-sm font-medium">{idFile.name}</span>
+                {idPreview ? (
+                  <div className="relative">
+                    <img src={idPreview} alt="ID Preview" className="max-h-64 mx-auto rounded-lg shadow-md" />
+                    <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1 shadow-lg">
+                      <FaCheckCircle />
+                    </div>
+                    <p className="mt-2 text-sm text-primary font-medium">{idFile.name}</p>
                   </div>
                 ) : (
                   <div className="text-gray-400 dark:text-gray-500">

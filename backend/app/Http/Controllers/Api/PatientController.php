@@ -123,7 +123,7 @@ class PatientController extends Controller
         $patient->patientVerification()->updateOrCreate(
             ['patient_id' => $patient->patient_id],
             [
-                'id_type'   => $request->id_type ?? 'Government ID',
+                'id_type'   => $request->id_type ?? 'Valid ID',
                 'id_image'  => $path,
                 'status'    => 'Under Review',
                 'submitted_at' => now(),
