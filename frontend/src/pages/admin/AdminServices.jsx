@@ -15,7 +15,7 @@ function SuccessModal({ message, onClose }) {
   );
 }
 
-const BLANK = { service_name: '', description: '', duration_mins: 30 };
+const BLANK = { service_name: '', description: '', duration_mins: 30, base_fee: 0 };
 
 export default function AdminServices() {
   const [services, setServices]   = useState([]);
@@ -43,7 +43,7 @@ export default function AdminServices() {
   [services, query]);
 
   const openAdd = () => { setFormData(BLANK); setFormErrors({}); setModal('add'); };
-  const openEdit = (s) => { setFormData({ service_name: s.service_name, description: s.description||'', duration_mins: s.duration_mins }); setFormErrors({}); setModal({ service: s }); };
+  const openEdit = (s) => { setFormData({ service_name: s.service_name, description: s.description||'', duration_mins: s.duration_mins, base_fee: s.base_fee || 0 }); setFormErrors({}); setModal({ service: s }); };
 
   const save = async (e) => {
     e.preventDefault();
@@ -115,7 +115,7 @@ export default function AdminServices() {
                 <div>
                   <h3 className="font-bold text-gray-900 dark:text-white">{s.service_name}</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{s.description || 'No description'}</p>
-                  <p className="text-xs text-teal-600 mt-2 font-medium">⏱️ {s.duration_mins} minutes</p>
+                  <p className="text-xs text-teal-600 mt-2 font-medium">⏱️ {s.duration_mins} mins • ₱{s.base_fee}</p>
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <button onClick={() => openEdit(s)} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition">
@@ -150,6 +150,11 @@ export default function AdminServices() {
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Duration (minutes) <span className="text-red-500">*</span></label>
               <input required type="number" min="5" value={formData.duration_mins} onChange={e => setFormData(p => ({...p, duration_mins: Number(e.target.value)}))}
+                className="w-full border border-gray-300 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Base Fee (₱) <span className="text-red-500">*</span></label>
+              <input required type="number" min="0" value={formData.base_fee} onChange={e => setFormData(p => ({...p, base_fee: Number(e.target.value)}))}
                 className="w-full border border-gray-300 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white" />
             </div>
             <button type="submit" disabled={saving} className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50">

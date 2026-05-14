@@ -1,15 +1,31 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import { doctors, initialQueue } from "../../data/staffData";
 import StaffTableBadge from "../../components/staff/StaffTableBadge";
+import * as staffApi from "../../api/staffApi";
 
 export default function StaffQueue() {
   const { dark } = useOutletContext();
 
-  const [queue, setQueue] = useState(initialQueue);
+  const [queue, setQueue] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [doctorFilter, setDoctorFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    fetchQueue();
+  }, []);
+
+  const fetchQueue = async () => {
+    try {
+      const data = await staffApi.getQueue();
+      setQueue(data || []);
+    } catch (error) {
+      console.error("Failed to fetch queue:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const pageTitle = dark ? "text-white" : "text-gray-900";
   const muted = dark ? "text-gray-400" : "text-gray-500";
@@ -27,32 +43,45 @@ export default function StaffQueue() {
     : "bg-gray-50 text-gray-500";
   const divide = dark ? "divide-gray-800" : "divide-gray-100";
 
-  function updateStatus(queueNo, nextStatus) {
-    setQueue((prev) =>
-      prev.map((q) => (q.queueNo === queueNo ? { ...q, status: nextStatus } : q))
-    );
+  async function updateStatus(queueId, nextStatus) {
+    try {
+      await staffApi.updateQueueStatus(queueId, { queue_status: nextStatus });
+      fetchQueue();
+    } catch (error) {
+      alert("Failed to update status");
+    }
   }
 
   const filtered = queue.filter((q) => {
-    const matchDoctor = doctorFilter === "All" || q.doctor === doctorFilter;
-    const matchStatus = statusFilter === "All" || q.status === statusFilter;
+    const dName = q.doctor ? `Dr. ${q.doctor.last_name}` : 'No Doctor';
+    const matchDoctor = doctorFilter === "All" || dName.includes(doctorFilter);
+    const matchStatus = statusFilter === "All" || q.queue_status === statusFilter;
     const matchSearch =
-      q.name.toLowerCase().includes(search.toLowerCase()) ||
-      q.queueNo.toLowerCase().includes(search.toLowerCase()) ||
-      q.patientId.toLowerCase().includes(search.toLowerCase());
+      (q.patient?.first_name + " " + q.patient?.last_name).toLowerCase().includes(search.toLowerCase()) ||
+      q.queue_number.toString().includes(search) ||
+      (q.patient?.patient_number || "").toLowerCase().includes(search.toLowerCase());
 
     return matchDoctor && matchStatus && matchSearch;
   });
 
-  const queueGroups = useMemo(() => {
-    return doctors.map((d) => {
-      const list = queue.filter((q) => q.doctorQueue === d.queue);
-      const now = list.find((q) => q.status === "In Progress");
-      const next = list.filter((q) => q.status === "Waiting").slice(0, 3);
+  const doctorsList = useMemo(() => {
+    const list = [];
+    queue.forEach(q => {
+      if (q.doctor && !list.some(d => d.id === q.doctor.doctor_id)) {
+        list.push({ id: q.doctor.doctor_id, name: `Dr. ${q.doctor.last_name}` });
+      }
+    });
+    return list;
+  }, [queue]);
 
+  const queueGroups = useMemo(() => {
+    return doctorsList.map((d) => {
+      const list = queue.filter((q) => q.doctor_id === d.id);
+      const now = list.find((q) => q.queue_status === "Serving");
+      const next = list.filter((q) => q.queue_status === "Waiting").slice(0, 3);
       return { ...d, list, now, next };
     });
-  }, [queue]);
+  }, [queue, doctorsList]);
 
   return (
     <div>
@@ -82,12 +111,8 @@ export default function StaffQueue() {
               <div className="flex justify-between">
                 <div>
                   <h2 className="font-semibold">{d.name}</h2>
-                  <p className="text-xs opacity-90">Queue {d.queue}</p>
+                  <p className="text-xs opacity-90">Live Queue</p>
                 </div>
-
-                <span className="h-fit rounded-full bg-white/20 px-3 py-1 text-xs">
-                  {d.status}
-                </span>
               </div>
             </div>
 
@@ -97,7 +122,7 @@ export default function StaffQueue() {
               <div
                 className={`mt-2 rounded-xl border p-4 text-2xl font-bold text-teal-700 ${subCard}`}
               >
-                {d.now?.queueNo || "Idle"}
+                {d.now ? `Q-${d.now.queue_number}` : "Idle"}
               </div>
 
               <p className={`mt-4 text-xs font-medium ${muted}`}>Next Patients</p>
@@ -105,22 +130,28 @@ export default function StaffQueue() {
               <div className="mt-2 space-y-2">
                 {d.next.length ? (
                   d.next.map((p) => (
-                    <div
-                      key={p.queueNo}
-                      className="flex justify-between gap-3 text-sm"
-                    >
-                      <span className="font-medium">{p.queueNo}</span>
-                      <span className={muted}>{p.name}</span>
+                    <div key={p.queue_id} className="flex justify-between items-center gap-3 text-sm">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <div className="h-6 w-6 rounded-full bg-teal-100 dark:bg-teal-900/40 border border-teal-200 dark:border-teal-800 flex items-center justify-center shrink-0 overflow-hidden text-[8px] font-bold shadow-sm">
+                          {p.patient?.profile_picture ? (
+                            <img 
+                              src={`${import.meta.env.VITE_BACKEND_URL}/storage/${p.patient.profile_picture}`} 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${p.patient.first_name}+${p.patient.last_name}&background=random`; }}
+                            />
+                          ) : (
+                            <span className="text-teal-600 dark:text-teal-400">{(p.patient?.first_name?.[0] || "") + (p.patient?.last_name?.[0] || "")}</span>
+                          )}
+                        </div>
+                        <span className={`truncate font-medium ${muted}`}>{p.patient?.first_name} {p.patient?.last_name}</span>
+                      </div>
+                      <span className="font-bold text-teal-600 dark:text-teal-400 shrink-0">Q-{p.queue_number}</span>
                     </div>
                   ))
                 ) : (
                   <p className={`text-sm ${muted}`}>No waiting patients</p>
                 )}
               </div>
-
-              <button className="mt-4 w-full rounded-lg bg-teal-600 py-2 text-sm font-medium text-white hover:bg-teal-700">
-                View Full Queue
-              </button>
             </div>
           </div>
         ))}
@@ -131,7 +162,7 @@ export default function StaffQueue() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by patient name, queue number, or patient ID..."
+            placeholder="Search by patient, queue number..."
             className={`rounded-lg border px-4 py-2 text-sm ${input}`}
           />
 
@@ -141,8 +172,8 @@ export default function StaffQueue() {
             className={`rounded-lg border px-3 py-2 text-sm ${input}`}
           >
             <option>All</option>
-            {doctors.map((d) => (
-              <option key={d.id}>{d.shortName}</option>
+            {doctorsList.map((d) => (
+              <option key={d.id} value={d.name}>{d.name}</option>
             ))}
           </select>
 
@@ -152,11 +183,10 @@ export default function StaffQueue() {
             className={`rounded-lg border px-3 py-2 text-sm ${input}`}
           >
             <option>All</option>
-            <option>Booked</option>
             <option>Waiting</option>
-            <option>In Progress</option>
+            <option>Serving</option>
             <option>Done</option>
-            <option>No-show</option>
+            <option>Cancelled</option>
           </select>
         </div>
 
@@ -169,70 +199,65 @@ export default function StaffQueue() {
                 <th className="px-4 py-3">Doctor</th>
                 <th className="px-4 py-3">Check-in Time</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Est. Wait</th>
                 <th className="px-4 py-3">Action</th>
               </tr>
             </thead>
 
             <tbody className={`divide-y ${divide}`}>
-              {filtered.map((q) => (
-                <tr key={q.queueNo}>
-                  <td className="px-4 py-3 font-semibold">{q.queueNo}</td>
+              {loading ? (
+                <tr><td colSpan="6" className="p-8 text-center text-gray-500">Loading queue...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan="6" className="p-8 text-center text-gray-500">No matching queues found.</td></tr>
+              ) : (
+                filtered.map((q) => (
+                  <tr key={q.queue_id}>
+                    <td className="px-4 py-3 font-semibold">Q-{q.queue_number}</td>
 
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="grid h-8 w-8 place-items-center rounded-full bg-teal-100 text-xs font-bold text-teal-700">
-                        {q.name[0]}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="grid h-8 w-8 place-items-center rounded-full bg-teal-100 text-xs font-bold text-teal-700">
+                          {q.patient?.first_name ? q.patient.first_name[0] : '?'}
+                        </div>
+                        <span>{q.patient?.first_name} {q.patient?.last_name}</span>
                       </div>
-                      <span>{q.name}</span>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="px-4 py-3">{q.doctor}</td>
-                  <td className="px-4 py-3">{q.checkIn}</td>
-                  <td className="px-4 py-3">
-                    <StaffTableBadge status={q.status} />
-                  </td>
-                  <td className="px-4 py-3">{q.wait}</td>
+                    <td className="px-4 py-3">{q.doctor ? `Dr. ${q.doctor.last_name}` : 'N/A'}</td>
+                    <td className="px-4 py-3">{new Date(q.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                    <td className="px-4 py-3">
+                      <StaffTableBadge status={q.queue_status} />
+                    </td>
 
-                  <td className="px-4 py-3">
-                    {q.status === "Booked" && (
-                      <button
-                        onClick={() => updateStatus(q.queueNo, "Waiting")}
-                        className="rounded-md bg-teal-600 px-3 py-1 text-xs text-white hover:bg-teal-700"
-                      >
-                        Check-in
-                      </button>
-                    )}
+                    <td className="px-4 py-3">
+                      {q.queue_status === "Waiting" && (
+                        <button
+                          onClick={() => updateStatus(q.queue_id, "Serving")}
+                          className="rounded-md bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
+                        >
+                          Start Serving
+                        </button>
+                      )}
 
-                    {q.status === "Waiting" && (
-                      <button
-                        onClick={() => updateStatus(q.queueNo, "In Progress")}
-                        className="rounded-md bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
-                      >
-                        Start
-                      </button>
-                    )}
+                      {q.queue_status === "Serving" && (
+                        <button
+                          onClick={() => updateStatus(q.queue_id, "Done")}
+                          className="rounded-md bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700"
+                        >
+                          Complete
+                        </button>
+                      )}
 
-                    {q.status === "In Progress" && (
-                      <button
-                        onClick={() => updateStatus(q.queueNo, "Done")}
-                        className="rounded-md bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700"
-                      >
-                        Complete
-                      </button>
-                    )}
-
-                    {q.status === "Done" && (
-                      <span className={`text-xs ${muted}`}>Done</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      {q.queue_status === "Done" && (
+                        <span className={`text-xs ${muted}`}>Finished</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
     </div>
   );
-}
+}

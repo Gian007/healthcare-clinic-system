@@ -83,7 +83,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/profile/photo',               [AdminController::class, 'uploadProfilePicture']);
 
         Route::get('/patients',                     [AdminController::class, 'getPatients']);
+        Route::put('/patients/{id}',                [AdminController::class, 'updatePatient']);
         Route::put('/patients/{id}/status',         [AdminController::class, 'updatePatientStatus']);
+        Route::post('/patients/{id}/verify',        [AdminController::class, 'approveVerification']);
 
         Route::get('/doctors',                      [AdminController::class, 'getDoctors']);
         Route::post('/doctors',                     [AdminController::class, 'createDoctor']);

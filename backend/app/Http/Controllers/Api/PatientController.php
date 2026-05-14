@@ -36,7 +36,7 @@ class PatientController extends Controller
         $patientId = $patient->patient_id;
 
         $request->validate([
-            'contact_number' => 'sometimes|string|regex:/^[0-9]+$/|max:20',
+            'contact_number' => 'sometimes|string|regex:/^\+?[0-9]+$/|max:20',
             'email'          => 'sometimes|email|unique:patients,email,' . $patientId . ',patient_id',
             'birth_date'     => 'sometimes|date',
             'address'        => 'sometimes|string',
@@ -45,7 +45,7 @@ class PatientController extends Controller
             'last_name'      => 'sometimes|string|max:255',
             'name_change_reason' => 'required_with:first_name,last_name|nullable|string',
         ], [
-            'contact_number.regex' => 'Contact number must contain numbers only.',
+            'contact_number.regex' => 'Contact number must contain numbers only (optionally starting with +).',
             'name_change_reason.required_with' => 'Please provide a reason for the name change.',
         ]);
 
@@ -114,19 +114,29 @@ class PatientController extends Controller
 
     public function uploadVerificationId(Request $request)
     {
-        $request->validate(['id_image' => 'required|image|max:5120']);
+        $request->validate([
+            'id_front'  => 'required|image|max:5120',
+            'id_back'   => 'required|image|max:5120',
+            'id_selfie' => 'required|image|max:5120',
+        ]);
 
         $patient = $request->user();
-        $path    = $request->file('id_image')->store('verification-ids', 'public');
+        
+        $frontPath  = $request->file('id_front')->store('verification-ids', 'public');
+        $backPath   = $request->file('id_back')->store('verification-ids', 'public');
+        $selfiePath = $request->file('id_selfie')->store('verification-ids', 'public');
 
         // Create or update patient_verifications record
         $patient->patientVerification()->updateOrCreate(
             ['patient_id' => $patient->patient_id],
             [
-                'id_type'   => $request->id_type ?? 'Valid ID',
-                'id_image'  => $path,
-                'status'    => 'Under Review',
-                'submitted_at' => now(),
+                'id_type'       => $request->id_type ?? 'Valid ID',
+                'id_image'      => $frontPath,
+                'id_back_image' => $backPath,
+                'selfie_image'  => $selfiePath,
+                'status'        => 'Under Review',
+                'submitted_at'  => now(),
+                'rejection_reason' => null, // Reset reason on resubmit
             ]
         );
 
@@ -138,11 +148,11 @@ class PatientController extends Controller
             'notifiable_type' => 'staff',
             'notifiable_id'   => 0,
             'title'           => 'New ID Verification Request',
-            'body'            => "Patient {$patient->first_name} {$patient->last_name} (#{$patient->patient_number}) submitted an ID for verification.",
+            'body'            => "Patient {$patient->first_name} {$patient->last_name} (#{$patient->patient_number}) submitted documents for verification.",
             'type'            => 'info',
         ]);
 
-        return response()->json(['message' => 'ID submitted for review. Your account will be updated shortly.']);
+        return response()->json(['message' => 'Documents submitted for review. Your account will be updated shortly.']);
     }
 
     public function store(Request $request)

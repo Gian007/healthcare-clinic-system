@@ -30,6 +30,7 @@ import StaffPatients from "./pages/staff/StaffPatients";
 import StaffNotifications from "./pages/staff/StaffNotifications";
 import StaffScan from "./pages/staff/StaffScan";
 import StaffSchedule from "./pages/staff/StaffSchedule";
+import StaffProfile from "./pages/staff/StaffProfile";
 
 // ADMIN IMPORTS
 import AdminLayout from "./components/admin/AdminLayout";
@@ -72,10 +73,11 @@ export default function App() {
 
   // Hide public navbar for staff/admin/doctor/patient (they all have their own layout)
   const hideNavbar =
-    location.pathname.startsWith("/staff") ||
-    location.pathname.startsWith("/admin") ||
-    location.pathname.startsWith("/doctor") ||
-    location.pathname.startsWith("/patient");
+    location.pathname.startsWith("/staff/") ||
+    location.pathname.startsWith("/admin/") ||
+    location.pathname.startsWith("/doctor/") ||
+    location.pathname.startsWith("/patient/") ||
+    ["/staff", "/admin", "/doctor", "/patient"].includes(location.pathname);
 
   return (
     <div className="min-h-screen bg-neutralbg">
@@ -126,6 +128,7 @@ export default function App() {
           <Route path="patients" element={<StaffPatients />} />
           <Route path="schedule" element={<StaffSchedule />} />
           <Route path="notifications" element={<StaffNotifications />} />
+          <Route path="profile" element={<StaffProfile />} />
         </Route>
 
         {/* ================= ADMIN ================= */}

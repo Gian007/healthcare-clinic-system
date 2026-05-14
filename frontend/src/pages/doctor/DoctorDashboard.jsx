@@ -59,11 +59,24 @@ export default function DoctorDashboard() {
             <div className="text-center text-slate-500 py-4">No appointments for today.</div>
           ) : (
             appointments_today.slice(0,4).map(a => (
-              <div key={a.appointment_id} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl flex justify-between items-center">
-                <div>
-                  <p className="font-bold">{a.patient?.first_name} {a.patient?.last_name}</p>
-                  <p className="text-sm text-slate-500">{a.service?.service_name}</p>
-                  <p className="text-xs text-slate-400">{a.start_time}</p>
+              <div key={a.appointment_id} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl flex justify-between items-center group hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-teal-100 dark:bg-teal-900/40 border border-teal-200 dark:border-teal-800 flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+                    {a.patient?.profile_picture ? (
+                      <img 
+                        src={`${import.meta.env.VITE_BACKEND_URL}/storage/${a.patient.profile_picture}`} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${a.patient.first_name}+${a.patient.last_name}&background=random`; }}
+                      />
+                    ) : (
+                      <span className="text-teal-600 dark:text-teal-400 font-bold text-xs">{(a.patient?.first_name?.[0] || "") + (a.patient?.last_name?.[0] || "")}</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900 dark:text-white leading-tight">{a.patient?.first_name} {a.patient?.last_name}</p>
+                    <p className="text-[10px] text-slate-500 font-bold tracking-tighter uppercase">{a.service?.service_name}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{a.start_time}</p>
+                  </div>
                 </div>
                 <Badge tone={a.booking_status === 'Pending' ? 'yellow' : 'green'}>{a.booking_status}</Badge>
               </div>
@@ -82,12 +95,25 @@ export default function DoctorDashboard() {
              <div className="text-center text-slate-500 py-4">No one is in the queue.</div>
           ) : (
             queues_today.slice(0,3).map(q => (
-              <div key={q.queue_id} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl flex justify-between items-center">
+              <div key={q.queue_id} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl flex justify-between items-center group hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-teal-100 text-teal-700 grid place-items-center font-bold">{q.queue_number}</div>
+                  <div className="h-10 w-10 rounded-full bg-teal-100 dark:bg-teal-900/40 border border-teal-200 dark:border-teal-800 flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+                    {q.patient?.profile_picture ? (
+                      <img 
+                        src={`${import.meta.env.VITE_BACKEND_URL}/storage/${q.patient.profile_picture}`} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${q.patient.first_name}+${q.patient.last_name}&background=random`; }}
+                      />
+                    ) : (
+                      <span className="text-teal-600 dark:text-teal-400 font-bold text-xs">{(q.patient?.first_name?.[0] || "") + (q.patient?.last_name?.[0] || "")}</span>
+                    )}
+                  </div>
                   <div>
-                    <p className="font-bold">{q.patient?.first_name} {q.patient?.last_name}</p>
-                    <p className="text-sm text-slate-500">{new Date(q.created_at).toLocaleTimeString()}</p>
+                    <div className="flex items-center gap-2">
+                       <span className="w-8 h-4 rounded bg-teal-600 text-[10px] text-white flex items-center justify-center font-bold">Q-{q.queue_number}</span>
+                       <p className="font-bold text-slate-900 dark:text-white leading-tight">{q.patient?.first_name} {q.patient?.last_name}</p>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">{new Date(q.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                   </div>
                 </div>
                 <Badge tone={q.queue_status === 'Active' || q.queue_status === 'Serving' ? 'blue' : 'yellow'}>{q.queue_status}</Badge>

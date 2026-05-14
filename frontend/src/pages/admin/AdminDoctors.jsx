@@ -153,9 +153,23 @@ export default function AdminDoctors() {
           {list.map(d => (
             <div key={d.doctor_id} className="rounded-2xl bg-white dark:bg-slate-900 p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">Dr. {d.first_name} {d.last_name}</h2>
-                  <p className="text-sm text-slate-500">{d.specialization?.name || 'No specialization'} • {d.license_number}</p>
+                <div className="flex gap-4">
+                  <div className="h-14 w-14 rounded-2xl bg-teal-100 dark:bg-teal-900/40 border border-teal-200 dark:border-teal-800 flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+                    {d.profile_picture ? (
+                      <img 
+                        src={`${import.meta.env.VITE_BACKEND_URL}/storage/${d.profile_picture}`} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=Dr+${d.first_name}+${d.last_name}&background=random`; }}
+                      />
+                    ) : (
+                      <span className="text-teal-600 dark:text-teal-400 font-bold text-lg">{(d.first_name?.[0] || "") + (d.last_name?.[0] || "")}</span>
+                    )}
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">Dr. {d.first_name} {d.last_name}</h2>
+                    <p className="text-sm text-slate-500 font-medium">{d.specialization?.name || 'No specialization'}</p>
+                    <p className="text-[10px] text-teal-600 font-bold uppercase tracking-widest mt-1">{d.license_number}</p>
+                  </div>
                 </div>
                 <span className={`h-fit text-xs px-2.5 py-1 rounded-full font-medium ${d.status === 'Active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}>
                   {d.status}
@@ -181,6 +195,26 @@ export default function AdminDoctors() {
       {/* Add/Edit Modal */}
       {modal && (
         <Modal title={modal === 'add' ? 'Add Doctor Account' : 'Edit Doctor'} onClose={() => setModal(null)}>
+          {modal === 'edit' && (
+            <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 mb-6 shadow-sm">
+              <div className="h-16 w-16 rounded-2xl bg-teal-100 dark:bg-teal-900/40 border-2 border-white dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+                {formData.profile_picture ? (
+                  <img 
+                    src={`${import.meta.env.VITE_BACKEND_URL}/storage/${formData.profile_picture}`} 
+                    className="w-full h-full object-cover" 
+                    onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=Dr+${formData.first_name}+${formData.last_name}&background=random`; }}
+                  />
+                ) : (
+                  <span className="text-teal-600 dark:text-teal-400 font-bold text-xl">{(formData.first_name?.[0] || "") + (formData.last_name?.[0] || "")}</span>
+                )}
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white leading-tight">Dr. {formData.first_name} {formData.last_name}</h3>
+                <p className="text-xs text-teal-600 dark:text-teal-400 font-bold uppercase tracking-widest mt-0.5">{formData.license_number}</p>
+                <p className="text-[10px] text-slate-500 mt-1 italic">Authorized Practitioner</p>
+              </div>
+            </div>
+          )}
           <form onSubmit={save} className="space-y-4">
             {formErrors.general && (
               <div className="bg-red-50 dark:bg-red-900/20 text-red-600 text-sm p-3 rounded-lg border border-red-200 dark:border-red-800">{formErrors.general}</div>

@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { FaHeartbeat } from "react-icons/fa";
+import Logo from "./Logo";
 import { FiLogIn, FiLogOut, FiSun, FiMoon, FiMenu, FiX } from "react-icons/fi";
 import { useAuth } from "../state/auth";
 import { useEffect, useState } from "react";
@@ -32,10 +33,8 @@ export default function Navbar() {
     <header className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 transition-colors">
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-            <FaHeartbeat className="text-primary text-lg" />
-          </div>
-          <span className="font-semibold text-gray-900 dark:text-white">HealthCare Clinic</span>
+          <Logo />
+          <span className="font-black text-xl tracking-tighter text-gray-900 dark:text-white uppercase font-comfortaa leading-none font-fat">SHQMS</span>
         </Link>
 
         {/* Public nav Desktop */}

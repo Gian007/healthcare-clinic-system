@@ -3,6 +3,18 @@ import { useNavigate, Link } from "react-router-dom";
 import { FaHeartbeat, FaEye, FaEyeSlash, FaCheckCircle } from "react-icons/fa";
 import { useAuth } from "../state/auth";
 
+const Field = ({ label, name, type = 'text', required, className = '', value, onChange, errors }) => (
+  <div className={className}>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}{required && <span className="text-red-500 ml-1">*</span>}</label>
+    <input
+      name={name} type={type} required={required}
+      value={value} onChange={onChange}
+      className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:border-slate-700 dark:text-white transition ${errors[name] ? 'border-red-400 focus:ring-red-200' : 'border-gray-300'}`}
+    />
+    {errors[name] && <p className="text-xs text-red-500 mt-1">{errors[name]}</p>}
+  </div>
+);
+
 export default function Register() {
   const [formData, setFormData] = useState({
     first_name: '', last_name: '', middle_name: '',
@@ -21,7 +33,14 @@ export default function Register() {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     let v = type === 'checkbox' ? checked : value;
-    if (name === 'contact_number') v = v.replace(/\D/g, '');
+    
+    if (name === 'contact_number') {
+      // Remove all non-digits
+      const digits = v.replace(/\D/g, '');
+      // Limit to 11 digits (typical PH mobile format starting with 09)
+      v = digits.substring(0, 11);
+    }
+    
     setFormData(p => ({ ...p, [name]: v }));
     setErrors(p => ({ ...p, [name]: '' }));
   };
@@ -29,6 +48,11 @@ export default function Register() {
   const onSubmit = async (e) => {
     e.preventDefault();
     setErrors({});
+
+    if (formData.contact_number.length !== 11) {
+      setErrors({ contact_number: 'Phone number must be exactly 11 digits (e.g., 09123456789).' });
+      return;
+    }
 
     if (formData.password !== formData.password_confirmation) {
       setErrors({ password_confirmation: 'Passwords do not match.' });
@@ -41,7 +65,9 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await register({ ...formData, terms: formData.terms ? '1' : '0' });
+      // Convert 09... to +639... for the backend
+      const formattedPhone = '+63' + formData.contact_number.substring(1);
+      await register({ ...formData, contact_number: formattedPhone, terms: formData.terms ? '1' : '0' });
       setSuccess(true);
       setTimeout(() => nav('/patient'), 1500);
     } catch (err) {
@@ -57,18 +83,6 @@ export default function Register() {
       setLoading(false);
     }
   };
-
-  const Field = ({ label, name, type = 'text', required, className = '' }) => (
-    <div className={className}>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}{required && <span className="text-red-500 ml-1">*</span>}</label>
-      <input
-        name={name} type={type} required={required}
-        value={formData[name]} onChange={handleChange}
-        className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:border-slate-700 dark:text-white transition ${errors[name] ? 'border-red-400 focus:ring-red-200' : 'border-gray-300'}`}
-      />
-      {errors[name] && <p className="text-xs text-red-500 mt-1">{errors[name]}</p>}
-    </div>
-  );
 
   return (
     <div className="bg-neutralbg dark:bg-slate-950 min-h-[calc(100vh-72px)] flex items-start justify-center pt-8 pb-16 px-4">
@@ -96,10 +110,10 @@ export default function Register() {
 
         <form onSubmit={onSubmit} className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="First Name" name="first_name" required />
-            <Field label="Last Name"  name="last_name"  required />
-            <Field label="Middle Name (Optional)" name="middle_name" />
-            <Field label="Birth Date" name="birth_date" type="date" required />
+            <Field label="First Name" name="first_name" required value={formData.first_name} onChange={handleChange} errors={errors} />
+            <Field label="Last Name"  name="last_name"  required value={formData.last_name} onChange={handleChange} errors={errors} />
+            <Field label="Middle Name (Optional)" name="middle_name" value={formData.middle_name} onChange={handleChange} errors={errors} />
+            <Field label="Birth Date" name="birth_date" type="date" required value={formData.birth_date} onChange={handleChange} errors={errors} />
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sex <span className="text-red-500">*</span></label>
               <select name="sex" value={formData.sex} onChange={handleChange}
@@ -110,21 +124,31 @@ export default function Register() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact Number <span className="text-red-500">*</span></label>
-              <input name="contact_number" required inputMode="numeric" pattern="[0-9]*"
-                value={formData.contact_number} onChange={handleChange}
-                placeholder="09XXXXXXXXX"
-                className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:border-slate-700 dark:text-white ${errors.contact_number ? 'border-red-400' : 'border-gray-300'}`} />
+              <div className="flex">
+                <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-700 text-gray-500 dark:text-gray-400 text-sm">
+                  +63
+                </span>
+                <input name="contact_number" required inputMode="numeric"
+                  value={formData.contact_number.startsWith('0') ? formData.contact_number.substring(1) : formData.contact_number} 
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    handleChange({ target: { name: 'contact_number', value: '0' + val.substring(0, 10) } });
+                  }}
+                  placeholder="9XXXXXXXXX"
+                  className={`flex-1 border rounded-r-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:border-slate-700 dark:text-white ${errors.contact_number ? 'border-red-400' : 'border-gray-300'}`} />
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1 italic">Format: 09123456789</p>
               {errors.contact_number && <p className="text-xs text-red-500 mt-1">{errors.contact_number}</p>}
             </div>
             <div className="md:col-span-2">
-              <Field label="Address" name="address" required />
+              <Field label="Address" name="address" required value={formData.address} onChange={handleChange} errors={errors} />
             </div>
           </div>
 
           <div className="border-t dark:border-slate-700 pt-4">
             <p className="font-semibold text-gray-800 dark:text-white mb-3">Account Details</p>
             <div className="space-y-4">
-              <Field label="Email Address" name="email" type="email" required />
+              <Field label="Email Address" name="email" type="email" required value={formData.email} onChange={handleChange} errors={errors} />
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password <span className="text-red-500">*</span></label>
                 <div className="relative">

@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
 import { useAuth } from "../../state/auth";
 import * as patientApi from "../../api/patientApi";
-import { FaUser, FaKey, FaIdCard, FaCamera, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
+import ImageCropper from "../../components/ImageCropper";
+import { FaUser, FaKey, FaIdCard, FaCamera, FaCheckCircle, FaTimesCircle, FaCloudUploadAlt, FaExclamationCircle } from "react-icons/fa";
 
 function SuccessModal({ message, onClose }) {
   return (
@@ -20,8 +21,8 @@ function SuccessModal({ message, onClose }) {
 
 function Section({ icon, title, children }) {
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 overflow-hidden">
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-slate-800">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm">
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
         <span className="text-primary text-lg">{icon}</span>
         <h2 className="font-semibold text-gray-900 dark:text-white">{title}</h2>
       </div>
@@ -36,7 +37,10 @@ export default function PatientProfile() {
   const [error, setError]         = useState('');
   const [loading, setLoading]     = useState(false);
   const photoRef                  = useRef();
-  const idRef                     = useRef();
+  
+  const frontRef = useRef();
+  const backRef  = useRef();
+  const selfieRef = useRef();
 
   const [profile, setProfile] = useState({
     first_name:          user?.first_name || '',
@@ -47,11 +51,16 @@ export default function PatientProfile() {
     address:             user?.address || '',
     name_change_reason:  '',
   });
+  
   const [passwords, setPasswords] = useState({ current_password:'', password:'', password_confirmation:'' });
   const [profileErrors, setProfileErrors] = useState({});
   const [pwErrors, setPwErrors]           = useState({});
-  const [idFile, setIdFile]               = useState(null);
-  const [idPreview, setIdPreview]         = useState(null);
+  
+  const [idFront, setIdFront] = useState(null);
+  const [idBack, setIdBack]   = useState(null);
+  const [idSelfie, setIdSelfie] = useState(null);
+  
+  const [previews, setPreviews] = useState({ front: null, back: null, selfie: null });
 
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
@@ -65,9 +74,7 @@ export default function PatientProfile() {
     try {
       const res = await patientApi.updateProfile(profile);
       setSuccess(res.message || 'Profile updated successfully!');
-      if (res.user && fetchUser) {
-        await fetchUser();
-      }
+      if (res.user && fetchUser) await fetchUser();
     } catch (err) {
       if (err.response?.data?.errors) {
         const e = {};
@@ -102,17 +109,27 @@ export default function PatientProfile() {
     setLoading(false);
   };
 
-  const handlePhotoUpload = async (e) => {
+  const [cropImage, setCropImage]   = useState(null);
+
+  const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setCropImage(reader.result);
+    reader.readAsDataURL(file);
+    e.target.value = null; // reset input
+  };
+
+  const handleCropComplete = async (croppedBlob) => {
+    setCropImage(null);
     setLoading(true);
     const fd = new FormData();
-    fd.append('photo', file);
+    fd.append('photo', croppedBlob, 'profile.jpg');
     try {
       const res = await patientApi.uploadPhoto(fd);
       if (fetchUser) await fetchUser();
-      setSuccess('Profile picture updated!');
-    } catch {
+      setSuccess('Profile picture updated successfully!');
+    } catch (err) {
       setError('Failed to upload photo. Max size 2MB.');
     }
     setLoading(false);
@@ -120,24 +137,36 @@ export default function PatientProfile() {
 
   const submitId = async (e) => {
     e.preventDefault();
-    if (!idFile) { setError('Please select an ID image.'); return; }
+    if (!idFront || !idBack || !idSelfie) { 
+      setError('Please upload all three required photos.'); return; 
+    }
     setLoading(true); setError('');
     const fd = new FormData();
-    fd.append('id_image', idFile);
+    fd.append('id_front', idFront);
+    fd.append('id_back', idBack);
+    fd.append('id_selfie', idSelfie);
     try {
       const res = await patientApi.uploadVerificationId(fd);
       if (fetchUser) await fetchUser();
       setSuccess(res.message || 'ID submitted for review!');
-      setIdFile(null);
-      setIdPreview(null);
+      setIdFront(null); setIdBack(null); setIdSelfie(null);
+      setPreviews({ front: null, back: null, selfie: null });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to submit ID.');
     }
     setLoading(false);
   };
 
-  const Field = ({ label, name, type = 'text', state, setState, errors, half }) => (
-    <div className={half ? '' : ''}>
+  const handleFileChange = (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (type === 'front') { setIdFront(file); setPreviews(p => ({...p, front: URL.createObjectURL(file)})); }
+    if (type === 'back') { setIdBack(file); setPreviews(p => ({...p, back: URL.createObjectURL(file)})); }
+    if (type === 'selfie') { setIdSelfie(file); setPreviews(p => ({...p, selfie: URL.createObjectURL(file)})); }
+  };
+
+  const Field = ({ label, name, type = 'text', state, setState, errors }) => (
+    <div>
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
       <input name={name} type={type} value={state[name]} onChange={e => setState(p => ({...p, [name]: e.target.value}))}
         className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:border-slate-700 dark:text-white transition ${errors?.[name] ? 'border-red-400' : 'border-gray-300 dark:border-slate-700'}`} />
@@ -148,19 +177,21 @@ export default function PatientProfile() {
   const verificationStatus = user?.verification_status || 'Pending';
   const statusConfig = {
     Approved:    { color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', icon: <FaCheckCircle /> },
-    'Under Review': { color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', icon: null },
+    'Under Review': { color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', icon: <FaExclamationCircle /> },
     Rejected:    { color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: <FaTimesCircle /> },
     Pending:     { color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400', icon: null },
   }[verificationStatus] || { color: 'bg-gray-100 text-gray-700', icon: null };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 pb-20">
+      {cropImage && <ImageCropper image={cropImage} onCancel={()=>setCropImage(null)} onCropComplete={handleCropComplete} />}
       {success && <SuccessModal message={success} onClose={() => setSuccess('')} />}
 
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profile Settings</h1>
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 p-3 rounded-xl text-sm">
+        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 p-4 rounded-2xl text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+          <FaExclamationCircle className="shrink-0" />
           {error}
         </div>
       )}
@@ -168,111 +199,167 @@ export default function PatientProfile() {
       {/* Profile Picture */}
       <Section icon={<FaCamera />} title="Profile Picture">
         <div className="flex items-center gap-6 flex-wrap">
-          <div className="w-20 h-20 rounded-full bg-primary/10 text-primary flex items-center justify-center text-4xl shrink-0 overflow-hidden">
+          <div className="w-24 h-24 rounded-full bg-primary/10 text-primary flex items-center justify-center text-4xl shrink-0 overflow-hidden border-4 border-white dark:border-slate-800 shadow-lg">
             {user?.profile_picture
-              ? <img src={`${import.meta.env.VITE_BACKEND_URL}/storage/${user.profile_picture}`} alt="avatar" className="w-full h-full object-cover" />
-              : <FaUser />}
+              ? <img src={`${import.meta.env.VITE_BACKEND_URL}/storage/${user.profile_picture}`} className="w-full h-full object-cover" />
+              : <div className="text-primary font-bold">{user?.first_name?.[0] || <FaUser />}</div>}
           </div>
           <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">JPG, PNG, max 2MB</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 font-medium">Clear face photo (JPG, PNG, max 2MB)</p>
             <input type="file" ref={photoRef} onChange={handlePhotoUpload} accept="image/*" className="hidden" />
             <button onClick={() => photoRef.current?.click()}
-              className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition">
-              {loading ? 'Uploading...' : 'Change Photo'}
+              className="bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:opacity-95 transition shadow-md flex items-center gap-2">
+              {loading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span> : <FaCloudUploadAlt />}
+              {loading ? 'Processing...' : 'Upload New Photo'}
             </button>
           </div>
         </div>
       </Section>
 
       {/* Verification Status */}
-      <Section icon={<FaIdCard />} title="ID Verification">
-        <div className="flex items-center gap-3 mb-4">
-          <span className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${statusConfig.color}`}>
+      <Section icon={<FaIdCard />} title="Identity Verification">
+        <div className="mb-6">
+          <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide ${statusConfig.color} shadow-sm`}>
             {statusConfig.icon} {verificationStatus}
           </span>
+          
+          {verificationStatus === 'Rejected' && user?.patient_verification?.rejection_reason && (
+            <div className="mt-4 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800">
+              <p className="text-xs font-bold text-red-600 dark:text-red-400 uppercase mb-1">Reason for Rejection:</p>
+              <p className="text-sm text-red-700 dark:text-red-300">{user.patient_verification.rejection_reason}</p>
+            </div>
+          )}
         </div>
 
         {(verificationStatus === 'Pending' || verificationStatus === 'Rejected') && (
-          <form onSubmit={submitId} className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {verificationStatus === 'Rejected'
-                ? 'Your ID was rejected. Please upload a new valid ID.'
-                : 'Upload a valid ID to verify your account and unlock full booking access.'}
-            </p>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ID Image (Valid ID, max 5MB)</label>
-              <input type="file" ref={idRef} accept="image/*" onChange={e => {
-                const file = e.target.files[0];
-                if (file) {
-                  setIdFile(file);
-                  setIdPreview(URL.createObjectURL(file));
-                }
-              }} className="hidden" />
-              <button type="button" onClick={() => idRef.current?.click()}
-                className="w-full border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl p-6 text-center hover:border-primary hover:bg-primary/5 transition">
-                {idPreview ? (
-                  <div className="relative">
-                    <img src={idPreview} alt="ID Preview" className="max-h-64 mx-auto rounded-lg shadow-md" />
-                    <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1 shadow-lg">
-                      <FaCheckCircle />
+          <form onSubmit={submitId} className="space-y-8">
+            <div className="bg-primary/5 dark:bg-primary/10 p-5 rounded-2xl border border-primary/10">
+               <h3 className="text-sm font-bold text-primary mb-2">Requirements for Verification</h3>
+               <ul className="text-xs space-y-2 text-gray-600 dark:text-gray-400 list-disc pl-4">
+                 <li>Government issued ID (UMID, Drivers License, Passport, etc.)</li>
+                 <li>All images must be clear and readable. No glares or blurs.</li>
+                 <li>The ID must be currently valid (not expired).</li>
+                 <li>Selfie must clearly show your face holding the ID next to it.</li>
+               </ul>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Front ID */}
+              <div className="space-y-2">
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Front of ID</label>
+                <input type="file" ref={frontRef} className="hidden" accept="image/*" onChange={e => handleFileChange(e, 'front')} />
+                <button type="button" onClick={() => frontRef.current?.click()} 
+                  className={`w-full aspect-[4/3] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition overflow-hidden relative ${previews.front ? 'border-primary' : 'border-gray-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
+                  {previews.front ? (
+                    <img src={previews.front} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-gray-400 text-center p-4">
+                      <FaCloudUploadAlt className="text-2xl mx-auto mb-1" />
+                      <p className="text-[10px] font-bold">Front Photo</p>
                     </div>
-                    <p className="mt-2 text-sm text-primary font-medium">{idFile.name}</p>
-                  </div>
-                ) : (
-                  <div className="text-gray-400 dark:text-gray-500">
-                    <FaIdCard className="text-3xl mx-auto mb-2" />
-                    <p className="text-sm">Click to select your ID image</p>
-                  </div>
-                )}
+                  )}
+                </button>
+              </div>
+
+              {/* Back ID */}
+              <div className="space-y-2">
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Back of ID</label>
+                <input type="file" ref={backRef} className="hidden" accept="image/*" onChange={e => handleFileChange(e, 'back')} />
+                <button type="button" onClick={() => backRef.current?.click()} 
+                  className={`w-full aspect-[4/3] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition overflow-hidden relative ${previews.back ? 'border-primary' : 'border-gray-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
+                  {previews.back ? (
+                    <img src={previews.back} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-gray-400 text-center p-4">
+                      <FaCloudUploadAlt className="text-2xl mx-auto mb-1" />
+                      <p className="text-[10px] font-bold">Back Photo</p>
+                    </div>
+                  )}
+                </button>
+              </div>
+
+              {/* Selfie holding ID */}
+              <div className="space-y-2">
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Selfie Holding ID</label>
+                <input type="file" ref={selfieRef} className="hidden" accept="image/*" onChange={e => handleFileChange(e, 'selfie')} />
+                <button type="button" onClick={() => selfieRef.current?.click()} 
+                  className={`w-full aspect-[4/3] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition overflow-hidden relative ${previews.selfie ? 'border-primary' : 'border-gray-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
+                  {previews.selfie ? (
+                    <img src={previews.selfie} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-gray-400 text-center p-4">
+                      <FaCamera className="text-2xl mx-auto mb-1" />
+                      <p className="text-[10px] font-bold">Selfie + ID</p>
+                    </div>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <p className="text-[11px] text-gray-400 text-center italic">Make sure the text on your ID is readable in all photos.</p>
+              <button type="submit" disabled={loading || !idFront || !idBack || !idSelfie}
+                className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-lg hover:opacity-95 transition disabled:opacity-50 shadow-xl shadow-primary/20">
+                {loading ? 'Uploading Documents...' : 'Submit Verification'}
               </button>
             </div>
-            <button type="submit" disabled={loading || !idFile}
-              className="bg-primary text-white px-6 py-2.5 rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50">
-              {loading ? 'Submitting...' : 'Submit ID for Review'}
-            </button>
           </form>
         )}
 
         {verificationStatus === 'Under Review' && (
-          <p className="text-sm text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
-            Your ID is currently being reviewed. This usually takes 1–2 business days. You can still book appointments while waiting.
-          </p>
+          <div className="p-6 rounded-2xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-800 flex gap-4">
+             <div className="text-2xl text-yellow-500 shrink-0 mt-1">🕒</div>
+             <div>
+               <h3 className="font-bold text-yellow-800 dark:text-yellow-400">Under Review</h3>
+               <p className="text-sm text-yellow-700/80 dark:text-yellow-400/80 leading-relaxed">
+                 Our staff is currently reviewing your documents. This process usually takes 24-48 hours. 
+                 You will receive a notification once your account is verified.
+               </p>
+             </div>
+          </div>
         )}
 
         {verificationStatus === 'Approved' && (
-          <p className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-            ✅ Your identity has been verified. You have full access to all booking features.
-          </p>
+          <div className="p-6 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 flex gap-4">
+             <div className="text-2xl text-emerald-500 shrink-0 mt-1">✅</div>
+             <div>
+               <h3 className="font-bold text-emerald-800 dark:text-emerald-400">Identity Verified</h3>
+               <p className="text-sm text-emerald-700/80 dark:text-emerald-400/80 leading-relaxed">
+                 Your identity has been successfully verified. You now have full access to all clinic services and prioritized booking.
+               </p>
+             </div>
+          </div>
         )}
       </Section>
 
       {/* Personal Info */}
       <Section icon={<FaUser />} title="Personal Information">
-        <form onSubmit={saveProfile} className="space-y-4">
+        <form onSubmit={saveProfile} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="First Name" name="first_name" state={profile} setState={setProfile} errors={profileErrors} />
             <Field label="Last Name" name="last_name" state={profile} setState={setProfile} errors={profileErrors} />
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason for Name Change</label>
-              <input name="name_change_reason" value={profile.name_change_reason}
+              <textarea name="name_change_reason" value={profile.name_change_reason}
                 onChange={e => setProfile(p => ({...p, name_change_reason: e.target.value}))}
-                placeholder="Required if changing name"
+                placeholder="Enter reason if you are changing your name (e.g., Marriage)"
+                rows={1}
                 className="w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30" />
               {profileErrors.name_change_reason && <p className="text-xs text-red-500 mt-1">{profileErrors.name_change_reason}</p>}
             </div>
-            <Field label="Contact Number" name="contact_number" state={profile} setState={(fn) => { setProfile(p => { const up = fn(p); return { ...up, contact_number: up.contact_number.replace(/\D/g,'') }; }); }} errors={profileErrors} />
-            <Field label="Email" name="email" type="email" state={profile} setState={setProfile} errors={profileErrors} />
-            <Field label="Birth Date" name="birth_date" type="date" state={profile} setState={setProfile} errors={profileErrors} />
+            <Field label="Contact Number" name="contact_number" state={profile} setState={setProfile} errors={profileErrors} />
+            <Field label="Email Address" name="email" type="email" state={profile} setState={setProfile} errors={profileErrors} />
+            <Field label="Date of Birth" name="birth_date" type="date" state={profile} setState={setProfile} errors={profileErrors} />
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Home Address</label>
               <textarea name="address" value={profile.address} onChange={e => setProfile(p => ({...p, address: e.target.value}))} rows={2}
                 className="w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
             </div>
           </div>
           <div className="flex justify-end">
             <button type="submit" disabled={loading}
-              className="bg-primary text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50">
-              {loading ? 'Saving...' : 'Save Changes'}
+              className="bg-primary text-white px-8 py-3 rounded-xl font-bold hover:opacity-95 transition disabled:opacity-50 shadow-lg shadow-primary/20">
+              {loading ? 'Saving...' : 'Save Profile Changes'}
             </button>
           </div>
         </form>
@@ -296,7 +383,7 @@ export default function PatientProfile() {
           ))}
           <div className="flex justify-end">
             <button type="submit" disabled={loading}
-              className="bg-primary text-white px-6 py-2.5 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50">
+              className="bg-primary text-white px-8 py-3 rounded-xl font-bold hover:opacity-95 transition disabled:opacity-50 shadow-lg shadow-primary/20">
               {loading ? 'Updating...' : 'Update Password'}
             </button>
           </div>

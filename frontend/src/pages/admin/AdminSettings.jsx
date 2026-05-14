@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../state/auth";
 import { PageHeader, TextInput } from "../../components/admin/AdminUI";
 import * as adminApi from "../../api/adminApi";
+import ImageCropper from "../../components/ImageCropper";
 import { FaCamera, FaCheckCircle, FaSpinner } from "react-icons/fa";
 
 export default function AdminSettings() {
@@ -18,6 +19,7 @@ export default function AdminSettings() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [cropImage, setCropImage] = useState(null);
   
   const [successMsg, setSuccessMsg] = useState("");
   const [errors, setErrors] = useState({});
@@ -70,12 +72,20 @@ export default function AdminSettings() {
     }
   };
 
-  const handlePhotoUpload = async (e) => {
+  const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setCropImage(reader.result);
+    reader.readAsDataURL(file);
+    e.target.value = null; // reset input
+  };
+
+  const handleCropComplete = async (croppedBlob) => {
+    setCropImage(null);
     setUploading(true);
     const fd = new FormData();
-    fd.append('photo', file);
+    fd.append('photo', croppedBlob, 'profile.jpg');
     try {
       await adminApi.uploadPhoto(fd);
       await fetchUser();
@@ -84,7 +94,6 @@ export default function AdminSettings() {
       alert("Failed to upload photo.");
     } finally {
       setUploading(false);
-      e.target.value = null; // reset input
     }
   };
 
@@ -94,6 +103,7 @@ export default function AdminSettings() {
 
   return (
     <div>
+      {cropImage && <ImageCropper image={cropImage} onCancel={()=>setCropImage(null)} onCropComplete={handleCropComplete} />}
       <PageHeader title="Account Settings" subtitle="Manage your admin profile, email, and security." />
 
       {successMsg && (

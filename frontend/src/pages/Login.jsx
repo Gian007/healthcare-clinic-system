@@ -49,12 +49,13 @@ export default function Login() {
   return (
     <div className="bg-neutralbg dark:bg-slate-950 min-h-[calc(100vh-72px)] flex items-start justify-center pt-16 px-6 transition-colors">
       <div className="w-full max-w-md text-center">
-        <div className="mx-auto w-20 h-20 rounded-full bg-primary flex items-center justify-center shadow-sm">
-          <FaHeartbeat className="text-white text-3xl" />
+        <div className="mx-auto w-20 h-20 rounded-3xl bg-primary/20 flex items-center justify-center shadow-lg shadow-primary/10 rotate-3 transition-transform hover:rotate-0 duration-500 text-primary">
+          <FaHeartbeat className="text-4xl" />
         </div>
 
-        <h1 className="mt-6 text-3xl font-semibold text-gray-900 dark:text-white">Welcome Back</h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Login to your account</p>
+        <h1 className="mt-6 text-5xl font-black text-gray-900 dark:text-white tracking-tighter uppercase font-comfortaa leading-none font-fat">SHQMS</h1>
+        <p className="text-xs font-bold text-primary uppercase tracking-[0.2em] mt-1 font-poppins">Smart Healthcare Availability</p>
+        <p className="text-sm italic font-medium text-gray-600 dark:text-gray-400 mt-4 font-playfair">"Skip the Wait, Get the Care."</p>
 
         <form
           onSubmit={onSubmit}

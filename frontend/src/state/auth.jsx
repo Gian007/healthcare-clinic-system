@@ -47,6 +47,18 @@ export function AuthProvider({ children }) {
         setUser({ ...data.user, role: data.role });
         return data;
       },
+      fetchUser: async () => {
+        try {
+          const data = await authApi.getCurrentUser();
+          let role = 'patient';
+          if (data.abilities?.includes('admin')) role = 'admin';
+          else if (data.abilities?.includes('doctor')) role = 'doctor';
+          else if (data.abilities?.includes('staff')) role = 'staff';
+          setUser({ ...data.user, role });
+        } catch (error) {
+          console.error("fetchUser error:", error);
+        }
+      },
       logout: async () => {
         try {
           await authApi.logout();

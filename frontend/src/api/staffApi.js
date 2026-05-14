@@ -1,6 +1,6 @@
 import api from './axios';
 
-export const getDashboard              = ()     => api.get('/staff/dashboard').then(r => r.data);
+export const getDashboardData          = ()     => api.get('/staff/dashboard').then(r => r.data);
 export const updateProfile             = (data) => api.put('/staff/profile', data).then(r => r.data);
 export const updatePassword            = (data) => api.post('/staff/profile/password', data).then(r => r.data);
 export const uploadPhoto               = (fd)   => api.post('/staff/profile/photo', fd, { headers: { 'Content-Type': 'multipart/form-data' }}).then(r => r.data);

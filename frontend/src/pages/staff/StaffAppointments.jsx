@@ -58,7 +58,9 @@ export default function StaffAppointments() {
               ) : (
                 appointments.map((a) => (
                   <tr key={a.id}>
-                    <td className="px-4 py-3 font-medium">{a.appointment_time}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {a.start_time} - {a.end_time}
+                    </td>
 
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -69,11 +71,11 @@ export default function StaffAppointments() {
                       </div>
                     </td>
 
-                    <td className="px-4 py-3">Dr. {a.doctor?.first_name} {a.doctor?.last_name}</td>
+                    <td className="px-4 py-3">{a.doctor ? `Dr. ${a.doctor.first_name} ${a.doctor.last_name}` : 'N/A'}</td>
                     <td className="px-4 py-3">{a.service?.service_name || 'N/A'}</td>
                     <td className="px-4 py-3">{a.patient?.patient_number || 'N/A'}</td>
                     <td className="px-4 py-3">
-                      <StaffTableBadge status={a.appointment_status} />
+                      <StaffTableBadge status={a.booking_status} />
                     </td>
 
                     <td className="px-4 py-3">

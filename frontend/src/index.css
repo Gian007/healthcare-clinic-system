@@ -1,3 +1,9 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .font-fat {
+    text-shadow: 0.8px 0 currentColor, -0.8px 0 currentColor, 0 0.8px currentColor, 0 -0.8px currentColor;
+  }
+}

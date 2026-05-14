@@ -88,17 +88,25 @@ export default function StaffNotifications() {
                     </span>
                   </div>
                   <p className={`text-sm mt-1 ${muted}`}>{n.body}</p>
-                  {!n.is_read && (
-                    <button onClick={() => handleMarkRead(n.notif_id)}
-                      className="mt-2 text-xs text-primary hover:underline">
-                      Mark as read
-                    </button>
-                  )}
+                    <div className="flex gap-4 mt-2">
+                      {!n.is_read && (
+                        <button onClick={() => handleMarkRead(n.notif_id)}
+                          className="text-xs text-primary hover:underline">
+                          Mark as read
+                        </button>
+                      )}
+                      {n.link && (
+                        <button onClick={() => window.location.href = n.link}
+                          className="text-xs text-teal-600 hover:underline font-medium">
+                          Go to Page →
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
       </div>
     </div>
   );

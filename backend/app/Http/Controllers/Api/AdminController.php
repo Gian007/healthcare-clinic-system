@@ -89,7 +89,7 @@ class AdminController extends Controller
 
     public function getPatients()
     {
-        return response()->json(Patient::orderBy('created_at', 'desc')->get());
+        return response()->json(Patient::with('patientVerification')->orderBy('created_at', 'desc')->get());
     }
 
     public function updatePatientStatus(Request $request, $id)
@@ -99,6 +99,56 @@ class AdminController extends Controller
         $patient->account_status = $request->status;
         $patient->save();
         return response()->json(['message' => 'Patient status updated.', 'patient' => $patient]);
+    }
+
+    public function updatePatient(Request $request, $id)
+    {
+        $patient = Patient::findOrFail($id);
+        $patient->update($request->all());
+        return response()->json(['message' => 'Patient updated.', 'patient' => $patient]);
+    }
+
+    public function approveVerification(Request $request, $patientId)
+    {
+        $patient = Patient::findOrFail($patientId);
+        $action = $request->action; // 'approve' or 'reject'
+        
+        if ($action === 'approve') {
+            $patient->update(['verification_status' => 'Approved']);
+            if ($patient->patientVerification) {
+                $patient->patientVerification->update([
+                    'status' => 'Approved',
+                    'reviewed_by' => auth()->id(),
+                    'reviewed_at' => now()
+                ]);
+            }
+            SystemNotification::create([
+                'notifiable_type' => 'patient',
+                'notifiable_id'   => $patient->patient_id,
+                'title'           => 'ID Verification Approved',
+                'body'            => 'Congratulations! Your identity has been verified. You now have full access to all booking features.',
+                'type'            => 'success',
+            ]);
+        } else {
+            $patient->update(['verification_status' => 'Rejected']);
+            if ($patient->patientVerification) {
+                $patient->patientVerification->update([
+                    'status' => 'Rejected',
+                    'reviewed_by' => auth()->id(),
+                    'reviewed_at' => now(),
+                    'rejection_reason' => $request->reason
+                ]);
+            }
+            SystemNotification::create([
+                'notifiable_type' => 'patient',
+                'notifiable_id'   => $patient->patient_id,
+                'title'           => 'ID Verification Rejected',
+                'body'            => "Your ID verification was rejected. Reason: {$request->reason}. Please re-upload clear and valid documents in your profile.",
+                'type'            => 'danger',
+            ]);
+        }
+
+        return response()->json(['message' => 'Verification processed.']);
     }
 
     /* ─────────────────────────── Doctors ─────────────────────────── */
@@ -182,7 +232,7 @@ class AdminController extends Controller
         $request->validate([
             'first_name'     => 'required|string|max:255',
             'last_name'      => 'required|string|max:255',
-            'role'           => 'required|in:Admin,Receptionist,Nurse,Verifier',
+            'role'           => 'required|in:Admin,Receptionist,Nurse,Verifier,Queue Manager,Cashier',
             'contact_number' => 'required|string|regex:/^[0-9]+$/|max:20',
             'email'          => 'required|email|unique:staff,email',
         ]);

@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../state/auth";
 import { FaUserMd, FaClock, FaCalendarAlt, FaPaperPlane } from "react-icons/fa";
+import Logo from "../components/Logo";
 
 function ArrowRight() {
   return (
@@ -45,13 +46,16 @@ export default function Home() {
       <div className="max-w-6xl mx-auto px-6">
         {/* HERO */}
         <section className="pt-14 pb-10 text-center">
-          <h1 className="text-4xl md:text-5xl font-semibold text-gray-900 dark:text-white">
-            Welcome to HealthCare Clinic
+          <div className="flex flex-col items-center mb-6">
+            <Logo size="lg" />
+          </div>
+          <h1 className="text-4xl md:text-7xl font-black text-gray-900 dark:text-white tracking-tighter font-comfortaa leading-none font-fat">
+            SHQMS
           </h1>
-          <p className="mt-3 text-gray-600 dark:text-slate-400 max-w-2xl mx-auto">
-            Your trusted partner for comprehensive dental care. Quality service{" "}
-            <br className="hidden md:block" />
-            with a smile.
+          <p className="mt-2 text-base font-bold text-primary uppercase tracking-[0.2em] font-poppins">Smart Healthcare Availability and Queue Management System</p>
+          <div className="w-20 h-1 bg-primary/30 mx-auto my-6 rounded-full"></div>
+          <p className="text-lg md:text-xl italic font-medium text-gray-600 dark:text-slate-400 max-w-2xl mx-auto font-playfair">
+            "Skip the Wait, Get the Care."
           </p>
 
           <div className="mt-6 flex justify-center">

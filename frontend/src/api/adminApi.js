@@ -6,7 +6,9 @@ export const updatePassword          = (data) => api.post('/admin/profile/passwo
 export const uploadPhoto             = (fd)   => api.post('/admin/profile/photo', fd, { headers: { 'Content-Type': 'multipart/form-data' }}).then(r => r.data);
 
 export const getPatients             = ()     => api.get('/admin/patients').then(r => r.data);
+export const updatePatient           = (id,d) => api.put(`/admin/patients/${id}`, d).then(r => r.data);
 export const updatePatientStatus     = (id,d) => api.put(`/admin/patients/${id}/status`, d).then(r => r.data);
+export const processVerification     = (id,d) => api.post(`/admin/patients/${id}/verify`, d).then(r => r.data);
 
 export const getDoctors              = ()     => api.get('/admin/doctors').then(r => r.data);
 export const createDoctor            = (data) => api.post('/admin/doctors', data).then(r => r.data);

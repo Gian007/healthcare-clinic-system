@@ -145,16 +145,29 @@ export default function StaffDashboard() {
                 key={q.queue_id}
                 className="flex items-center justify-between gap-4 py-4"
               >
-                <div>
-                  <p className="text-sm font-semibold">Q-{q.queue_number} - {q.patient?.first_name} {q.patient?.last_name}</p>
-                  <p className={`text-xs ${muted}`}>Dr. {q.doctor?.last_name} • {q.queue_source}</p>
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-teal-100 dark:bg-teal-900/40 border border-teal-200 dark:border-teal-800 flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+                    {q.patient?.profile_picture ? (
+                      <img 
+                        src={`${import.meta.env.VITE_BACKEND_URL}/storage/${q.patient.profile_picture}`} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${q.patient.first_name}+${q.patient.last_name}&background=random`; }}
+                      />
+                    ) : (
+                      <span className="text-teal-600 dark:text-teal-400 font-bold text-[9px]">{(q.patient?.first_name?.[0] || "") + (q.patient?.last_name?.[0] || "")}</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">Q-{q.queue_number} - {q.patient?.first_name} {q.patient?.last_name}</p>
+                    <p className={`text-[10px] ${muted} mt-0.5`}>{q.doctor ? `Dr. ${q.doctor.last_name}` : 'No Doctor'} • {q.queue_source}</p>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <p className="hidden text-xs text-gray-400 sm:block">
                     {new Date(q.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                   </p>
-                  <StaffTableBadge status={q.queue_status === 'Active' ? 'In Progress' : q.queue_status} />
+                  <StaffTableBadge status={q.queue_status} />
                 </div>
               </div>
             ))
