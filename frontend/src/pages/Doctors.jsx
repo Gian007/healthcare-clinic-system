@@ -19,6 +19,7 @@ export default function Doctors() {
           name: `Dr. ${d.first_name} ${d.last_name}`,
           specialty: d.specialization?.name || "General Medicine",
           status: d.status,
+          isAvailableToday: d.is_available_today,
           image: d.profile_picture 
             ? (d.profile_picture.startsWith('http') ? d.profile_picture : `${import.meta.env.VITE_BACKEND_URL}/storage/${d.profile_picture}`)
             : `https://ui-avatars.com/api/?name=${d.first_name}+${d.last_name}&background=0D8BFF&color=fff`,

@@ -5,15 +5,18 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DoctorController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PatientController;
+use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\StaffController;
 use Illuminate\Support\Facades\Route;
 
 /* ─────────────── Public Routes ─────────────── */
 Route::post('/register',        [AuthController::class, 'register']);
+Route::post('/send-otp',        [AuthController::class, 'sendOTP']);
 Route::post('/login',           [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password',  [AuthController::class, 'resetPassword']);
 
+Route::get('/public/clinic-status', [\App\Http\Controllers\Api\PublicController::class, 'getClinicStatus']);
 Route::get('/public/doctors',       [\App\Http\Controllers\Api\PublicController::class, 'getDoctors']);
 Route::get('/public/services',      [\App\Http\Controllers\Api\PublicController::class, 'getServices']);
 Route::get('/public/queue',         [\App\Http\Controllers\Api\PublicController::class, 'getQueue']);
@@ -24,6 +27,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me',      [AuthController::class, 'me']);
+    Route::get('/services', [PublicController::class, 'getServices']);
+    Route::get('/booking/available-slots', [ScheduleController::class, 'getAvailableSlots']);
 
     /* ── Notifications (all roles) ── */
     Route::get('/notifications',                [NotificationController::class, 'index']);
@@ -83,6 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/profile/photo',               [AdminController::class, 'uploadProfilePicture']);
 
         Route::get('/patients',                     [AdminController::class, 'getPatients']);
+        Route::post('/patients',                    [AdminController::class, 'createPatient']);
         Route::put('/patients/{id}',                [AdminController::class, 'updatePatient']);
         Route::put('/patients/{id}/status',         [AdminController::class, 'updatePatientStatus']);
         Route::post('/patients/{id}/verify',        [AdminController::class, 'approveVerification']);
@@ -91,10 +97,30 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/doctors',                     [AdminController::class, 'createDoctor']);
         Route::put('/doctors/{id}',                 [AdminController::class, 'updateDoctor']);
         Route::put('/doctors/{id}/status',          [AdminController::class, 'updateDoctorStatus']);
+        Route::post('/doctors/{id}/email',           [AdminController::class, 'sendDoctorEmail']);
 
         Route::get('/staff',                        [AdminController::class, 'getStaff']);
         Route::post('/staff',                       [AdminController::class, 'createStaff']);
         Route::put('/staff/{id}',                   [AdminController::class, 'updateStaff']);
+        Route::post('/staff/{id}/email',             [AdminController::class, 'sendStaffEmail']);
+
+        // Scheduling Overhaul
+        Route::get('/clinic-hours',                 [ScheduleController::class, 'getClinicHours']);
+        Route::put('/clinic-hours',                 [ScheduleController::class, 'updateClinicHours']);
+
+        Route::get('/doctor-schedules',             [ScheduleController::class, 'getDoctorSchedules']);
+        Route::post('/doctor-schedules',            [ScheduleController::class, 'createDoctorSchedule']);
+        Route::put('/doctor-schedules/{id}',        [ScheduleController::class, 'updateDoctorSchedule']);
+        Route::delete('/doctor-schedules/{id}',     [ScheduleController::class, 'deleteDoctorSchedule']);
+
+        Route::get('/day-off-requests',             [ScheduleController::class, 'getDayOffRequests']);
+        Route::put('/day-off-requests/{id}/approve', [ScheduleController::class, 'approveDayOffRequest']);
+        Route::put('/day-off-requests/{id}/reject',  [ScheduleController::class, 'rejectDayOffRequest']);
+
+        Route::get('/special-schedules',            [ScheduleController::class, 'getSpecialSchedules']);
+        Route::post('/special-schedules',           [ScheduleController::class, 'createSpecialSchedule']);
+        Route::put('/special-schedules/{id}',       [ScheduleController::class, 'updateSpecialSchedule']);
+        Route::delete('/special-schedules/{id}',    [ScheduleController::class, 'deleteSpecialSchedule']);
 
         Route::get('/services',                     [AdminController::class, 'getServices']);
         Route::post('/services',                    [AdminController::class, 'createService']);
@@ -102,6 +128,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/services/{id}',             [AdminController::class, 'deleteService']);
 
         Route::get('/specializations',              [AdminController::class, 'getSpecializations']);
+        Route::post('/specializations',             [AdminController::class, 'createSpecialization']);
 
         Route::get('/schedules',                    [AdminController::class, 'getSchedules']);
         Route::post('/schedules',                   [AdminController::class, 'createSchedule']);
@@ -115,3 +142,11 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::get('/test', fn() => response()->json(['status' => 'ok', 'message' => 'Laravel API is running.']));
+
+Route::get('/test-email', function () {
+    \Illuminate\Support\Facades\Mail::raw('Brevo is working!', function ($message) {
+        $message->to('giansalomon29@gmail.com')
+                ->subject('Test Email');
+    });
+    return 'Email Sent!';
+});

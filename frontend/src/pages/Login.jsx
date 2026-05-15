@@ -85,8 +85,11 @@ export default function Login() {
             Email
           </label>
           <input
-            type="text"
+            type="email"
             required
+            autoCapitalize="none"
+            autoComplete="email"
+            spellCheck="false"
             className="mt-2 w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -108,6 +111,8 @@ export default function Login() {
             <input
               type={showPassword ? "text" : "password"}
               required
+              autoCapitalize="none"
+              autoComplete="current-password"
               className="w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 pr-10 outline-none focus:ring-2 focus:ring-primary/30"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

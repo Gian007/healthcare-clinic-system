@@ -9,6 +9,8 @@ use App\Models\Staff;
 use App\Models\SystemNotification;
 use App\Mail\ResetPasswordMail;
 use App\Mail\PasswordResetAutoMail;
+use App\Mail\VerificationCodeMail;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -61,6 +63,24 @@ class AuthController extends Controller
         ]);
     }
 
+    public function sendOTP(Request $request)
+    {
+        $request->validate(['email' => 'required|email|unique:patients,email']);
+        $email = $request->email;
+        $code = rand(100000, 999999);
+
+        // Store code in cache for 15 minutes
+        Cache::put('otp_' . $email, $code, now()->addMinutes(15));
+
+        try {
+            Mail::to($email)->send(new VerificationCodeMail($code));
+            return response()->json(['message' => 'Verification code sent to your email.']);
+        } catch (\Exception $e) {
+            Log::error("OTP Email failed: " . $e->getMessage());
+            return response()->json(['message' => 'Failed to send verification code. Please check your email configuration.'], 500);
+        }
+    }
+
     public function register(Request $request)
     {
         $request->validate([
@@ -73,8 +93,10 @@ class AuthController extends Controller
             'email'                 => 'required|string|email|max:255|unique:patients',
             'password'              => 'required|string|min:8|confirmed',
             'address'               => 'required|string',
+            'otp_code'              => 'required|string',
             'terms'                 => 'accepted',
         ], [
+            'otp_code.required'     => 'The verification code is required.',
             'contact_number.regex'  => 'The contact number must contain numbers only (optionally starting with +).',
             'email.email'           => 'Please provide a valid email address.',
             'email.unique'          => 'An account with this email already exists.',
@@ -82,6 +104,14 @@ class AuthController extends Controller
             'password.min'          => 'Password must be at least 8 characters long.',
             'terms.accepted'        => 'You must accept the Terms and Conditions.',
         ]);
+
+        // Verify OTP
+        $cachedCode = Cache::get('otp_' . $request->email);
+        if (!$cachedCode || $cachedCode != $request->otp_code) {
+            throw ValidationException::withMessages([
+                'otp_code' => ['Invalid or expired verification code.'],
+            ]);
+        }
 
         try {
             $patient = Patient::create([
@@ -150,7 +180,7 @@ class AuthController extends Controller
 
         if (!$user) {
             // Return success anyway to prevent email enumeration
-            return response()->json(['message' => 'If your email is registered, you will receive a new password shortly.']);
+            return response()->json(['message' => 'If your email is registered, you will receive a password reset link shortly.']);
         }
 
         // Check if Admin (Staff with role Admin)
@@ -158,18 +188,20 @@ class AuthController extends Controller
             return response()->json(['message' => 'Admin password reset is restricted. Please contact system support.'], 403);
         }
 
-        // Auto-generate new password
-        $newPassword = Str::random(10);
-        $user->password = Hash::make($newPassword);
-        $user->save();
+        // Generate token
+        $token = Str::random(60);
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $email],
+            ['token' => $token, 'created_at' => now()]
+        );
 
         try {
-            Mail::to($email)->send(new PasswordResetAutoMail($user, $newPassword));
+            Mail::to($email)->send(new ResetPasswordMail($token, $email));
         } catch (\Exception $e) {
-            // Log error or handle as needed
+            Log::error("Password reset email failed: " . $e->getMessage());
         }
 
-        return response()->json(['message' => 'If your email is registered, you will receive a new password shortly.']);
+        return response()->json(['message' => 'If your email is registered, you will receive a password reset link shortly.']);
     }
 
     public function resetPassword(Request $request)

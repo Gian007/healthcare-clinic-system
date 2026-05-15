@@ -197,8 +197,8 @@ export default function BookAppointment() {
                       }`}
                     >
                       <h3 className="font-semibold text-gray-900 dark:text-white">{s.service_name}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{s.duration_mins} mins</p>
-                      <p className="text-primary font-bold mt-2">₱{s.fee}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{s.estimated_duration} mins</p>
+                      <p className="text-primary font-bold mt-2">₱{s.base_fee}</p>
                     </div>
                   ))}
                 </div>
@@ -358,7 +358,7 @@ export default function BookAppointment() {
                 </div>
                 <div className="border-t dark:border-slate-700 pt-3 flex justify-between gap-4 mt-2">
                   <span className="text-gray-600 dark:text-gray-400 font-medium shrink-0">Total Fee</span>
-                  <span className="font-bold text-primary text-lg">₱{selectedService?.fee}</span>
+                  <span className="font-bold text-primary text-lg">₱{selectedService?.base_fee}</span>
                 </div>
               </div>
               <div className="mt-8 flex justify-between">

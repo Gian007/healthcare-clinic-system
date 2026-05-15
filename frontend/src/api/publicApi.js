@@ -1,5 +1,7 @@
 import api from './axios';
 
+export const getClinicStatus  = () => api.get('/public/clinic-status').then(r => r.data);
+
 export const getDoctors       = () => api.get('/public/doctors').then(r => r.data);
 export const getServices      = () => api.get('/public/services').then(r => r.data);
 export const getQueue         = () => api.get('/public/queue').then(r => r.data);

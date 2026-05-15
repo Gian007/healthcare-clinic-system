@@ -19,6 +19,10 @@ class Doctor extends Authenticatable
         return $this->belongsTo(Specialization::class, 'specialization_id', 'specialization_id');
     }
 
+    public function specializations(){
+        return $this->belongsToMany(Specialization::class, 'doctor_specializations', 'doctor_id', 'specialization_id')->withTimestamps();
+    }
+
     public function schedules(){
         return $this->hasMany(DoctorSchedule::class, 'doctor_id', 'doctor_id');
     }
@@ -37,5 +41,9 @@ class Doctor extends Authenticatable
 
     public function appointments(){
         return $this->hasMany(Appointment::class, 'doctor_id', 'doctor_id');
+    }
+
+    public function attachments(){
+        return $this->hasMany(DoctorAttachment::class, 'doctor_id', 'doctor_id');
     }
 }

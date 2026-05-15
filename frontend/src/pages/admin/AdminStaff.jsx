@@ -54,6 +54,8 @@ export default function AdminStaff() {
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [credentials, setCredentials] = useState(null);
+  const [mailData, setMailData] = useState({ subject: '', message: '' });
+  const [sendingMail, setSendingMail] = useState(false);
 
   useEffect(() => {
     loadStaff();
@@ -72,6 +74,23 @@ export default function AdminStaff() {
     }
   };
 
+  const handleMail = async (e) => {
+    e.preventDefault();
+    if (!mailData.subject || !mailData.message) return alert("Please fill in both subject and message.");
+    
+    setSendingMail(true);
+    try {
+      await adminApi.sendStaffEmail(modal.data.staff_id, mailData);
+      alert("Email sent successfully!");
+      setMailData({ subject: '', message: '' });
+    } catch (err) {
+      console.error(err);
+      alert("Failed to send email.");
+    } finally {
+      setSendingMail(false);
+    }
+  };
+
   const list = useMemo(() =>
     records.filter(s => 
       `${s.first_name} ${s.last_name} ${s.email} ${s.role}`.toLowerCase().includes(query.toLowerCase())
@@ -82,11 +101,22 @@ export default function AdminStaff() {
   const save = async () => {
     setSaving(true);
     try {
+      const fd = new FormData();
+      Object.keys(modal.data).forEach(key => {
+        if (key === 'photo') {
+          if (modal.data[key]) fd.append('photo', modal.data[key]);
+        } else {
+          fd.append(key, modal.data[key] || '');
+        }
+      });
+
+      if (modal.mode === 'edit') fd.append('_method', 'PUT');
+
       if (modal.mode === "add") {
-        const res = await adminApi.createStaff(modal.data);
+        const res = await adminApi.createStaff(fd);
         setCredentials({ staff: res.staff, tempPassword: res.temp_password });
       } else {
-        await adminApi.updateStaff(modal.data.staff_id, modal.data);
+        await adminApi.updateStaff(modal.data.staff_id, fd);
       }
       setNotice(modal.mode === "add" ? "Staff member added successfully." : "Staff record updated.");
       setModal(null);
@@ -220,6 +250,14 @@ export default function AdminStaff() {
             <TextInput label="Contact" value={modal.data.contact_number} onChange={v => setModal({ ...modal, data: { ...modal.data, contact_number: v } })} />
             <TextInput label="Email" value={modal.data.email} onChange={v => setModal({ ...modal, data: { ...modal.data, email: v } })} />
             
+            {modal.mode === 'edit' && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Profile Picture</label>
+                <input type="file" onChange={e => setModal({ ...modal, data: { ...modal.data, photo: e.target.files[0] } })}
+                  className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-600 hover:file:bg-teal-100" />
+              </div>
+            )}
+
             <button 
               onClick={save} 
               disabled={saving}
@@ -228,6 +266,37 @@ export default function AdminStaff() {
               {saving ? 'Processing...' : 'Save Staff Member'}
             </button>
           </div>
+
+          {modal.mode === 'edit' && (
+            <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800">
+              <h4 className="text-sm font-bold uppercase tracking-widest text-slate-800 dark:text-slate-200 mb-4">Contact Staff</h4>
+              <div className="space-y-4">
+                <TextInput 
+                  label="Subject" 
+                  placeholder="Enter email subject..."
+                  value={mailData.subject} 
+                  onChange={v => setMailData(p => ({ ...p, subject: v }))} 
+                />
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Message</label>
+                  <textarea 
+                    rows={4}
+                    placeholder="Type your message here..."
+                    value={mailData.message}
+                    onChange={e => setMailData(p => ({ ...p, message: e.target.value }))}
+                    className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-600/20 dark:bg-slate-800 dark:text-white transition-all resize-none" 
+                  />
+                </div>
+                <button 
+                  onClick={handleMail}
+                  disabled={sendingMail || !mailData.subject || !mailData.message}
+                  className="w-full bg-slate-900 dark:bg-teal-600 text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:opacity-90 transition disabled:opacity-30 flex items-center justify-center gap-2 shadow-xl"
+                >
+                  {sendingMail ? "Sending..." : "🚀 Send Message"}
+                </button>
+              </div>
+            </div>
+          )}
         </Modal>
       )}
       {credentials && (

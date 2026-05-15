@@ -54,12 +54,17 @@ export default function AdminPatients(){
   const save = async () => {
     try {
       setSaving(true);
-      await adminApi.updatePatient(modal.data.patient_id, modal.data);
-      setNotice(`Patient ${modal.data.first_name} updated successfully.`);
+      if (modal.mode === "add") {
+        const res = await adminApi.createPatient(modal.data);
+        setNotice(`Patient ${modal.data.first_name} created successfully. A temporary password (${res.temp_password}) has been sent to their email.`);
+      } else {
+        await adminApi.updatePatient(modal.data.patient_id, modal.data);
+        setNotice(`Patient ${modal.data.first_name} updated successfully.`);
+      }
       setModal(null);
       fetchPatients();
     } catch (e) {
-      alert("Failed to save changes.");
+      alert(e.response?.data?.message || "Failed to save changes.");
     } finally {
       setSaving(false);
     }

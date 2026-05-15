@@ -80,7 +80,7 @@ export default function App() {
     ["/staff", "/admin", "/doctor", "/patient"].includes(location.pathname);
 
   return (
-    <div className="min-h-screen bg-neutralbg">
+    <div className="min-h-screen bg-neutralbg dark:bg-slate-950 transition-colors duration-200">
       {!hideNavbar && <Navbar />}
 
       <Routes>

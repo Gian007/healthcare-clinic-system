@@ -3,7 +3,7 @@ import { Badge, Modal, PageHeader, TextInput, Toolbar } from "../../components/a
 import * as adminApi from "../../api/adminApi";
 import { FaCopy, FaCheckCircle } from "react-icons/fa";
 
-const BLANK = { first_name:'', last_name:'', specialization_id:'', license_number:'', contact_number:'', email:'', daily_booking_limit:20 };
+const BLANK = { first_name:'', last_name:'', specialization_ids:[], license_number:'', contact_number:'', email:'', daily_booking_limit:20, photo: null, attachments: [] };
 
 function SuccessCredentials({ doctor, tempPassword, onClose }) {
   const [copied, setCopied] = useState(false);
@@ -52,9 +52,14 @@ function SuccessCredentials({ doctor, tempPassword, onClose }) {
 export default function AdminDoctors() {
   const [records, setRecords]         = useState([]);
   const [specializations, setSpecs]   = useState([]);
+  const [services, setServices]       = useState([]);
   const [loading, setLoading]         = useState(true);
+  const [showNewSpec, setShowNewSpec] = useState(false);
+  const [newSpecName, setNewSpecName] = useState('');
   const [query, setQuery]             = useState('');
   const [modal, setModal]             = useState(null); // { mode: 'add'|'edit', data }
+  const [mailData, setMailData]       = useState({ subject: '', message: '' });
+  const [sendingMail, setSendingMail] = useState(false);
   const [formData, setFormData]       = useState(BLANK);
   const [formErrors, setFormErrors]   = useState({});
   const [saving, setSaving]           = useState(false);
@@ -67,12 +72,56 @@ export default function AdminDoctors() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [doctors, specs] = await Promise.all([adminApi.getDoctors(), adminApi.getSpecializations()]);
+      const [doctors, specs, svcs] = await Promise.all([
+        adminApi.getDoctors(), 
+        adminApi.getSpecializations(),
+        adminApi.getServices()
+      ]);
       setRecords(doctors);
       setSpecs(specs);
+      setServices(svcs);
     } catch(e) { console.error(e); }
     setLoading(false);
   };
+
+  // Full Medical Registry Fallback - Loops through every specialization provided by USER
+  const displaySpecs = useMemo(() => {
+    const registry = [
+      { cat: 'Recommended Starter List', names: ["General Medicine", "Pediatrics", "OB-GYNE", "Dentistry", "Dermatology", "ENT", "Orthopedics", "Cardiology", "Ophthalmology", "General Surgery", "Radiology", "Physical Therapy", "Psychiatry"] },
+      { cat: 'Core General Specializations', names: ["General Medicine", "Family Medicine", "Internal Medicine", "General Practitioner (GP)", "Pediatrics", "OB-GYNE (Obstetrics and Gynecology)", "Dermatology", "ENT (Ear, Nose, and Throat)", "Ophthalmology", "Orthopedics", "Cardiology", "Neurology", "Psychiatry", "Pulmonology", "Gastroenterology", "Nephrology", "Urology", "Endocrinology", "Rheumatology", "Infectious Disease", "Oncology", "Geriatrics"] },
+      { cat: 'Surgical Specializations', names: ["General Surgery", "Cardiothoracic Surgery", "Neurosurgery", "Orthopedic Surgery", "Plastic Surgery", "Vascular Surgery", "Pediatric Surgery", "Urologic Surgery", "Surgical Oncology"] },
+      { cat: 'Dental & Oral', names: ["Dentistry", "Orthodontics", "Oral Surgery", "Pediatric Dentistry", "Prosthodontics"] },
+      { cat: 'Women & Child Care', names: ["Maternal Care", "Fertility Specialist", "Neonatology", "Pediatric Cardiology", "Pediatric Neurology"] },
+      { cat: 'Diagnostic & Imaging', names: ["Radiology", "Ultrasound Specialist", "Pathology", "Laboratory Medicine"] },
+      { cat: 'Emergency & Critical Care', names: ["Emergency Medicine", "Trauma Care", "Critical Care Medicine", "Intensive Care Unit (ICU)"] },
+      { cat: 'Therapy & Rehabilitation', names: ["Physical Therapy", "Occupational Therapy", "Speech Therapy", "Rehabilitation Medicine"] },
+      { cat: 'Mental Health', names: ["Psychology", "Psychiatry", "Behavioral Therapy"] },
+      { cat: 'Clinic Support Roles', names: ["Nurse", "Nurse Assistant", "Midwife", "Pharmacist", "Medical Technologist", "Receptionist", "Laboratory Technician", "Radiologic Technologist"] }
+    ];
+
+    const all = [];
+    let idCounter = 999000;
+    registry.forEach(r => {
+      r.names.forEach(name => {
+        if (!all.find(x => x.name === name)) {
+          all.push({ specialization_id: idCounter++, name, description: r.cat });
+        }
+      });
+    });
+
+    if (specializations.length > 0) {
+      specializations.forEach(s => {
+        const found = all.find(x => x.name === s.name);
+        if (found) {
+           found.specialization_id = s.specialization_id;
+           found.description = s.description || found.description;
+        } else {
+           all.push(s);
+        }
+      });
+    }
+    return all.sort((a,b) => a.name.localeCompare(b.name));
+  }, [specializations]);
 
   const list = useMemo(() =>
     records.filter(d => `${d.first_name} ${d.last_name} ${d.email} ${d.license_number} ${d.specialization?.name}`.toLowerCase().includes(query.toLowerCase())),
@@ -81,32 +130,100 @@ export default function AdminDoctors() {
   const openAdd = () => {
     setFormData(BLANK);
     setFormErrors({});
+    setShowNewSpec(false);
+    setNewSpecName('');
     setModal('add');
   };
 
   const openEdit = (d) => {
-    setFormData({ ...d, specialization_id: d.specialization_id || '' });
+    setFormData({ 
+      ...d, 
+      specialization_ids: d.specializations?.map(s => s.specialization_id) || (d.specialization_id ? [d.specialization_id] : [])
+    });
     setFormErrors({});
+    setShowNewSpec(false);
+    setNewSpecName('');
     setModal('edit');
   };
 
   const handleField = (e) => {
-    const { name, value } = e.target;
-    setFormData(p => ({ ...p, [name]: name === 'contact_number' ? value.replace(/\D/g,'') : value }));
+    const { name, value, type, files } = e.target;
+    if (type === 'file') {
+      if (name === 'attachments') {
+        setFormData(p => ({ ...p, attachments: Array.from(files) }));
+      } else {
+        setFormData(p => ({ ...p, [name]: files[0] }));
+      }
+    } else {
+      setFormData(p => ({ ...p, [name]: name === 'contact_number' ? value.replace(/\D/g,'') : value }));
+    }
     setFormErrors(p => ({ ...p, [name]: '' }));
+  };
+
+  const handleMail = async (e) => {
+    e.preventDefault();
+    if (!mailData.subject || !mailData.message) return alert("Please fill in both subject and message.");
+    
+    setSendingMail(true);
+    try {
+      await adminApi.sendDoctorEmail(formData.doctor_id, mailData);
+      alert("Email sent successfully!");
+      setMailData({ subject: '', message: '' });
+    } catch (err) {
+      console.error(err);
+      alert("Failed to send email.");
+    } finally {
+      setSendingMail(false);
+    }
   };
 
   const save = async (e) => {
     e.preventDefault();
     setSaving(true); setFormErrors({});
+
     try {
+      const currentSpecIds = [];
+      for (const entry of formData.specialization_ids) {
+        if (typeof entry === 'string' && entry.startsWith('NEW:')) {
+          const name = entry.replace('NEW:', '');
+          const res = await adminApi.createSpecialization({ name });
+          currentSpecIds.push(res.specialization.specialization_id);
+        } else {
+          currentSpecIds.push(entry);
+        }
+      }
+
+      if (currentSpecIds.length === 0) {
+        setFormErrors({ specialization_ids: 'At least one specialization is required.' });
+        setSaving(false);
+        return;
+      }
+
+      const fd = new FormData();
+      Object.keys(formData).forEach(key => {
+        if (key === 'specialization_ids') {
+          currentSpecIds.forEach(id => fd.append('specialization_ids[]', id));
+        } else if (key === 'attachments') {
+          formData[key].forEach(file => fd.append('attachments[]', file));
+        } else if (key === 'photo') {
+          if (formData[key]) fd.append('photo', formData[key]);
+        } else if (key !== 'doctor_id') {
+          fd.append(key, formData[key] || '');
+        }
+      });
+
+      if (modal === 'edit') fd.append('_method', 'PUT');
+
+      const res = modal === 'add' 
+        ? await adminApi.createDoctor(fd) 
+        : await adminApi.updateDoctor(formData.doctor_id, fd);
+      
       if (modal === 'add') {
-        const res = await adminApi.createDoctor(formData);
         setCredentials({ doctor: res.doctor, tempPassword: res.temp_password });
-      } else {
-        await adminApi.updateDoctor(formData.doctor_id, formData);
       }
       setModal(null);
+      setShowNewSpec(false);
+      setNewSpecName('');
       fetchAll();
     } catch(err) {
       if (err.response?.data?.errors) {
@@ -167,7 +284,11 @@ export default function AdminDoctors() {
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-gray-900 dark:text-white">Dr. {d.first_name} {d.last_name}</h2>
-                    <p className="text-sm text-slate-500 font-medium">{d.specialization?.name || 'No specialization'}</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {d.specializations?.length > 0 ? d.specializations.map(s => (
+                        <span key={s.specialization_id} className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded font-medium border border-slate-200 dark:border-slate-700">{s.name}</span>
+                      )) : <span className="text-sm text-slate-500 font-medium">{d.specialization?.name || 'No specialization'}</span>}
+                    </div>
                     <p className="text-[10px] text-teal-600 font-bold uppercase tracking-widest mt-1">{d.license_number}</p>
                   </div>
                 </div>
@@ -235,19 +356,142 @@ export default function AdminDoctors() {
                   {formErrors[f.name] && <p className="text-xs text-red-500 mt-1">{formErrors[f.name]}</p>}
                 </div>
               ))}
+              {modal === 'edit' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Profile Picture</label>
+                    <input type="file" name="photo" accept="image/*" onChange={handleField}
+                      className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Attachments (Multi-file)</label>
+                    <input type="file" name="attachments" multiple onChange={handleField}
+                      className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" />
+                    <p className="text-[10px] text-slate-400 mt-1 italic">Certificates, IDs, or other docs.</p>
+                  </div>
+                </>
+              )}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Specialization <span className="text-red-500">*</span></label>
-                <select name="specialization_id" value={formData.specialization_id||''} onChange={handleField} required
-                  className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:border-slate-700 dark:text-white ${formErrors.specialization_id ? 'border-red-400' : 'border-gray-300 dark:border-slate-700'}`}>
-                  <option value="">— Select Specialization —</option>
-                  {specializations.map(s => (
-                    <option key={s.specialization_id} value={s.specialization_id}>{s.name}</option>
-                  ))}
-                </select>
-                {formErrors.specialization_id && <p className="text-xs text-red-500 mt-1">{formErrors.specialization_id}</p>}
-                {specializations.length === 0 && (
-                  <p className="text-xs text-amber-600 mt-1">No specializations found. Add them via DB or an admin tool.</p>
-                )}
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Specializations <span className="text-red-500">*</span></label>
+                  {!showNewSpec && (
+                    <button type="button" onClick={() => setShowNewSpec(true)} className="text-[10px] bg-primary/10 text-primary px-3 py-1.5 rounded-lg font-bold hover:bg-primary/20 transition-all border border-primary/20 shadow-sm">
+                      + Other Specialization
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2 mb-2 p-3 border border-gray-100 dark:border-slate-800 rounded-xl bg-gray-50/30 dark:bg-slate-900/30">
+                    {formData.specialization_ids.length === 0 && <span className="text-gray-400 text-xs italic">No specializations linked yet.</span>}
+                    {formData.specialization_ids.map(id => {
+                      const sp = displaySpecs.find(x => x.specialization_id === id);
+                      const isNew = typeof id === 'string' && id.startsWith('NEW:');
+                      const label = isNew ? id.replace('NEW:', '') : (sp?.name || 'Unknown');
+                      const isLinkedToService = services.some(svc => svc.specializations?.some(x => x.specialization_id === id) || svc.specialization_id === id);
+                      return (
+                        <span key={id} className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border shadow-sm transition-all animate-in zoom-in-95 ${isLinkedToService ? 'bg-primary/10 text-primary border-primary/20' : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800'}`}>
+                          {!isLinkedToService && !isNew && <span title="Not linked to any service">⚠️</span>}
+                          {label}
+                          <button type="button" onClick={() => setFormData(p => ({ ...p, specialization_ids: p.specialization_ids.filter(x => x !== id) }))} className="ml-1 hover:text-red-500 font-bold">×</button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  
+                  {!showNewSpec ? (
+                    <div className="space-y-3 relative group">
+                      <div className="relative">
+                        <select value="" onChange={e => {
+                          const val = parseInt(e.target.value);
+                          if (val && !formData.specialization_ids.includes(val)) {
+                            setFormData(p => ({ ...p, specialization_ids: [...p.specialization_ids, val] }));
+                          }
+                        }}
+                          className={`w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:border-slate-700 dark:text-white text-sm shadow-sm transition-all ${formErrors.specialization_ids ? 'border-red-400' : 'border-gray-300 dark:border-slate-700'}`}>
+                          <option value="">— Browse All Specializations —</option>
+                          {Object.entries(
+                            displaySpecs
+                              .filter(s => !formData.specialization_ids.includes(s.specialization_id))
+                              .reduce((acc, sp) => {
+                                const cat = sp.description || 'General Medicine & Primary Care';
+                                if (!acc[cat]) acc[cat] = [];
+                                acc[cat].push(sp);
+                                return acc;
+                              }, {})
+                          ).map(([cat, items]) => (
+                            <optgroup key={cat} label={cat.toUpperCase()}>
+                              {items.map(s => (
+                                <option key={s.specialization_id} value={s.specialization_id}>{s.name}</option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      {formData.specialization_ids.length > 0 && formData.specialization_ids.some(id => !services.some(svc => svc.specializations?.some(sp => sp.specialization_id === id) || svc.specialization_id === id)) && (
+                        <div className="text-[11px] text-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800 font-bold shadow-sm flex items-start gap-2 leading-relaxed">
+                          <span className="text-lg mt-[-2px]">⚠️</span>
+                          <span>
+                            One or more specializations are not yet linked to a service. 
+                            <br/>
+                            <span className="text-amber-600/70 font-medium italic">Please ensure at least one service exists for these fields.</span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-primary/5 dark:bg-primary/10 p-5 rounded-2xl border border-primary/20 space-y-3 shadow-xl">
+                      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                         <span className="w-2 h-2 bg-primary rounded-full animate-ping"/>
+                         Register Custom Field
+                      </p>
+                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                      <div className="flex-1 relative">
+                        <input 
+                          autoFocus 
+                          placeholder="Type specialization name here..." 
+                          value={newSpecName} 
+                          onChange={e => setNewSpecName(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (newSpecName.trim()) {
+                                setFormData(p => ({ ...p, specialization_ids: [...p.specialization_ids, 'NEW:' + newSpecName.trim()] }));
+                                setNewSpecName('');
+                                setShowNewSpec(false);
+                              }
+                            }
+                          }}
+                          className="w-full border border-primary/30 dark:border-primary/50 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500" 
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          type="button" 
+                          onClick={() => {
+                            if (!newSpecName.trim()) return;
+                            setFormData(p => ({ ...p, specialization_ids: [...p.specialization_ids, 'NEW:' + newSpecName.trim()] }));
+                            setNewSpecName('');
+                            setShowNewSpec(false);
+                          }} 
+                          className="flex-1 sm:flex-none bg-primary text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 shadow-lg shadow-primary/10 whitespace-nowrap"
+                        >
+                          Confirm
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => { setShowNewSpec(false); setNewSpecName(''); }} 
+                          className="flex-1 sm:flex-none px-3 text-[10px] font-black text-gray-500 dark:text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest bg-gray-100 dark:bg-slate-800 sm:bg-transparent sm:dark:bg-transparent rounded-xl sm:rounded-none"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                    {!newSpecName.trim() && <p className="text-[10px] text-red-500 dark:text-red-400 font-bold italic px-1 animate-bounce">⚠️ Please enter a name or click cancel</p>}
+                  </div>
+                  )}
+                </div>
+                {formErrors.specialization_ids && <p className="text-xs text-red-500 mt-2 font-bold flex items-center gap-1 px-1 tracking-tight">⚠️ {formErrors.specialization_ids}</p>}
               </div>
             </div>
             {modal === 'add' && (
@@ -255,10 +499,58 @@ export default function AdminDoctors() {
                 💡 A random 8-character temporary password will be generated. You'll be able to copy it after creation.
               </div>
             )}
-            <button type="submit" disabled={saving} className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50">
+            <button type="submit" disabled={saving} className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 shadow-lg shadow-primary/20">
               {saving ? 'Saving...' : modal === 'add' ? 'Create Doctor Account' : 'Save Changes'}
             </button>
           </form>
+
+          {modal === 'edit' && (
+            <div className="mt-10 pt-8 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="h-8 w-1 bg-primary rounded-full"/>
+                <h4 className="text-sm font-bold uppercase tracking-widest text-slate-800 dark:text-slate-200">Contact Doctor</h4>
+              </div>
+              
+              <div className="bg-slate-50 dark:bg-slate-900/40 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1">Email Subject</label>
+                    <input 
+                      placeholder="Enter subject here..."
+                      value={mailData.subject}
+                      onChange={e => setMailData(p => ({ ...p, subject: e.target.value }))}
+                      className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white transition-all" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1">Message Body</label>
+                    <textarea 
+                      rows={4}
+                      placeholder="Type your message to the doctor here..."
+                      value={mailData.message}
+                      onChange={e => setMailData(p => ({ ...p, message: e.target.value }))}
+                      className="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white transition-all resize-none" 
+                    />
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={handleMail}
+                    disabled={sendingMail || !mailData.subject || !mailData.message}
+                    className="w-full bg-slate-900 dark:bg-primary text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:opacity-90 transition disabled:opacity-30 flex items-center justify-center gap-2 shadow-xl"
+                  >
+                    {sendingMail ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>
+                        Sending...
+                      </>
+                    ) : (
+                      <>🚀 Send Message to Inbox</>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </Modal>
       )}
 

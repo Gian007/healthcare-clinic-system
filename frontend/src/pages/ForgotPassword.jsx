@@ -30,14 +30,14 @@ export default function ForgotPassword() {
             <FaHeartbeat className="text-white text-2xl" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Forgot Password</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Enter your email to receive a new auto-generated password.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Enter your email to receive a password reset link.</p>
         </div>
 
         {success ? (
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-800 p-8 text-center space-y-4">
             <FaCheckCircle className="text-green-500 text-5xl mx-auto" />
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Check Your Email</h2>
-            <p className="text-gray-500 dark:text-gray-400">If your email is registered, we've sent you a new auto-generated password.</p>
+            <p className="text-gray-500 dark:text-gray-400">If your email is registered, we've sent you a password reset link.</p>
             <Link to="/login" className="inline-block mt-4 text-primary font-semibold hover:underline">Back to Login</Link>
           </div>
         ) : (
@@ -56,7 +56,7 @@ export default function ForgotPassword() {
 
             <button type="submit" disabled={loading}
               className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:opacity-95 disabled:opacity-50 transition">
-              {loading ? 'Sending...' : 'Get New Password'}
+              {loading ? 'Sending...' : 'Send Reset Link'}
             </button>
 
             <p className="text-center text-sm text-gray-500 dark:text-gray-400">
