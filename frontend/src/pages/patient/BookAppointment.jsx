@@ -66,6 +66,20 @@ export default function BookAppointment() {
       .finally(() => setDataLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (doctors.length > 0 && selectedDoctor) {
+      const freshDoc = doctors.find(d => d.doctor_id === selectedDoctor.doctor_id);
+      if (freshDoc) {
+        setSelectedDoctor(freshDoc);
+        sessionStorage.setItem("booking_doctor", JSON.stringify(freshDoc));
+      } else {
+        setSelectedDoctor(null);
+        sessionStorage.removeItem("booking_doctor");
+      }
+    }
+  }, [doctors]);
+
+
   const next = () => {
     setStep(step + 1);
     sessionStorage.setItem("booking_step", step + 1);
@@ -164,7 +178,8 @@ export default function BookAppointment() {
 
   const getDayOfWeek = (dateString) => {
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const d = new Date(dateString);
+    const [year, month, day] = dateString.split("-").map(Number);
+    const d = new Date(year, month - 1, day);
     return days[d.getDay()];
   };
 

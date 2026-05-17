@@ -303,12 +303,6 @@ export default function AdminSchedules() {
                       >
                         Edit
                       </button>
-                      <button 
-                        onClick={() => setConfirmDelete({ type: 'doctor', id: s.schedule_id, label: `Dr. ${s.doctor?.last_name} (${s.day_of_week})` })}
-                        className="p-2.5 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 transition"
-                      >
-                        <FaTrash/>
-                      </button>
                     </div>
                   </div>
                 </div>
