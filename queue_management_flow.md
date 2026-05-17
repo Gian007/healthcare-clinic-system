@@ -1,147 +1,78 @@
 # Smart Healthcare Availability & Queue Management System
 
-This document explains the dynamic, real-time queue management flow designed to reduce patient waiting times, prevent clinic congestion, and optimize doctor utilization.
+This document outlines the clarified, real-time room-based queue management flow of the **Smart Healthcare Availability & Queue Management System (SHQMS)**. It describes how actor roles, room configurations, queue assignment, and active statuses synchronize dynamically to optimize the doctor's consultation workflow.
 
 ---
 
-## 1. Queue Lifecycle Workflow
+## 1. Unified Actors & Permission Roles
+
+The system operates with strict segregation of duties between three main roles:
+
+| Actor Role | Live Queue Permission | Action Rights |
+| :--- | :--- | :--- |
+| 🧑‍⚕️ **Doctor** | View own room queue | **Full Control** (Call next, mark completed, hold session) |
+| 📋 **Staff (Receptionist/Nurse)** | View all queues per room | **Full Control** (Check-in patients, register walk-ins, cancel/remove patients) |
+| 👑 **Admin** | View all queues per room | **Monitoring Only** (Read-only view, cannot add walk-ins or modify active queues) |
+
+---
+
+## 2. Queue Lifecycle Workflow
+
+SHQMS coordinates online appointments and walk-in flows dynamically, prioritizing physically checked-in waiting patients per room:
 
 ```mermaid
 graph TD
-    A[Patient: Book Appointment] -->|Status: Booked| B{Automated Notification}
-    B -->|Confirm Attendance| C[Check-In Validation]
-    B -->|Cancel/Ignore/No Show| D[Status: Cancelled / No Show]
-    C -->|QR Code / Staff Scan| E[Status: Waiting]
-    E -->|Placed in Active Doctor Queue| F[Doctor Dashboard: Call Patient]
-    F -->|Consultation Finished| G[Status: Completed]
-    D -->|Release Unused Slot| H[Standby / Walk-in / Late Patient Insertion]
-    H -->|Smart Queue Insertion| E
+    A[Patient: Book Online] -->|Status: Booked| B{Arrival & Check-in Window}
+    B -->|Scan QR / Staff Check-in| C[Placed in Room-Specific Queue]
+    B -->|Grace Window Exceeded| D[Status: No Show / Released Slot]
+    
+    E[Walk-in Patient: Staff Adds] -->|Assigned to Doctor Room| C
+    
+    C -->|Status: Waiting| F[Doctor Dashboard: Call Next]
+    F -->|Status: In Consultation| G[Doctor: Finish Session]
+    G -->|Status: Completed| H[System Notification Sent]
 ```
 
 ---
 
-## 2. Dynamic Queue Flow Lifecycle Stages
+## 3. Dynamic Room-Based Queue Logic
 
-### 📅 Stage 1: Appointment Scheduling
-Patients schedule an appointment online or through the clinic portal. They must select:
-* Healthcare Service
-* Assigned Doctor
-* Preferred Schedule & Time Range
-* Reason for Visit
-
-> [!NOTE]
-> Upon booking, the patient's status is initialized as **Booked**. At this stage, they are **not** yet placed in the active serving queue to avoid blocking slots.
-
-| Patient | Schedule | Status |
-| :--- | :--- | :--- |
-| John Doe | 10:00 AM – 11:00 AM | **Booked** |
+Instead of a single global queue channel, **queues are completely room-based**. 
+* **Dynamic Room Configuration**: The active room count is decided automatically by the Admin when scheduling doctors. Each active regular doctor schedule has an assigned `room` column.
+* **Autonomous Channels**: If 3 doctors are scheduled today, the system automatically opens 3 side-by-side queues corresponding to those rooms.
+* **Doctor Alignment**: Doctors see only the queue specific to the room assigned in their day's schedule.
 
 ---
 
-### 🔔 Stage 2: Automated Notification Process
-To minimize no-shows and ensure optimal patient flow:
-* **1-Hour Reminder**: The system sends an SMS/Email notification.
-* **30-Minute Reminder**: A second notification is sent before the scheduled time slot.
+## 4. Patient Status Transitions
 
-The patient can:
-1. **Confirm Attendance** (signals arrival prep).
-2. **Cancel Appointment** (frees up slot).
-3. **Ignore / No-Show** (triggers grace period check).
+Each patient in the system flows through a set of standardized statuses:
 
----
-
-### 🔑 Stage 3: Patient Check-In Validation
-Upon arrival at the clinic, the patient must check in via:
-* Clinic Staff manual check-in
-* QR code scanner check-in
-* Patient portal confirmation
-
-> [!IMPORTANT]
-> **Check-In Validation Formula:**
-> ```text
-> Booked ──[Check-In Completed]──> Waiting
-> ```
-> Only patients under the **Waiting** status are visible on the Doctor's live dashboard. Absent or non-checked-in patients remain outside the active queue.
-
-| Patient | Schedule | Check-In Done | Status |
-| :--- | :--- | :--- | :--- |
-| John Doe | 10:00 AM – 11:00 AM | **Yes** | **Waiting** (Active) |
-| Ana Cruz | 10:00 AM – 11:00 AM | **No** | **Booked** (Inactive) |
+* **Booked**: Patient completed online scheduling but has not physically checked in at the clinic.
+* **Waiting**: Patient checked in (via QR scan or staff validation) and is placed in their room's active queue.
+* **In Consultation**: Doctor is currently serving the patient in the designated room.
+* **Completed**: The consultation has ended successfully.
+* **Cancelled / No Show**: The patient failed to check in on time, or staff removed them, releasing the slot.
 
 ---
 
-### 🔄 Stage 4: Dynamic Active Queue System
-Unlike traditional static queue numbers, the system uses a **Dynamic Waiting Pool**:
-* The doctor's queue only lists checked-in patients who are physically present.
-* Absent patients with earlier appointments do not stall the doctor's queue.
+## 5. Room-Specific Queue Number Assignments
 
-**Example Active Queue Sequence:**
-1. **John Doe** (Checked-In, 10:00 AM)
-2. **Mark Reyes** (Checked-In, 10:15 AM)
-3. **Ken Santos** (Checked-In, 10:30 AM)
-
----
-
-### ⏱️ Stage 5: Flexible Late Patient Policy
-The system accommodates late arrivals without penalizing punctual patients.
+To prevent patient confusion across separate consulting rooms, queue numbers are room-specific and utilize unique room-prefix letter codes:
 
 ```text
-Appointment Schedule: 10:00 AM – 11:00 AM
-Allowed Check-In Window: 9:45 AM – 10:30 AM (45-Minute Window)
+Room 1 (Cardiology) ──> Assigned Prefix 'A' ──> Queue Numbers: A001, A002, A003...
+Room 2 (Pediatrics) ──> Assigned Prefix 'B' ──> Queue Numbers: B001, B002, B003...
+Room 3 (General Med) ──> Assigned Prefix 'C' ──> Queue Numbers: C001, C002, C003...
 ```
 
-> [!TIP]
-> Late patients who check in within the grace window but after their designated start time will be inserted into upcoming empty slots, but **will not** override already-waiting punctual patients.
+* **Walk-in Alignment**: When Staff registers a walk-in patient, the system assigns them to the appropriate room's upcoming sequence (e.g., if Room 1 has `A001` and `A002`, the walk-in becomes `A003`).
 
 ---
 
-### ⚡ Stage 6: Smart Queue Insertion Logic
-If an appointment is cancelled or a patient is a no-show, the system dynamically inserts walk-ins or late arrivals into the empty slot.
+## 6. Handling Grace Periods & No-Shows
 
-```text
-Original Active Queue:
-John Doe ──> Mark Reyes (Absent) ──> Ken Santos
-
-No-Show Update:
-John Doe ──> Ken Santos
-
-Late Arrival (Ana) Inserted:
-John Doe ──> Ken Santos ──> Ana Cruz (Late)
-```
-
----
-
-### 🚫 Stage 7: No-Show Management
-If a patient fails to check in before the **Check-in Deadline** (45 minutes into their appointment block), their status changes automatically:
-
-```text
-Booked ──[Deadline Exceeded]──> No Show
-```
-
-* The system removes them from active queues.
-* The slot is released immediately for walk-in patients or late arrivals.
-
----
-
-### 🚶 Stage 8: Walk-In Patient Integration
-Walk-in patients enter a **Standby Queue System**:
-* Scheduled appointments retain base priority.
-* Walk-in patients are inserted into the queue only when there is an unused slot, a no-show, or when a doctor completes a consultation earlier than expected.
-
----
-
-### 🩺 Stage 9: Doctor & Staff Dashboards
-* **Doctor Dashboard**: Displays a clean, real-time list of checked-in patient queues. Doctors can **Call Next**, **Skip/Pause**, or mark consultations as **Completed** (which automatically advances the queue).
-* **Staff Dashboard**: The primary control tower for checking in patients, registering walk-ins, monitoring waiting pools, and overriding no-show statuses.
-
----
-
-## 3. Queue Structures by Clinic Division
-
-The system supports multiple queue channels separated by doctor specialization or clinic department:
-
-| Specials Department | Queue Channel | Queue Status |
-| :--- | :--- | :--- |
-| **Pediatrics** | Channel A | Active |
-| **Cardiology** | Channel B | Active |
-| **Laboratory** | Channel C | Standby |
+To keep room consultations flowing at peak efficiency:
+* **Check-in Deadline**: Appointment patients must check in within a defined time window (e.g. 15 minutes before or after their slot start).
+* **Automated Cancellation**: If they exceed this window, the system marks the record as `No Show`, releasing the slot.
+* **Standby Insertion**: Staff can then seamlessly insert walk-in standby patients or late-checked-in patients into that freed-up queue space.

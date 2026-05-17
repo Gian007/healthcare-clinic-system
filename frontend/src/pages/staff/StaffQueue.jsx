@@ -3,9 +3,14 @@ import { Link, useOutletContext } from "react-router-dom";
 import StaffTableBadge from "../../components/staff/StaffTableBadge";
 import * as staffApi from "../../api/staffApi";
 import * as publicApi from "../../api/publicApi";
+import { useAuth } from "../../state/auth";
 
 export default function StaffQueue() {
   const { dark } = useOutletContext() || {};
+  const { user } = useAuth();
+
+  const isStaff = user?.role === "staff";
+  const isAdmin = user?.role === "admin";
 
   const [queue, setQueue] = useState([]);
   const [doctors, setDoctors] = useState([]);
@@ -50,6 +55,7 @@ export default function StaffQueue() {
   const divide = dark ? "divide-gray-800" : "divide-gray-100";
 
   async function updateStatus(queueId, nextStatus) {
+    if (!isStaff) return; // Strict front-end guard
     try {
       await staffApi.updateQueueStatus(queueId, { queue_status: nextStatus });
       fetchQueue();
@@ -127,12 +133,14 @@ export default function StaffQueue() {
           <p className={`text-sm ${muted}`}>Multiple active consulting room queues</p>
         </div>
 
-        <Link
-          to="/staff/walk-in"
-          className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 font-bold"
-        >
-          Add Walk-in
-        </Link>
+        {isStaff && (
+          <Link
+            to="/staff/walk-in"
+            className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 font-bold"
+          >
+            Add Walk-in
+          </Link>
+        )}
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -185,17 +193,19 @@ export default function StaffQueue() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="font-bold text-teal-600 dark:text-teal-400">Q-{p.queue_number}</span>
-                          <button
-                            onClick={() => {
-                              if (confirm(`Are you sure you want to remove ${p.patient?.first_name} ${p.patient?.last_name} from the queue?`)) {
-                                updateStatus(p.queue_id, "Cancelled");
-                              }
-                            }}
-                            className="text-red-500 hover:text-red-700 font-bold p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/20 text-[10px] transition"
-                            title="Remove patient"
-                          >
-                            ✕
-                          </button>
+                          {isStaff && (
+                            <button
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to remove ${p.patient?.first_name} ${p.patient?.last_name} from the queue?`)) {
+                                  updateStatus(p.queue_id, "Cancelled");
+                                }
+                              }}
+                              className="text-red-500 hover:text-red-700 font-bold p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/20 text-[10px] transition"
+                              title="Remove patient"
+                            >
+                              ✕
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))
@@ -282,7 +292,7 @@ export default function StaffQueue() {
 
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
-                        {q.queue_status === "Waiting" && (
+                        {isStaff && q.queue_status === "Waiting" && (
                           <button
                             onClick={() => updateStatus(q.queue_id, "Serving")}
                             className="rounded-md bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700 font-bold"
@@ -291,7 +301,7 @@ export default function StaffQueue() {
                           </button>
                         )}
 
-                        {q.queue_status === "Serving" && (
+                        {isStaff && q.queue_status === "Serving" && (
                           <button
                             onClick={() => updateStatus(q.queue_id, "Done")}
                             className="rounded-md bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700 font-bold"
@@ -300,7 +310,7 @@ export default function StaffQueue() {
                           </button>
                         )}
 
-                        {["Waiting", "Serving"].includes(q.queue_status) && (
+                        {isStaff && ["Waiting", "Serving"].includes(q.queue_status) && (
                           <button
                             onClick={() => {
                               if (confirm(`Are you sure you want to remove this patient from the queue?`)) {
@@ -311,6 +321,10 @@ export default function StaffQueue() {
                           >
                             Remove
                           </button>
+                        )}
+
+                        {isAdmin && ["Waiting", "Serving"].includes(q.queue_status) && (
+                          <span className={`text-xs italic ${muted}`}>Monitoring Only</span>
                         )}
 
                         {q.queue_status === "Done" && (
