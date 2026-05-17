@@ -5,7 +5,7 @@ import * as staffApi from "../../api/staffApi";
 import * as publicApi from "../../api/publicApi";
 
 export default function StaffQueue() {
-  const { dark } = useOutletContext();
+  const { dark } = useOutletContext() || {};
 
   const [queue, setQueue] = useState([]);
   const [doctors, setDoctors] = useState([]);

@@ -131,7 +131,7 @@ export default function AdminLayout() {
 
       {/* Main Content */}
       <main className={`min-h-screen p-4 sm:p-6 lg:p-8 pt-20 md:pt-8 transition-all duration-300 ${collapsed ? "md:ml-20" : "md:ml-72"}`}>
-        <Outlet />
+        <Outlet context={{ dark }} />
       </main>
     </div>
   );
