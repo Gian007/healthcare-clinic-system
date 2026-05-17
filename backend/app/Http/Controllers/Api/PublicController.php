@@ -39,7 +39,7 @@ class PublicController extends Controller
         $date = now()->format('Y-m-d');
         $day = now()->format('l');
 
-        $doctors = Doctor::with(['specialization', 'schedules', 'dayOffs'])
+        $doctors = Doctor::with(['specialization', 'schedules', 'dayOffs', 'appointments'])
             ->where('status', 'Active')
             ->get()
             ->map(function($doc) use ($date, $day) {
@@ -96,8 +96,9 @@ class PublicController extends Controller
 
     public function getAnnouncements()
     {
-        // For now return empty or simple placeholder since Announcements model isn't built yet,
-        // but user said "Queue, announcements, services, and doctor data must all come from real database"
-        return response()->json([]);
+        $announcements = SpecialSchedule::where('is_active', true)
+            ->orderBy('date', 'asc')
+            ->get();
+        return response()->json($announcements);
     }
 }

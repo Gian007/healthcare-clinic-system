@@ -1,14 +1,33 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { FaHeartbeat } from "react-icons/fa";
-import { FiLogIn, FiLogOut } from "react-icons/fi";
+import Logo from "./Logo";
+import { FiLogIn, FiLogOut, FiSun, FiMoon, FiMenu, FiX } from "react-icons/fi";
 import { useAuth } from "../state/auth";
+import { useEffect, useState } from "react";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
 
-  const linkClass = "text-sm text-gray-700 hover:text-gray-900 transition";
-  const activeClass = "text-sm text-gray-900 font-semibold";
+  const [dark, setDark] = useState(() => localStorage.getItem("clinicTheme") === "dark");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+    localStorage.setItem("clinicTheme", dark ? "dark" : "light");
+  }, [dark]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const linkClass = "text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition";
+  const activeClass = "text-sm text-gray-900 dark:text-white font-semibold";
 
   const goDashboard = () => {
     if (!user) return nav("/login");
@@ -20,17 +39,24 @@ export default function Navbar() {
   };
 
   return (
-    <header className="bg-white border-b">
+    <header 
+      className={`fixed top-0 left-0 right-0 z-[60] transition-all duration-300 ${
+        scrolled 
+          ? "bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 shadow-sm" 
+          : "bg-transparent border-b border-transparent"
+      }`}
+    >
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-            <FaHeartbeat className="text-primary text-lg" />
-          </div>
-          <span className="font-semibold text-gray-900">HealthCare Clinic</span>
+          <Logo />
+          <span className="font-black text-xl tracking-tighter text-gray-900 dark:text-white uppercase font-comfortaa leading-none font-fat">SHQMS</span>
         </Link>
 
-        {/* Public nav */}
-        <nav className="flex items-center gap-6">
+        {/* Public nav Desktop */}
+        <nav className="hidden md:flex items-center gap-6">
+          <button onClick={() => setDark(!dark)} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+            {dark ? <FiSun className="text-lg" /> : <FiMoon className="text-lg" />}
+          </button>
           <NavLink to="/doctors" className={({ isActive }) => (isActive ? activeClass : linkClass)}>
             Doctors
           </NavLink>
@@ -47,14 +73,14 @@ export default function Navbar() {
           {!user ? (
             <button
               onClick={() => nav("/login")}
-              className="inline-flex items-center gap-2 bg-primary text-white text-sm px-4 py-2 rounded-md shadow-sm hover:opacity-95"
+              className="inline-flex items-center gap-2 bg-primary text-white text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-primary/20 hover:opacity-95 transition-all active:scale-95"
             >
               <FiLogIn />
               Login
             </button>
           ) : (
             <>
-              <button onClick={goDashboard} className="text-sm text-gray-700 hover:text-gray-900">
+              <button onClick={goDashboard} className="text-sm font-bold text-gray-700 dark:text-gray-300 hover:text-primary transition-colors">
                 Dashboard
               </button>
               <button
@@ -62,7 +88,7 @@ export default function Navbar() {
                   logout();
                   nav("/");
                 }}
-                className="inline-flex items-center gap-2 bg-primary/10 text-primary text-sm px-4 py-2 rounded-md hover:bg-primary/15"
+                className="inline-flex items-center gap-2 bg-primary/10 text-primary text-sm px-5 py-2.5 rounded-xl hover:bg-primary/20 transition-all"
               >
                 <FiLogOut />
                 Logout
@@ -70,7 +96,64 @@ export default function Navbar() {
             </>
           )}
         </nav>
+
+        {/* Mobile menu toggle */}
+        <div className="flex items-center gap-4 md:hidden">
+          <button onClick={() => setDark(!dark)} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+            {dark ? <FiSun className="text-lg" /> : <FiMoon className="text-lg" />}
+          </button>
+          <button onClick={() => setMenuOpen(!menuOpen)} className="text-gray-900 dark:text-white text-2xl">
+            {menuOpen ? <FiX /> : <FiMenu />}
+          </button>
+        </div>
       </div>
+
+      {/* Mobile Nav */}
+      {menuOpen && (
+        <nav className="md:hidden border-t dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg px-6 py-6 flex flex-col gap-6 shadow-2xl animate-in slide-in-from-top duration-300">
+          <NavLink to="/doctors" onClick={() => setMenuOpen(false)} className={({ isActive }) => (isActive ? activeClass : linkClass)}>
+            Doctors
+          </NavLink>
+          <NavLink to="/services" onClick={() => setMenuOpen(false)} className={({ isActive }) => (isActive ? activeClass : linkClass)}>
+            Services
+          </NavLink>
+          <NavLink to="/queue" onClick={() => setMenuOpen(false)} className={({ isActive }) => (isActive ? activeClass : linkClass)}>
+            Queue
+          </NavLink>
+          <NavLink to="/announcements" onClick={() => setMenuOpen(false)} className={({ isActive }) => (isActive ? activeClass : linkClass)}>
+            Announcements
+          </NavLink>
+
+          <hr className="dark:border-slate-800" />
+
+          {!user ? (
+            <button
+              onClick={() => { setMenuOpen(false); nav("/login"); }}
+              className="flex items-center justify-center gap-2 bg-primary text-white text-sm px-4 py-3 rounded-xl shadow-lg shadow-primary/20 hover:opacity-95"
+            >
+              <FiLogIn />
+              Login
+            </button>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <button onClick={() => { setMenuOpen(false); goDashboard(); }} className="text-sm font-bold text-gray-700 dark:text-gray-300 hover:text-primary transition-colors">
+                Dashboard
+              </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  logout();
+                  nav("/");
+                }}
+                className="flex items-center justify-center gap-2 bg-primary/10 text-primary text-sm px-4 py-3 rounded-xl hover:bg-primary/20 transition-all"
+              >
+                <FiLogOut />
+                Logout
+              </button>
+            </div>
+          )}
+        </nav>
+      )}
     </header>
   );
 }

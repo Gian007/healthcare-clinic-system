@@ -656,4 +656,44 @@ class AdminController extends Controller
 
         return response()->json(['message' => "Day-off {$request->status}.", 'dayOff' => $dayOff]);
     }
+
+    public function resetDoctorPassword(Request $request, $id)
+    {
+        $doctor = Doctor::findOrFail($id);
+        $tempPassword = Str::random(8);
+        
+        $doctor->password = Hash::make($tempPassword);
+        $doctor->save();
+
+        try {
+            Mail::to($doctor->email)->send(new AccountCreatedMail($doctor, $tempPassword, 'Doctor'));
+        } catch (\Exception $e) {
+            Log::error("Doctor password reset email failed: " . $e->getMessage());
+        }
+
+        return response()->json([
+            'message' => 'Doctor password reset successfully.',
+            'temp_password' => $tempPassword,
+        ]);
+    }
+
+    public function resetStaffPassword(Request $request, $id)
+    {
+        $staff = Staff::findOrFail($id);
+        $tempPassword = Str::random(8);
+        
+        $staff->password = Hash::make($tempPassword);
+        $staff->save();
+
+        try {
+            Mail::to($staff->email)->send(new AccountCreatedMail($staff, $tempPassword, $staff->role));
+        } catch (\Exception $e) {
+            Log::error("Staff password reset email failed: " . $e->getMessage());
+        }
+
+        return response()->json([
+            'message' => 'Staff password reset successfully.',
+            'temp_password' => $tempPassword,
+        ]);
+    }
 }

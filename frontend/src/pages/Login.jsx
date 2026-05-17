@@ -23,7 +23,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const data = await login({ email, password, role });
+      const data = await login({ email, password });
       
       if (next) {
         nav(next);
@@ -39,7 +39,7 @@ export default function Login() {
       const msg = err.response?.data?.message
         || err.response?.data?.errors?.email?.[0]
         || err.response?.data?.errors?.password?.[0]
-        || "Login failed. Please check your credentials and the role you selected.";
+        || "Login failed. Please check your credentials.";
       setError(msg);
     } finally {
       setLoading(false);
@@ -47,7 +47,7 @@ export default function Login() {
   };
 
   return (
-    <div className="bg-neutralbg dark:bg-slate-950 min-h-[calc(100vh-72px)] flex items-start justify-center pt-16 px-6 transition-colors">
+    <div className="bg-neutralbg dark:bg-slate-950 min-h-[calc(100vh-72px)] flex items-start justify-center pt-16 pb-20 px-6 transition-colors">
       <div className="w-full max-w-md text-center">
         <div className="mx-auto w-20 h-20 rounded-3xl bg-primary/20 flex items-center justify-center shadow-lg shadow-primary/10 rotate-3 transition-transform hover:rotate-0 duration-500 text-primary">
           <FaHeartbeat className="text-4xl" />
@@ -68,18 +68,6 @@ export default function Login() {
               {error}
             </div>
           )}
-
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Login as</label>
-          <select
-            className="mt-2 w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-          >
-            <option value="patient">Patient</option>
-            <option value="staff">Staff</option>
-            <option value="doctor">Doctor</option>
-            <option value="admin">Admin</option>
-          </select>
 
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mt-4">
             Email
@@ -135,12 +123,10 @@ export default function Login() {
             {loading ? "Logging in..." : "Login"}
           </button>
 
-          {role === 'patient' && (
-            <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-6">
-              Don&apos;t have an account?{" "}
-              <Link to="/register" className="text-primary font-medium hover:underline">Register here</Link>
-            </div>
-          )}
+          <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-6">
+            Don&apos;t have an account?{" "}
+            <Link to="/register" className="text-primary font-medium hover:underline">Register here</Link>
+          </div>
         </form>
       </div>
     </div>

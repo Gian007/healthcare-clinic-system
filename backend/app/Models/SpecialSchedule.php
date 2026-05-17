@@ -13,12 +13,6 @@ class SpecialSchedule extends Model
 
     public function appliesTo()
     {
-        if ($this->applies_to_type === 'Specific Doctor') {
-            return $this->belongsTo(Doctor::class, 'applies_to_id', 'doctor_id');
-        }
-        if ($this->applies_to_type === 'Specific Service') {
-            return $this->belongsTo(Service::class, 'applies_to_id', 'service_id');
-        }
-        return null;
+        return $this->morphTo(__FUNCTION__, 'applies_to_type', 'applies_to_id');
     }
 }

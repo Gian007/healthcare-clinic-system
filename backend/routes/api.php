@@ -52,9 +52,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/appointments',                 [DoctorController::class, 'getAppointments']);
         Route::put('/appointments/{id}/status',     [DoctorController::class, 'updateAppointmentStatus']);
         Route::get('/queue',                        [DoctorController::class, 'getQueue']);
-        Route::get('/schedules',                    [DoctorController::class, 'getSchedules']);
+        Route::put('/queue/{id}/status',            [DoctorController::class, 'updateQueueStatus']);
+        Route::get('/schedules',                    [ScheduleController::class, 'getMySchedules']);
         Route::get('/dayoffs',                      [DoctorController::class, 'getDayOffs']);
         Route::post('/dayoffs',                     [DoctorController::class, 'requestDayOff']);
+        Route::delete('/dayoffs/{id}',              [DoctorController::class, 'deleteDayOff']);
         Route::post('/attendance',                  [DoctorController::class, 'recordAttendance']);
         Route::get('/attendance',                   [DoctorController::class, 'getAttendance']);
         Route::put('/profile',                      [DoctorController::class, 'updateProfile']);
@@ -83,6 +85,7 @@ Route::middleware('auth:sanctum')->group(function () {
     /* ── Admin Routes ── */
     Route::prefix('admin')->group(function () {
         Route::get('/dashboard',                    [AdminController::class, 'dashboard']);
+        Route::post('/notifications/broadcast',     [NotificationController::class, 'broadcast']);
         Route::put('/profile',                      [AdminController::class, 'updateProfile']);
         Route::post('/profile/password',            [AdminController::class, 'updatePassword']);
         Route::post('/profile/photo',               [AdminController::class, 'uploadProfilePicture']);
@@ -98,11 +101,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/doctors/{id}',                 [AdminController::class, 'updateDoctor']);
         Route::put('/doctors/{id}/status',          [AdminController::class, 'updateDoctorStatus']);
         Route::post('/doctors/{id}/email',           [AdminController::class, 'sendDoctorEmail']);
+        Route::post('/doctors/{id}/reset-password', [AdminController::class, 'resetDoctorPassword']);
 
         Route::get('/staff',                        [AdminController::class, 'getStaff']);
         Route::post('/staff',                       [AdminController::class, 'createStaff']);
         Route::put('/staff/{id}',                   [AdminController::class, 'updateStaff']);
         Route::post('/staff/{id}/email',             [AdminController::class, 'sendStaffEmail']);
+        Route::post('/staff/{id}/reset-password',   [AdminController::class, 'resetStaffPassword']);
 
         // Scheduling Overhaul
         Route::get('/clinic-hours',                 [ScheduleController::class, 'getClinicHours']);

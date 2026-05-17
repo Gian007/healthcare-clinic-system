@@ -64,6 +64,20 @@ class ScheduleController extends Controller
         return response()->json(DoctorSchedule::with('doctor')->get());
     }
 
+    public function getMySchedules(Request $request)
+    {
+        $doctor = $request->user();
+        if (!$doctor || get_class($doctor) !== \App\Models\Doctor::class) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+        
+        $schedules = DoctorSchedule::where('doctor_id', $doctor->doctor_id)
+            ->orderByRaw("FIELD(day_of_week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')")
+            ->get();
+            
+        return response()->json($schedules);
+    }
+
     public function createDoctorSchedule(Request $request)
     {
         $request->validate([
@@ -71,8 +85,6 @@ class ScheduleController extends Controller
             'day_of_week'  => 'required|string',
             'start_time'   => 'required',
             'end_time'     => 'required|after:start_time',
-            'slot_minutes' => 'required|integer|min:5',
-            'max_patients' => 'required|integer|min:1',
             'room'         => 'nullable|string',
         ]);
 
@@ -104,8 +116,15 @@ class ScheduleController extends Controller
             'day_of_week'     => $request->day_of_week,
             'start_time'      => $request->start_time,
             'end_time'        => $request->end_time,
-            'slot_minutes'    => $request->slot_minutes,
-            'max_patients'    => $request->max_patients,
+            'lunch_start'     => $request->lunch_start,
+            'lunch_end'       => $request->lunch_end,
+            'break1_start'    => $request->break1_start,
+            'break1_end'      => $request->break1_end,
+            'break2_start'    => $request->break2_start,
+            'break2_end'      => $request->break2_end,
+            'slot_minutes'    => $request->slot_minutes ?? 30, 
+            'max_patients'    => $request->slot_limit ?? 999, 
+            'slot_limit'      => $request->slot_limit ?? 8, 
             'room'            => $request->room,
             'schedule_status' => 'Active',
         ]);
@@ -119,8 +138,6 @@ class ScheduleController extends Controller
         $request->validate([
             'start_time'   => 'required',
             'end_time'     => 'required|after:start_time',
-            'slot_minutes' => 'required|integer|min:5',
-            'max_patients' => 'required|integer|min:1',
             'room'         => 'nullable|string',
             'schedule_status' => 'required|in:Active,Inactive',
         ]);
@@ -131,8 +148,22 @@ class ScheduleController extends Controller
 
     public function deleteDoctorSchedule($id)
     {
-        DoctorSchedule::findOrFail($id)->delete();
-        return response()->json(['message' => 'Schedule deleted.']);
+        $schedule = DoctorSchedule::findOrFail($id);
+        
+        // Check if there are any appointments referencing this schedule to prevent integrity violations
+        $hasAppointments = \App\Models\Appointment::where('schedule_id', $id)->exists();
+        
+        if ($hasAppointments) {
+            // Deactivate instead of hard deleting to preserve historical and active booking records safely
+            $schedule->update(['schedule_status' => 'Inactive']);
+            return response()->json([
+                'message' => 'Schedule contains active or historical appointments. It has been deactivated instead of deleted.',
+                'deactivated' => true
+            ]);
+        }
+        
+        $schedule->delete();
+        return response()->json(['message' => 'Schedule deleted successfully.']);
     }
 
     /* ─────────────────────────── Day Off Requests ─────────────────────────── */
@@ -220,6 +251,55 @@ class ScheduleController extends Controller
 
         $special = SpecialSchedule::create($request->all());
 
+        // Broadcast to all accounts generally (Holiday or Special)
+        $appliesText = $special->applies_to_type;
+        if ($special->applies_to_type === 'Specific Doctor' && $special->appliesTo) {
+            $appliesText = 'Dr. ' . $special->appliesTo->first_name . ' ' . $special->appliesTo->last_name;
+        }
+
+        $formattedDate = \Carbon\Carbon::parse($special->date)->format('F d, Y');
+        $title = "📅 Schedule Alert: " . $special->title;
+        $body = "A special schedule has been set for {$formattedDate}. Type: {$special->type}. Applies to: {$appliesText}." . ($special->reason ? " Reason: \"{$special->reason}\"" : "");
+
+        // 1. Broadcast to all patients
+        $patients = \App\Models\Patient::all();
+        foreach ($patients as $p) {
+            SystemNotification::create([
+                'notifiable_type' => 'patient',
+                'notifiable_id'   => $p->patient_id,
+                'title'           => $title,
+                'body'            => $body,
+                'type'            => 'warning',
+                'is_read'         => false,
+            ]);
+        }
+
+        // 2. Broadcast to all doctors
+        $doctors = \App\Models\Doctor::all();
+        foreach ($doctors as $d) {
+            SystemNotification::create([
+                'notifiable_type' => 'doctor',
+                'notifiable_id'   => $d->doctor_id,
+                'title'           => $title,
+                'body'            => $body,
+                'type'            => 'warning',
+                'is_read'         => false,
+            ]);
+        }
+
+        // 3. Broadcast to all staff
+        $staff = \App\Models\Staff::all();
+        foreach ($staff as $s) {
+            SystemNotification::create([
+                'notifiable_type' => 'staff',
+                'notifiable_id'   => $s->staff_id,
+                'title'           => $title,
+                'body'            => $body,
+                'type'            => 'warning',
+                'is_read'         => false,
+            ]);
+        }
+
         if ($request->notify_patients) {
             $this->notifyPatientsForSpecial($special);
         }
@@ -273,12 +353,15 @@ class ScheduleController extends Controller
     public function getAvailableSlots(Request $request)
     {
         $request->validate([
-            'doctor_id' => 'required|exists:doctors,doctor_id',
-            'date'      => 'required|date',
+            'doctor_id'  => 'required|exists:doctors,doctor_id',
+            'date'       => 'required|date',
+            'service_id' => 'required|exists:services,service_id',
         ]);
 
         $date = Carbon::parse($request->date);
         $dayName = $date->format('l');
+        $service = \App\Models\Service::findOrFail($request->service_id);
+        $duration = (int) $service->estimated_duration ?: 30;
 
         // 1. Check Clinic Hours
         $clinicHour = ClinicOperatingHour::where('day_of_week', $dayName)->first();
@@ -299,28 +382,21 @@ class ScheduleController extends Controller
             ->first();
         if ($dayOff) return response()->json(['slots' => [], 'message' => 'Doctor is on leave.']);
 
-        // 4. Check Special Schedule for specific doctor
-        $specialDoc = SpecialSchedule::where('date', $request->date)
-            ->where('applies_to_type', 'Specific Doctor')
-            ->where('applies_to_id', $request->doctor_id)
-            ->where('is_active', true)
-            ->first();
-
-        // 5. Get Doctor Regular Schedule
+        // 4. Get Doctor Regular Schedule
         $schedules = DoctorSchedule::where('doctor_id', $request->doctor_id)
             ->where('day_of_week', $dayName)
             ->where('schedule_status', 'Active')
             ->get();
 
-        if ($schedules->isEmpty() && !$specialDoc) return response()->json(['slots' => [], 'message' => 'Doctor has no schedule for this day.']);
+        if ($schedules->isEmpty()) return response()->json(['slots' => [], 'message' => 'Doctor has no schedule for this day.']);
 
-        $availableSlots = [];
+        $allSlots = [];
 
         foreach ($schedules as $sched) {
             $startTime = Carbon::parse($sched->start_time);
             $endTime = Carbon::parse($sched->end_time);
 
-            // If special schedule shortened hours for clinic
+            // Special schedule shortened hours?
             $shortened = SpecialSchedule::where('date', $request->date)
                 ->where('type', 'Shortened Hours')
                 ->where('applies_to_type', 'Whole Clinic')
@@ -334,30 +410,44 @@ class ScheduleController extends Controller
 
             $current = clone $startTime;
             while ($current->lt($endTime)) {
-                $slotEnd = (clone $current)->addMinutes($sched->slot_minutes);
+                $slotEnd = (clone $current)->addMinutes($duration);
                 if ($slotEnd->gt($endTime)) break;
 
                 $timeStr = $current->format('H:i');
                 
-                // Check existing appointments
+                // Define Breaks from Database
+                $isLunch = ($sched->lunch_start && $sched->lunch_end) && ($timeStr >= $sched->lunch_start && $timeStr < $sched->lunch_end);
+                $isBreak1 = ($sched->break1_start && $sched->break1_end) && ($timeStr >= $sched->break1_start && $timeStr < $sched->break1_end);
+                $isBreak2 = ($sched->break2_start && $sched->break2_end) && ($timeStr >= $sched->break2_start && $timeStr < $sched->break2_end);
+
+                if ($isLunch || $isBreak1 || $isBreak2) {
+                    $current->addMinutes($duration);
+                    continue; // Skip breaks entirely from the available list
+                }
+
+                // Count existing appointments for this specific slot or time window
                 $count = Appointment::where('doctor_id', $request->doctor_id)
                     ->where('appointment_date', $request->date)
                     ->where('start_time', $timeStr)
+                    ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
                     ->count();
                 
-                if ($count < 1) { // Assuming 1 patient per slot for simplicity, or use max_patients
-                     $availableSlots[] = [
-                         'time' => $timeStr,
-                         'end_time' => $slotEnd->format('H:i'),
-                         'room' => $sched->room,
-                         'schedule_id' => $sched->schedule_id
-                     ];
-                }
+                $isFull = $count >= 1;
 
-                $current->addMinutes($sched->slot_minutes);
+                $allSlots[] = [
+                    'time' => $timeStr,
+                    'start_time' => $timeStr,
+                    'end_time' => $slotEnd->format('H:i'),
+                    'room' => $sched->room,
+                    'schedule_id' => $sched->schedule_id,
+                    'is_available' => !$isFull,
+                    'is_full' => $isFull
+                ];
+
+                $current->addMinutes($duration);
             }
         }
 
-        return response()->json(['slots' => $availableSlots]);
+        return response()->json(['slots' => $allSlots]);
     }
 }

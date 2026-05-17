@@ -94,4 +94,57 @@ class NotificationController extends Controller
 
         return response()->json(['count' => $count]);
     }
+
+    /**
+     * POST /admin/notifications/broadcast — broadcast general announcement to all accounts.
+     */
+    public function broadcast(Request $request)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'body'  => 'required|string',
+            'type'  => 'required|in:success,info,warning,danger',
+        ]);
+
+        // 1. Broadcast to all patients
+        $patients = \App\Models\Patient::all();
+        foreach ($patients as $p) {
+            SystemNotification::create([
+                'notifiable_type' => 'patient',
+                'notifiable_id'   => $p->patient_id,
+                'title'           => $request->title,
+                'body'            => $request->body,
+                'type'            => $request->type,
+                'is_read'         => false,
+            ]);
+        }
+
+        // 2. Broadcast to all doctors
+        $doctors = \App\Models\Doctor::all();
+        foreach ($doctors as $d) {
+            SystemNotification::create([
+                'notifiable_type' => 'doctor',
+                'notifiable_id'   => $d->doctor_id,
+                'title'           => $request->title,
+                'body'            => $request->body,
+                'type'            => $request->type,
+                'is_read'         => false,
+            ]);
+        }
+
+        // 3. Broadcast to all staff
+        $staff = \App\Models\Staff::all();
+        foreach ($staff as $s) {
+            SystemNotification::create([
+                'notifiable_type' => 'staff',
+                'notifiable_id'   => $s->staff_id,
+                'title'           => $request->title,
+                'body'            => $request->body,
+                'type'            => $request->type,
+                'is_read'         => false,
+            ]);
+        }
+
+        return response()->json(['message' => 'Announcement broadcast successfully to all accounts.']);
+    }
 }

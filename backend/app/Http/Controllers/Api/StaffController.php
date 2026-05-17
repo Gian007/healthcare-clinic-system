@@ -236,17 +236,47 @@ class StaffController extends Controller
     {
         $request->validate(['queue_status' => 'required|in:Waiting,Active,Serving,Done,Cancelled']);
         $queue = Queue::findOrFail($id);
+
+        if ($request->queue_status === 'Done' && $queue->queue_status !== 'Serving') {
+            return response()->json(['message' => 'Cannot mark complete. The patient session must be In Progress first.'], 422);
+        }
+
         $queue->queue_status = $request->queue_status;
         $queue->save();
 
-        if ($request->queue_status === 'Done' && $queue->patient_id) {
-            SystemNotification::create([
-                'notifiable_type' => 'patient',
-                'notifiable_id'   => $queue->patient_id,
-                'title'           => 'Appointment Completed',
-                'body'            => 'Thank you. Your appointment is now complete. We hope to see you again soon!',
-                'type'            => 'success',
-            ]);
+        if ($request->queue_status === 'Done') {
+            if ($queue->patient_id) {
+                SystemNotification::create([
+                    'notifiable_type' => 'patient',
+                    'notifiable_id'   => $queue->patient_id,
+                    'title'           => 'Appointment Completed',
+                    'body'            => 'Thank you. Your appointment is now complete. We hope to see you again soon!',
+                    'type'            => 'success',
+                ]);
+            }
+
+            // Automate the next patient in the queue
+            $nextQueue = Queue::where('doctor_id', $queue->doctor_id)
+                ->where('queue_date', $queue->queue_date)
+                ->where('queue_status', 'Waiting')
+                ->orderBy('queue_number', 'asc')
+                ->first();
+
+            if ($nextQueue) {
+                $nextQueue->queue_status = 'Serving';
+                $nextQueue->save();
+
+                // Send notification to the next patient that their consultation is starting
+                if ($nextQueue->patient_id) {
+                    SystemNotification::create([
+                        'notifiable_type' => 'patient',
+                        'notifiable_id'   => $nextQueue->patient_id,
+                        'title'           => 'Consultation Started',
+                        'body' => 'It is your turn! Please proceed to the doctor\'s clinic room.',
+                        'type'            => 'info',
+                    ]);
+                }
+            }
         }
 
         return response()->json(['message' => 'Queue status updated.', 'queue' => $queue]);

@@ -26,39 +26,63 @@ class AuthController extends Controller
         $request->validate([
             'email'    => 'required|email',
             'password' => 'required',
-            'role'     => 'required|in:patient,doctor,staff,admin',
         ]);
 
-        $role = $request->role;
-        $user = null;
+        $email = $request->email;
+        $throttleKey = Str::lower($email) . '|' . $request->ip();
 
-        if ($role === 'patient') {
-            $user = Patient::where('email', $request->email)->first();
-        } elseif ($role === 'doctor') {
-            $user = Doctor::where('email', $request->email)->first();
-        } elseif ($role === 'staff' || $role === 'admin') {
-            $user = Staff::where('email', $request->email)->first();
-        }
-
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = \Illuminate\Support\Facades\RateLimiter::availableIn($throttleKey);
+            $minutes = ceil($seconds / 60);
             throw ValidationException::withMessages([
-                'email' => ['The provided credentials do not match our records.'],
+                'email' => ["Too many login attempts. Please try again in {$minutes} minutes."],
             ]);
         }
 
-        // Determine abilities
+        $user = null;
+        $role = null;
+
+        // Try to find the user in different tables
+        $patient = Patient::where('email', $email)->first();
+        if ($patient) {
+            $user = $patient;
+            $role = 'patient';
+        } else {
+            $doctor = Doctor::where('email', $email)->first();
+            if ($doctor) {
+                $user = $doctor;
+                $role = 'doctor';
+            } else {
+                $staff = Staff::where('email', $email)->first();
+                if ($staff) {
+                    $user = $staff;
+                    $role = ($staff->role === 'Admin') ? 'admin' : 'staff';
+                }
+            }
+        }
+
+        if (! $user || ! Hash::check($request->password, $user->password)) {
+            \Illuminate\Support\Facades\RateLimiter::hit($throttleKey, 600); // 10 minutes (600 seconds)
+            throw ValidationException::withMessages([
+                'email' => ['Invalid email or password.'],
+            ]);
+        }
+
+        // Login success - clear rate limiter
+        \Illuminate\Support\Facades\RateLimiter::clear($throttleKey);
+
+        // Determine abilities based on the detected role
         $abilities = [$role];
-        $resolvedRole = $role;
         if ($role === 'staff' && $user->role === 'Admin') {
-            $abilities[]  = 'admin';
-            $resolvedRole = 'admin';
+            $role = 'admin';
+            $abilities = ['admin'];
         }
 
         $token = $user->createToken('auth_token', $abilities)->plainTextToken;
 
         return response()->json([
             'user'  => $user,
-            'role'  => $resolvedRole,
+            'role'  => $role,
             'token' => $token,
         ]);
     }

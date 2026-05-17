@@ -80,6 +80,41 @@ class DoctorController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        if ($request->status === 'Completed') {
+            $queueItem = Queue::where('appointment_id', $id)->first();
+            if ($queueItem) {
+                if ($queueItem->queue_status !== 'Serving') {
+                    return response()->json(['message' => 'Cannot mark complete. The patient session must be In Progress first.'], 422);
+                }
+                
+                // Mark the queue item as Done as well
+                $queueItem->queue_status = 'Done';
+                $queueItem->save();
+
+                // Automate next patient in the queue
+                $nextQueue = Queue::where('doctor_id', $queueItem->doctor_id)
+                    ->where('queue_date', $queueItem->queue_date)
+                    ->where('queue_status', 'Waiting')
+                    ->orderBy('queue_number', 'asc')
+                    ->first();
+
+                if ($nextQueue) {
+                    $nextQueue->queue_status = 'Serving';
+                    $nextQueue->save();
+
+                    if ($nextQueue->patient_id) {
+                        SystemNotification::create([
+                            'notifiable_type' => 'patient',
+                            'notifiable_id'   => $nextQueue->patient_id,
+                            'title'           => 'Consultation Started',
+                            'body'            => 'It is your turn! Please proceed to the doctor\'s clinic room.',
+                            'type'            => 'info',
+                        ]);
+                    }
+                }
+            }
+        }
+
         $appointment->booking_status = $request->status;
         if ($request->reason) {
             $appointment->completion_note = $request->reason;
@@ -122,6 +157,58 @@ class DoctorController extends Controller
         );
     }
 
+    public function updateQueueStatus(Request $request, $id)
+    {
+        $request->validate(['status' => 'required|in:Waiting,Active,Serving,Done,Cancelled']);
+        
+        $doctorId = $this->doctor($request)->doctor_id;
+        $queue = Queue::where('queue_id', $id)->where('doctor_id', $doctorId)->firstOrFail();
+        
+        if ($request->status === 'Done' && $queue->queue_status !== 'Serving') {
+            return response()->json(['message' => 'Cannot mark complete. The patient session must be In Progress first.'], 422);
+        }
+
+        $queue->queue_status = $request->status;
+        $queue->save();
+
+        if ($request->status === 'Done') {
+            if ($queue->patient_id) {
+                SystemNotification::create([
+                    'notifiable_type' => 'patient',
+                    'notifiable_id'   => $queue->patient_id,
+                    'title'           => 'Appointment Completed',
+                    'body'            => 'Thank you. Your appointment is now complete. We hope to see you again soon!',
+                    'type'            => 'success',
+                ]);
+            }
+
+            // Automate the next patient in the queue
+            $nextQueue = Queue::where('doctor_id', $doctorId)
+                ->where('queue_date', $queue->queue_date)
+                ->where('queue_status', 'Waiting')
+                ->orderBy('queue_number', 'asc')
+                ->first();
+
+            if ($nextQueue) {
+                $nextQueue->queue_status = 'Serving';
+                $nextQueue->save();
+
+                // Send notification to the next patient that their consultation is starting
+                if ($nextQueue->patient_id) {
+                    SystemNotification::create([
+                        'notifiable_type' => 'patient',
+                        'notifiable_id'   => $nextQueue->patient_id,
+                        'title'           => 'Consultation Started',
+                        'body' => 'It is your turn! Please proceed to the doctor\'s clinic room.',
+                        'type'            => 'info',
+                    ]);
+                }
+            }
+        }
+
+        return response()->json(['message' => 'Queue status updated.', 'queue' => $queue]);
+    }
+
     /* ─────────────────────────── Schedules ─────────────────────────── */
 
     public function getSchedules(Request $request)
@@ -138,36 +225,60 @@ class DoctorController extends Controller
     {
         $doctorId = $this->doctor($request)->doctor_id;
         return response()->json(
-            DoctorDayOff::where('doctor_id', $doctorId)->orderBy('date', 'desc')->get()
+            DoctorDayOff::where('doctor_id', $doctorId)->orderBy('dayoff_date', 'desc')->get()
         );
     }
 
     public function requestDayOff(Request $request)
     {
         $request->validate([
-            'date'   => 'required|date|after_or_equal:today',
-            'reason' => 'required|string|max:500',
+            'date'        => 'required|date|after_or_equal:today',
+            'is_half_day' => 'sometimes|boolean',
+            'start_time'  => 'required_if:is_half_day,true|nullable',
+            'end_time'    => 'required_if:is_half_day,true|nullable',
+            'reason'      => 'required|string|max:500',
         ]);
 
         $doctor = $this->doctor($request);
 
         $dayOff = DoctorDayOff::create([
-            'doctor_id' => $doctor->doctor_id,
-            'date'      => $request->date,
-            'reason'    => $request->reason,
-            'status'    => 'Pending',
+            'doctor_id'   => $doctor->doctor_id,
+            'dayoff_date' => $request->date,
+            'is_half_day' => $request->is_half_day ?? false,
+            'start_time'  => $request->start_time,
+            'end_time'    => $request->end_time,
+            'reason'      => $request->reason,
+            'status'      => 'Pending',
         ]);
+
+        $typeStr = ($request->is_half_day) ? "a half-day off ({$request->start_time} to {$request->end_time})" : "a full day-off";
 
         // Notify admin
         SystemNotification::create([
             'notifiable_type' => 'staff',
             'notifiable_id'   => 0, // broadcast to admin
             'title'           => 'Day-off Request',
-            'body'            => "Dr. {$doctor->first_name} {$doctor->last_name} requested a day-off on {$request->date}. Reason: {$request->reason}",
+            'body'            => "Dr. {$doctor->first_name} {$doctor->last_name} requested {$typeStr} on {$request->date}. Reason: {$request->reason}",
             'type'            => 'info',
         ]);
 
         return response()->json(['message' => 'Day-off request submitted.', 'dayOff' => $dayOff]);
+    }
+
+    public function deleteDayOff(Request $request, $id)
+    {
+        $doctorId = $this->doctor($request)->doctor_id;
+        $dayOff = DoctorDayOff::where('dayoff_id', $id)
+            ->where('doctor_id', $doctorId)
+            ->firstOrFail();
+
+        if ($dayOff->status !== 'Pending') {
+            return response()->json(['message' => 'Only pending day-off requests can be removed.'], 400);
+        }
+
+        $dayOff->delete();
+
+        return response()->json(['message' => 'Day-off request removed.']);
     }
 
     /* ─────────────────────────── Attendance ─────────────────────────── */

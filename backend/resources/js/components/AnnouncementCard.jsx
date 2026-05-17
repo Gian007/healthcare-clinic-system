@@ -12,15 +12,15 @@ export default function AnnouncementCard({ item }) {
   const cfg = typeConfig(item.type);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex items-start justify-between gap-4">
+    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 p-5 flex items-start justify-between gap-4 transition-colors">
       <div className="flex items-start gap-4">
-        <div className={`w-10 h-10 rounded-full ${cfg.iconBg} text-white flex items-center justify-center`}>
+        <div className={`w-10 h-10 rounded-full ${cfg.iconBg} text-white flex items-center justify-center shrink-0`}>
           <cfg.Icon />
         </div>
         <div>
-          <div className="font-semibold text-gray-900">{item.title}</div>
-          <div className="text-sm text-gray-600 mt-1">{item.body}</div>
-          <div className="text-xs text-gray-500 mt-3">{item.date}</div>
+          <div className="font-semibold text-gray-900 dark:text-white">{item.title}</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{item.body}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-500 mt-3">{item.date}</div>
         </div>
       </div>
 

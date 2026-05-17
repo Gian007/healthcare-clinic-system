@@ -8,7 +8,7 @@ class DoctorDayOff extends Model
 {
     protected $primaryKey = 'dayoff_id';
     protected $fillable = [
-        'doctor_id', 'dayoff_date', 'reason', 'status', 
+        'doctor_id', 'dayoff_date', 'is_half_day', 'start_time', 'end_time', 'reason', 'status', 
         'admin_remarks', 'approved_by', 'approved_at'
     ];
 

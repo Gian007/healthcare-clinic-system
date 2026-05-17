@@ -27,7 +27,7 @@ export const doctors = [
     id: 4,
     name: "Dr. Doggy Wilson",
     specialty: "Pediatric Dentistry",
-    status: "Available",
+    status: "Unavailable",
     image:
       "https://imgs.search.brave.com/2029aGIHMams3mLQXbIU9Yz7IdIKYAPQAJ_p_lMGVuI/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly93d3cu/cHVyaW5hLmNvLnVr/L3NpdGVzL2RlZmF1/bHQvZmlsZXMvc3R5/bGVzL3R0dF9pbWFn/ZV81MTAvcHVibGlj/LzIwMjMtMDQvSG93/JTIwdG8lMjB0ZWFj/aCUyMGElMjBkb2cl/MjB0byUyMHBsYXkl/MjBkZWFkJTIwMi5q/cGc_aXRvaz1TanZB/VERNdQ",
   },
