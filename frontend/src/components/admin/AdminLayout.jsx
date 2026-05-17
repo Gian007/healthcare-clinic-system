@@ -10,6 +10,7 @@ import Logo from "../Logo";
 
 const links = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/admin/queue", label: "Live Queue", icon: HeartPulse },
   { to: "/admin/doctors", label: "Doctors", icon: Stethoscope },
   { to: "/admin/schedules", label: "Schedules", icon: CalendarDays },
   { to: "/admin/services", label: "Services", icon: BriefcaseMedical },

@@ -148,6 +148,7 @@ export default function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="doctors" element={<AdminDoctors />} />
             <Route path="schedules" element={<AdminSchedules />} />
+            <Route path="queue" element={<StaffQueue />} />
             <Route path="services" element={<AdminServices />} />
             <Route path="staff" element={<AdminStaff />} />
             <Route path="patients" element={<AdminPatients />} />

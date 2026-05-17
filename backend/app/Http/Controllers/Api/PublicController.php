@@ -74,22 +74,11 @@ class PublicController extends Controller
 
     public function getQueue()
     {
-        // Assuming queue public data can be derived from appointments today
-        // We will just return empty array for now or fetch appointments that are Checked In
         $today = date('Y-m-d');
-        $queue = \App\Models\Appointment::with(['patient:patient_id,first_name,last_name', 'doctor:doctor_id,first_name,last_name'])
-            ->where('appointment_date', $today)
-            ->whereIn('booking_status', ['Confirmed', 'In Progress', 'Completed'])
-            ->orderBy('created_at')
-            ->get()
-            ->map(function ($app) {
-                return [
-                    'queue_number' => 'Q-' . str_pad($app->appointment_id, 3, '0', STR_PAD_LEFT),
-                    'patient_name' => $app->patient ? $app->patient->first_name . ' ' . $app->patient->last_name : 'Unknown',
-                    'doctor_name'  => $app->doctor ? 'Dr. ' . $app->doctor->first_name . ' ' . $app->doctor->last_name : 'Unknown',
-                    'status'       => $app->booking_status,
-                ];
-            });
+        $queue = \App\Models\Queue::with(['patient', 'doctor.specialization'])
+            ->where('queue_date', $today)
+            ->orderBy('queue_number')
+            ->get();
 
         return response()->json($queue);
     }
