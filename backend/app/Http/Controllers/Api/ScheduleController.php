@@ -85,7 +85,7 @@ class ScheduleController extends Controller
             'day_of_week'  => 'required|string',
             'start_time'   => 'required',
             'end_time'     => 'required|after:start_time',
-            'room'         => 'nullable|string',
+            'room'         => 'required|string',
         ]);
 
         // Validate against clinic hours
@@ -99,16 +99,30 @@ class ScheduleController extends Controller
             return response()->json(['message' => 'Doctor schedule must be within clinic operating hours (' . $clinicHour->open_time . ' - ' . $clinicHour->close_time . ').'], 422);
         }
 
-        // Check overlaps
-        $overlap = DoctorSchedule::where('doctor_id', $request->doctor_id)
+        // Check doctor overlaps (Strict interval intersection: start1 < end2 AND end1 > start2)
+        $doctorOverlap = DoctorSchedule::where('doctor_id', $request->doctor_id)
             ->where('day_of_week', $request->day_of_week)
-            ->where(function($q) use ($request) {
-                $q->whereBetween('start_time', [$request->start_time, $request->end_time])
-                  ->orWhereBetween('end_time', [$request->start_time, $request->end_time]);
-            })->exists();
+            ->where('schedule_status', 'Active')
+            ->where('start_time', '<', $request->end_time)
+            ->where('end_time', '>', $request->start_time)
+            ->exists();
 
-        if ($overlap) {
+        if ($doctorOverlap) {
             return response()->json(['message' => 'Schedule overlaps with another regular schedule for this doctor.'], 422);
+        }
+
+        // Check room overlaps
+        if ($request->room) {
+            $roomOverlap = DoctorSchedule::where('room', $request->room)
+                ->where('day_of_week', $request->day_of_week)
+                ->where('schedule_status', 'Active')
+                ->where('start_time', '<', $request->end_time)
+                ->where('end_time', '>', $request->start_time)
+                ->exists();
+
+            if ($roomOverlap) {
+                return response()->json(['message' => "The room '{$request->room}' is already assigned to another doctor during this time slot."], 422);
+            }
         }
 
         $schedule = DoctorSchedule::create([
@@ -138,9 +152,37 @@ class ScheduleController extends Controller
         $request->validate([
             'start_time'   => 'required',
             'end_time'     => 'required|after:start_time',
-            'room'         => 'nullable|string',
+            'room'         => 'required|string',
             'schedule_status' => 'required|in:Active,Inactive',
         ]);
+
+        // Check doctor overlaps excluding current schedule item
+        $doctorOverlap = DoctorSchedule::where('doctor_id', $schedule->doctor_id)
+            ->where('day_of_week', $schedule->day_of_week)
+            ->where('schedule_id', '!=', $id)
+            ->where('schedule_status', 'Active')
+            ->where('start_time', '<', $request->end_time)
+            ->where('end_time', '>', $request->start_time)
+            ->exists();
+
+        if ($doctorOverlap) {
+            return response()->json(['message' => 'Schedule overlaps with another regular schedule for this doctor.'], 422);
+        }
+
+        // Check room overlaps excluding current schedule item
+        if ($request->room) {
+            $roomOverlap = DoctorSchedule::where('room', $request->room)
+                ->where('day_of_week', $schedule->day_of_week)
+                ->where('schedule_id', '!=', $id)
+                ->where('schedule_status', 'Active')
+                ->where('start_time', '<', $request->end_time)
+                ->where('end_time', '>', $request->start_time)
+                ->exists();
+
+            if ($roomOverlap) {
+                return response()->json(['message' => "The room '{$request->room}' is already assigned to another doctor during this time slot."], 422);
+            }
+        }
 
         $schedule->update($request->all());
         return response()->json(['message' => 'Schedule updated successfully.', 'schedule' => $schedule->load('doctor')]);

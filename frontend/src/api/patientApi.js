@@ -6,6 +6,9 @@ export const updatePassword      = (data) => api.post('/patient/profile/password
 export const uploadPhoto         = (fd)   => api.post('/patient/profile/photo', fd, { headers: { 'Content-Type': 'multipart/form-data' }}).then(r => r.data);
 export const uploadVerificationId= (fd)   => api.post('/patient/verify-id', fd, { headers: { 'Content-Type': 'multipart/form-data' }}).then(r => r.data);
 export const bookAppointment     = (data) => api.post('/patient/appointments', data).then(r => r.data);
+export const cancelAppointment    = (id, data) => api.put(`/patient/appointments/${id}/cancel`, data).then(r => r.data);
+export const confirmAttendance    = (id) => api.put(`/patient/appointments/${id}/confirm-attendance`).then(r => r.data);
+export const declineAttendance    = (id) => api.put(`/patient/appointments/${id}/decline-attendance`).then(r => r.data);
 
 // Public endpoints (no auth needed)
 export const getPublicDoctors      = ()   => api.get('/admin/doctors').then(r => r.data);

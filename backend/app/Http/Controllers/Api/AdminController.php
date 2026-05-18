@@ -132,6 +132,11 @@ class AdminController extends Controller
             'homepage.social.*' => 'nullable|string|max:2048',
             'homepage.footer' => 'sometimes|array',
             'homepage.footer.*' => 'nullable|string|max:2048',
+            'rooms' => 'sometimes|array',
+            'rooms.*.id' => 'required_with:rooms|string',
+            'rooms.*.name' => 'required_with:rooms|string|max:80',
+            'rooms.*.purpose' => 'nullable|string|max:255',
+            'rooms.*.status' => 'required_with:rooms|in:Active,Maintenance',
         ]);
 
         $settings = array_replace_recursive(SystemSetting::getAdminPortalSettings(), $validated);

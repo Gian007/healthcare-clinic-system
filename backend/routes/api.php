@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\DoctorController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\ScheduleController;
+use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Api\StaffController;
 use Illuminate\Support\Facades\Route;
 
@@ -45,6 +46,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/profile/photo',     [PatientController::class, 'uploadProfilePicture']);
         Route::post('/verify-id',         [PatientController::class, 'uploadVerificationId']);
         Route::post('/appointments',      [PatientController::class, 'store']);
+        Route::put('/appointments/{id}/cancel', [PatientController::class, 'cancelAppointment']);
+        Route::put('/appointments/{id}/confirm-attendance', [PatientController::class, 'confirmAttendance']);
+        Route::put('/appointments/{id}/decline-attendance', [PatientController::class, 'declineAttendance']);
     });
 
     /* ── Doctor Routes ── */

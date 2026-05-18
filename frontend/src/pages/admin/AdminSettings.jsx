@@ -5,7 +5,7 @@ import { useAdminSettings } from "../../state/adminSettings";
 import { PageHeader, TextInput } from "../../components/admin/AdminUI";
 import * as adminApi from "../../api/adminApi";
 import ImageCropper from "../../components/ImageCropper";
-import { mergeAdminSettings, resolveLogoUrl } from "../../config/adminSettings";
+import { DEFAULT_ADMIN_SETTINGS, mergeAdminSettings, resolveLogoUrl } from "../../config/adminSettings";
 
 const menuOptions = [
   ["doctors", "Doctors"],
@@ -294,6 +294,25 @@ export default function AdminSettings() {
       showSuccess("Portal settings saved.");
     } catch (err) {
       setErrors(err.response?.data?.errors || { portal: err.response?.data?.message || "Failed to save portal settings." });
+    } finally {
+      setSavingPortal(false);
+    }
+  };
+
+  const handlePortalReset = async () => {
+    if (!window.confirm("Are you sure you want to reset all portal settings to their original defaults?")) {
+      return;
+    }
+    setSavingPortal(true);
+    setErrors({});
+
+    try {
+      const response = await adminApi.updateSettings(DEFAULT_ADMIN_SETTINGS);
+      const nextSettings = setSettings(response.settings);
+      setPortal(nextSettings);
+      showSuccess("Portal settings reset to defaults successfully.");
+    } catch (err) {
+      setErrors(err.response?.data?.errors || { portal: err.response?.data?.message || "Failed to reset portal settings." });
     } finally {
       setSavingPortal(false);
     }
@@ -592,7 +611,15 @@ export default function AdminSettings() {
           </SettingsCard>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={handlePortalReset}
+            disabled={savingPortal}
+            className="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 px-6 py-3 font-semibold text-white transition disabled:opacity-50"
+          >
+            Reset to Defaults
+          </button>
           <button
             type="submit"
             disabled={savingPortal}

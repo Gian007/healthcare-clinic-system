@@ -9,7 +9,7 @@ class Appointment extends Model
         'patient_id', 'doctor_id', 'service_id', 'schedule_id',
         'appointment_date', 'start_time', 'end_time',
         'appointment_type', 'reason_for_visit',
-        'booking_status', 'checkin_deadline'
+        'booking_status', 'checkin_deadline', 'attendance_status'
     ];
 
     public function patient()

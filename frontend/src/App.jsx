@@ -8,6 +8,7 @@ import Doctors from "./pages/Doctors";
 import Services from "./pages/Services";
 import Queue from "./pages/Queue";
 import Announcements from "./pages/Announcements";
+import Schedule from "./pages/Schedule";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -38,6 +39,7 @@ import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminDoctors from "./pages/admin/AdminDoctors";
 import AdminSchedules from "./pages/admin/AdminSchedules";
+import AdminRooms from "./pages/admin/AdminRooms";
 import AdminServices from "./pages/admin/AdminServices";
 import AdminStaff from "./pages/admin/AdminStaff";
 import AdminPatients from "./pages/admin/AdminPatients";
@@ -93,6 +95,7 @@ export default function App() {
           <Route path="/services" element={<Services />} />
           <Route path="/queue" element={<Queue />} />
           <Route path="/announcements" element={<Announcements />} />
+          <Route path="/schedule" element={<Schedule />} />
 
           {/* ================= AUTH ================= */}
           <Route path="/login" element={<Login />} />
@@ -148,6 +151,7 @@ export default function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="doctors" element={<AdminDoctors />} />
             <Route path="schedules" element={<AdminSchedules />} />
+            <Route path="rooms" element={<AdminRooms />} />
             <Route path="queue" element={<StaffQueue />} />
             <Route path="services" element={<AdminServices />} />
             <Route path="staff" element={<AdminStaff />} />

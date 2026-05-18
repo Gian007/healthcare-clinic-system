@@ -36,8 +36,8 @@ export default function ReservationPayment() {
         const patientApi = await import("../../api/patientApi");
         
         await patientApi.bookAppointment({
-          doctor_id: doctor.id || 1, // Mock data uses 1-4 for ids, backend might differ. Assuming same.
-          service_id: service.id || 1,
+          doctor_id: doctor.doctor_id || doctor.id || 1,
+          service_id: service.service_id || service.id || 1,
           appointment_date: date,
           start_time: time,
           notes: reason

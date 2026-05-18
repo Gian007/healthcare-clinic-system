@@ -23,8 +23,7 @@ class VerificationCodeMail extends Mailable
     {
         $this->code = $code;
         
-        $settingsObj = SystemSetting::where('key', 'admin_portal_settings')->first();
-        $settings = $settingsObj ? $settingsObj->value : [];
+        $settings = SystemSetting::getAdminPortalSettings();
         $branding = $settings['branding'] ?? [];
         
         $this->clinicName = $branding['clinicName'] ?? 'SHQMS';

@@ -291,7 +291,7 @@ export default function PatientLayout() {
           </div>
         </header>
 
-        <main className="p-3 sm:p-5 lg:p-8">
+        <main className="p-3 pt-[72px] sm:p-5 sm:pt-5 lg:p-8">
           <Outlet />
         </main>
       </div>

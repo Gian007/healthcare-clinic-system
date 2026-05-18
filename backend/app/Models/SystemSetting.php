@@ -123,6 +123,7 @@ class SystemSetting extends Model
                     'termsUrl' => '#',
                 ],
             ],
+            'rooms' => [],
         ];
     }
 

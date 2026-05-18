@@ -106,7 +106,8 @@ export default function StaffQueue() {
 
   const queueGroups = useMemo(() => {
     return activeSchedules.map((d) => {
-      const list = queue.filter((q) => q.doctor_id === d.id && q.queue_status !== "Cancelled" && q.queue_status !== "Done");
+      const list = queue.filter((q) => q.doctor_id === d.id && q.queue_status !== "Cancelled" && q.queue_status !== "Done")
+        .sort((a, b) => (a.priority_number ?? a.queue_number) - (b.priority_number ?? b.queue_number));
       const now = list.find((q) => q.queue_status === "Serving" || q.queue_status === "Active");
       const next = list.filter((q) => q.queue_status === "Waiting");
       return { ...d, list, now, next };

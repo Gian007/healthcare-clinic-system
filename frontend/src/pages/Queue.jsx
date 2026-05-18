@@ -1,12 +1,17 @@
 import { useEffect, useState, useMemo } from "react";
-import { FaClock, FaHeartbeat, FaRegBuilding } from "react-icons/fa";
+import { FaClock, FaHeartbeat, FaRegBuilding, FaHospital } from "react-icons/fa";
 import * as publicApi from "../api/publicApi";
+import { useAdminSettings } from "../state/adminSettings";
 
 export default function Queue() {
+  const { settings } = useAdminSettings();
   const [queue, setQueue] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("queues"); // "queues" or "directory"
+
+  // Load Rooms from settings
+  const rooms = useMemo(() => settings?.rooms || [], [settings]);
 
   useEffect(() => {
     Promise.all([publicApi.getQueue(), publicApi.getDoctors()])
@@ -23,46 +28,79 @@ export default function Queue() {
     return days[new Date().getDay()];
   }, []);
 
+  // Determine active schedules and queues grouped by physical Room
   const activeQueues = useMemo(() => {
-    const list = [];
-    // 1. Group by active schedules for today
-    doctors.forEach(doc => {
-      doc.schedules?.forEach(sch => {
-        if (sch.day_of_week === todayWeekday && sch.schedule_status === "Active") {
-          list.push({
-            doctor_id: doc.doctor_id,
-            name: `Dr. ${doc.first_name} ${doc.last_name}`,
-            room: sch.room || "General Room",
-            specialization: doc.specialization?.specialization_name || "General Practitioner"
-          });
-        }
-      });
-    });
+    // 1. Get current hour and minutes in HH:MM format
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMin = now.getMinutes();
+    const nowTimeStr = `${currentHour.toString().padStart(2, '0')}:${currentMin.toString().padStart(2, '0')}`;
 
-    // 2. Fallback to active queue items in case some doctor schedule isn't loaded but they have patients
-    queue.forEach(q => {
-      if (q.doctor && !list.some(d => d.doctor_id === q.doctor_id)) {
-        list.push({
-          doctor_id: q.doctor_id,
-          name: `Dr. ${q.doctor.first_name} ${q.doctor.last_name}`,
-          room: q.doctor.schedules?.find(s => s.day_of_week === todayWeekday)?.room || "Consultation Room",
-          specialization: q.doctor.specialization?.specialization_name || "Specialist"
+    // 2. Loop through each physical room registered in our Room Directory
+    const roomList = rooms.length > 0 ? rooms : [
+      { id: 'default1', name: 'General Room', purpose: 'Consultations', status: 'Active' }
+    ];
+
+    return roomList.map(r => {
+      // Find all active doctor schedules for today assigned to this room
+      const todaySchedules = [];
+      doctors.forEach(doc => {
+        doc.schedules?.forEach(sch => {
+          if (sch.day_of_week === todayWeekday && sch.schedule_status === "Active" && sch.room === r.name) {
+            todaySchedules.push({
+              ...sch,
+              doctor: doc,
+              doctor_id: doc.doctor_id,
+              name: `Dr. ${doc.first_name} ${doc.last_name}`,
+              specialization: doc.specialization?.specialization_name || "General Practitioner"
+            });
+          }
         });
-      }
-    });
+      });
 
-    // 3. Map now serving and waiting list for each queue
-    return list.map(qGroup => {
-      const activeList = queue.filter(q => q.doctor_id === qGroup.doctor_id && q.queue_status !== "Cancelled" && q.queue_status !== "Done");
-      const now = activeList.find(q => q.queue_status === "Serving" || q.queue_status === "Active");
-      const next = activeList.filter(q => q.queue_status === "Waiting");
+      // Find the currently active doctor shift in this room (start_time <= nowTime <= end_time)
+      let activeSchedule = todaySchedules.find(sch => {
+        const sStart = sch.start_time.slice(0,5);
+        const sEnd = sch.end_time.slice(0,5);
+        return (nowTimeStr >= sStart && nowTimeStr <= sEnd);
+      });
+
+      // If no doctor covers this exact minute, but there are shifts today, default to the upcoming/active one
+      if (!activeSchedule && todaySchedules.length > 0) {
+        activeSchedule = todaySchedules[0];
+      }
+
+      if (activeSchedule) {
+        // Calculate the queue specifically for this active doctor
+        const activeList = queue.filter(q => q.doctor_id === activeSchedule.doctor_id && q.queue_status !== "Cancelled" && q.queue_status !== "Done")
+          .sort((a, b) => (a.priority_number ?? a.queue_number) - (b.priority_number ?? b.queue_number));
+        const nowServing = activeList.find(q => q.queue_status === "Serving" || q.queue_status === "Active");
+        const nextInQueue = activeList.filter(q => q.queue_status === "Waiting");
+
+        return {
+          room: r.name,
+          purpose: r.purpose,
+          status: r.status,
+          hasDoctor: true,
+          doctorName: activeSchedule.name,
+          doctorSpecialization: activeSchedule.specialization,
+          shiftText: `${activeSchedule.start_time.slice(0,5)} - ${activeSchedule.end_time.slice(0,5)}`,
+          now: nowServing,
+          next: nextInQueue,
+          todaySchedules: todaySchedules
+        };
+      }
+
+      // No doctor scheduled today or active right now
       return {
-        ...qGroup,
-        now,
-        next
+        room: r.name,
+        purpose: r.purpose,
+        status: r.status,
+        hasDoctor: false,
+        todaySchedules: todaySchedules
       };
     });
-  }, [doctors, queue, todayWeekday]);
+  }, [rooms, doctors, queue, todayWeekday]);
 
   // Group today's doctor schedules by Room
   const roomGroups = useMemo(() => {
@@ -138,7 +176,7 @@ export default function Queue() {
               className={`rounded-lg px-6 py-2 text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
                 activeTab === "queues"
                   ? "bg-teal-600 text-white shadow-md scale-100"
-                  : "text-gray-600 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
+                  : "text-gray-600 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400"
               }`}
             >
               🔄 Live Queues
@@ -148,7 +186,7 @@ export default function Queue() {
               className={`rounded-lg px-6 py-2 text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
                 activeTab === "directory"
                   ? "bg-teal-600 text-white shadow-md scale-100"
-                  : "text-gray-600 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
+                  : "text-gray-600 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400"
               }`}
             >
               <FaRegBuilding /> Room Directory & Schedules
@@ -165,29 +203,41 @@ export default function Queue() {
         ) : activeTab === "queues" ? (
           /* ================= TAB 1: LIVE QUEUES ================= */
           activeQueues.length === 0 ? (
-            <div className="text-center text-gray-500 py-16 max-w-md mx-auto">
+            <div className="text-center text-gray-500 dark:text-slate-400 py-16 max-w-md mx-auto">
               <p className="text-5xl mb-4">🪑</p>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">No Active Consultations</h3>
-              <p className="text-sm text-gray-500 mt-1">There are no scheduled clinical consultation rooms active at the moment.</p>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">No Consulting Rooms Configured</h3>
+              <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">There are no active clinic rooms set up in the system settings.</p>
             </div>
           ) : (
-            <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {activeQueues.map((group) => (
                 <div 
-                  key={group.doctor_id} 
+                  key={group.room} 
                   className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800/60 rounded-2xl shadow-sm overflow-hidden flex flex-col justify-between"
                 >
                   {/* Header */}
                   <div className="bg-gradient-to-br from-teal-600 to-teal-500 p-5 text-white flex flex-col justify-between min-h-[110px]">
                     <div className="flex justify-between items-start">
                       <span className="text-[10px] bg-white/20 uppercase tracking-widest font-black px-2.5 py-1 rounded-lg">
-                        {group.room}
+                        📍 {group.room}
                       </span>
+                      {group.hasDoctor && (
+                        <span className="text-[9px] bg-teal-700/50 uppercase tracking-wider font-extrabold px-2 py-0.5 rounded text-teal-100">
+                          ⏱️ {group.shiftText}
+                        </span>
+                      )}
                     </div>
-                    <div className="mt-3">
-                      <h2 className="font-bold text-lg leading-tight">{group.name}</h2>
-                      <p className="text-xs opacity-90 truncate mt-0.5">{group.specialization}</p>
-                    </div>
+                    {group.hasDoctor ? (
+                      <div className="mt-3">
+                        <h2 className="font-bold text-lg leading-tight">{group.doctorName}</h2>
+                        <p className="text-xs opacity-90 truncate mt-0.5">{group.doctorSpecialization}</p>
+                      </div>
+                    ) : (
+                      <div className="mt-3">
+                        <h2 className="font-bold text-lg leading-tight text-white/40">No Doctor Assigned</h2>
+                        <p className="text-xs opacity-60 truncate mt-0.5">Physical consultation station</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Body */}
@@ -195,7 +245,7 @@ export default function Queue() {
                     {/* Now Serving */}
                     <div>
                       <p className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-widest">Now Serving</p>
-                      {group.now ? (
+                      {group.hasDoctor && group.now ? (
                         <div className="mt-2 bg-teal-50 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/30 text-teal-700 dark:text-teal-300 rounded-xl p-4 text-center shadow-sm">
                           <div className="text-3xl font-black tracking-tight">Q-{group.now.queue_number}</div>
                           <div className="text-xs font-semibold mt-1 truncate">
@@ -204,7 +254,7 @@ export default function Queue() {
                         </div>
                       ) : (
                         <div className="mt-2 bg-gray-50/50 dark:bg-slate-800/30 border border-gray-100 dark:border-slate-800/40 text-gray-400 dark:text-slate-500 rounded-xl p-4 text-center font-bold text-xs uppercase tracking-wider">
-                          Room Idle
+                          {group.status === 'Maintenance' ? "🔧 Maintenance Mode" : "Room Closed"}
                         </div>
                       )}
                     </div>
@@ -215,7 +265,7 @@ export default function Queue() {
                         <FaClock className="text-teal-500/80" /> Up Next
                       </div>
                       <div className="space-y-2">
-                        {group.next.length > 0 ? (
+                        {group.hasDoctor && group.next.length > 0 ? (
                           group.next.slice(0, 3).map((p, idx) => (
                             <div 
                               key={p.queue_id} 
@@ -231,7 +281,7 @@ export default function Queue() {
                           ))
                         ) : (
                           <p className="text-xs text-gray-400 dark:text-slate-500 italic text-center py-2">
-                            Queue is empty
+                            No patients waiting
                           </p>
                         )}
                       </div>
@@ -244,10 +294,10 @@ export default function Queue() {
         ) : (
           /* ================= TAB 2: ROOM DIRECTORY ================= */
           roomGroups.length === 0 ? (
-            <div className="text-center text-gray-500 py-16 max-w-md mx-auto">
+            <div className="text-center text-gray-500 dark:text-slate-400 py-16 max-w-md mx-auto">
               <p className="text-5xl mb-4">🏢</p>
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">No Schedules Today</h3>
-              <p className="text-sm text-gray-500 mt-1">There are no consulting rooms scheduled for today.</p>
+              <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">There are no consulting rooms scheduled for today.</p>
             </div>
           ) : (
             <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -284,18 +334,18 @@ export default function Queue() {
 
                         <div className="mt-4 space-y-1.5 text-xs text-gray-600 dark:text-slate-400">
                           <div className="flex justify-between bg-gray-50 dark:bg-slate-800/30 px-3 py-2 rounded-xl border border-gray-100/30 dark:border-slate-800/10">
-                            <span className="font-semibold">Shift Hours:</span>
+                            <span className="font-semibold text-slate-600 dark:text-slate-400">Shift Hours:</span>
                             <span className="text-gray-950 dark:text-white font-bold">{doc.start_time} - {doc.end_time}</span>
                           </div>
                           {doc.lunch_start && doc.lunch_end && (
                             <div className="flex justify-between px-3 text-[11px]">
-                              <span>🥪 Lunch Break:</span>
+                              <span className="font-medium text-slate-500 dark:text-slate-400">🥪 Lunch Break:</span>
                               <span className="font-semibold text-gray-800 dark:text-slate-300">{doc.lunch_start} - {doc.lunch_end}</span>
                             </div>
                           )}
                           {((doc.break1_start && doc.break1_end) || (doc.break2_start && doc.break2_end)) && (
                             <div className="flex justify-between px-3 text-[11px]">
-                              <span>☕ Tea Breaks:</span>
+                              <span className="font-medium text-slate-500 dark:text-slate-400">☕ Tea Breaks:</span>
                               <span className="font-semibold text-gray-800 dark:text-slate-300">
                                 {doc.break1_start && `${doc.break1_start}-${doc.break1_end}`}
                                 {doc.break1_start && doc.break2_start && " | "}
@@ -305,7 +355,7 @@ export default function Queue() {
                           )}
                           {doc.slot_limit && (
                             <div className="flex justify-between px-3 text-[11px]">
-                              <span>🎯 Patient Cap:</span>
+                              <span className="font-medium text-slate-500 dark:text-slate-400">🎯 Patient Cap:</span>
                               <span className="font-semibold text-gray-800 dark:text-slate-300">{doc.slot_limit} Slots</span>
                             </div>
                           )}

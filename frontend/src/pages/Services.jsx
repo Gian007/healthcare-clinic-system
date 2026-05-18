@@ -14,9 +14,9 @@ export default function Services() {
           id: s.service_id,
           name: s.service_name,
           desc: s.description || 'No description provided.',
-          status: s.status || 'Available',
-          durationMin: s.duration_mins || 30,
-          price: s.fee || 0 // if no fee, 0
+          status: s.service_status || 'Available',
+          durationMin: s.estimated_duration || 30,
+          price: s.base_fee || 0
         }));
         setServices(mapped);
       })

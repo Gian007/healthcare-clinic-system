@@ -39,13 +39,50 @@ export default function PatientDashboard() {
   const [appts, setAppts]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [detailModal, setDetailModal] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [pendingConfirmAppt, setPendingConfirmAppt] = useState(null);
 
-  useEffect(() => {
+  const fetchDashboardData = () => {
     patientApi.getDashboard()
-      .then(d => setAppts(d.appointments || []))
+      .then(d => {
+        setAppts(d.appointments || []);
+        setPendingConfirmAppt(d.pending_attendance_confirm_appointment || null);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
   }, []);
+
+  const handleOpenDetail = (appt) => {
+    setDetailModal(appt);
+    setCancelling(false);
+    setCancelReason("");
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelReason.trim()) {
+      alert("Please provide a reason for cancellation.");
+      return;
+    }
+    setCancelLoading(true);
+    try {
+      await patientApi.cancelAppointment(detailModal.appointment_id, {
+        cancellation_reason: cancelReason
+      });
+      alert("Appointment cancelled successfully!");
+      setDetailModal(null);
+      fetchDashboardData();
+    } catch (e) {
+      alert(e.response?.data?.message || "Failed to cancel appointment.");
+    } finally {
+      setCancelLoading(false);
+    }
+  };
 
   const upcoming = appts.filter(a => a.booking_status !== 'Completed' && a.booking_status !== 'Cancelled');
   const completed = appts.filter(a => a.booking_status === 'Completed').length;
@@ -72,6 +109,55 @@ export default function PatientDashboard() {
           </button>
         </div>
       </div>
+
+      {/* Attendance Check Notification Banner */}
+      {pendingConfirmAppt && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-5 shadow-sm animate-pulse flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex gap-3">
+            <span className="text-2xl shrink-0">⚠️</span>
+            <div>
+              <h4 className="font-bold text-amber-800 dark:text-amber-300 text-sm md:text-base">Upcoming Appointment Pre-Confirmation</h4>
+              <p className="text-xs md:text-sm text-amber-700 dark:text-amber-400 mt-1">
+                Your appointment with <strong className="font-semibold">Dr. {pendingConfirmAppt.doctor?.first_name} {pendingConfirmAppt.doctor?.last_name}</strong> starts at <strong className="font-semibold">{pendingConfirmAppt.start_time}</strong>. Please confirm if you are going to this appointment!
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2.5 shrink-0 self-end md:self-center">
+            <button
+              onClick={async () => {
+                if (confirm("Confirming your attendance?")) {
+                  try {
+                    await patientApi.confirmAttendance(pendingConfirmAppt.appointment_id);
+                    alert("Attendance confirmed successfully!");
+                    fetchDashboardData();
+                  } catch (e) {
+                    alert("Failed to confirm attendance.");
+                  }
+                }
+              }}
+              className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all"
+            >
+              Yes, I am going
+            </button>
+            <button
+              onClick={async () => {
+                if (confirm("Are you sure you want to cancel your appointment? This will release your spot in the queue.")) {
+                  try {
+                    await patientApi.declineAttendance(pendingConfirmAppt.appointment_id);
+                    alert("Appointment cancelled successfully.");
+                    fetchDashboardData();
+                  } catch (e) {
+                    alert("Failed to cancel appointment.");
+                  }
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all"
+            >
+              No, Cancel spot
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -134,28 +220,32 @@ export default function PatientDashboard() {
           ) : (
             appts.map(a => (
               <div key={a.appointment_id}
-                className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-5 flex items-start justify-between gap-4 hover:shadow-md transition-shadow">
-                <div className="flex items-start gap-4">
+                className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4 hover:shadow-md transition-shadow">
+                <div className="flex items-start gap-4 min-w-0 w-full sm:w-auto">
                   <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
                     <FaUserCircle className="text-xl" />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-gray-900 dark:text-white">
+                      <span className="font-semibold text-gray-900 dark:text-white truncate max-w-[150px] sm:max-w-none">
                         Dr. {a.doctor?.first_name} {a.doctor?.last_name}
                       </span>
                       <StatusBadge status={a.booking_status} />
                     </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{a.service?.service_name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">{a.service?.service_name}</p>
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mt-1">
                       {new Date(a.appointment_date + 'T00:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' })} • {a.start_time}
                     </p>
-                    {a.reason_for_visit && <p className="text-xs text-gray-400 mt-1 truncate max-w-xs">Reason: {a.reason_for_visit}</p>}
+                    {a.reason_for_visit && (
+                      <p className="text-xs text-gray-400 mt-1 truncate max-w-full" title={a.reason_for_visit}>
+                        Reason: {a.reason_for_visit}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <button
-                  onClick={() => setDetailModal(a)}
-                  className="text-sm px-4 py-2 rounded-lg border border-primary text-primary hover:bg-primary hover:text-white transition shrink-0">
+                  onClick={() => handleOpenDetail(a)}
+                  className="text-sm px-4 py-2 rounded-xl border border-primary text-primary hover:bg-primary hover:text-white transition w-full sm:w-auto text-center shrink-0 self-stretch sm:self-start mt-2 sm:mt-0 font-bold">
                   View
                 </button>
               </div>
@@ -168,32 +258,78 @@ export default function PatientDashboard() {
       {detailModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDetailModal(null)}>
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Appointment Details</h3>
-            <div className="space-y-3 text-sm">
-              {[
-                ['Doctor', `Dr. ${detailModal.doctor?.first_name} ${detailModal.doctor?.last_name}`],
-                ['Service', detailModal.service?.service_name],
-                ['Date', new Date(detailModal.appointment_date + 'T00:00:00').toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })],
-                ['Time', detailModal.start_time],
-                ['Status', detailModal.booking_status],
-                ['Type', detailModal.appointment_type],
-                ['Reason', detailModal.reason_for_visit],
-              ].map(([k,v]) => (
-                <div key={k} className="flex justify-between gap-2">
-                  <span className="text-gray-500 dark:text-gray-400 shrink-0">{k}</span>
-                  <span className="text-gray-900 dark:text-white text-right font-medium">{v || '—'}</span>
+            {!cancelling ? (
+              <>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Appointment Details</h3>
+                <div className="space-y-3 text-sm">
+                  {[
+                    ['Doctor', `Dr. ${detailModal.doctor?.first_name} ${detailModal.doctor?.last_name}`],
+                    ['Service', detailModal.service?.service_name],
+                    ['Date', new Date(detailModal.appointment_date + 'T00:00:00').toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' })],
+                    ['Time', detailModal.start_time],
+                    ['Status', detailModal.booking_status],
+                    ['Type', detailModal.appointment_type],
+                    ['Reason', detailModal.reason_for_visit],
+                  ].map(([k,v]) => (
+                    <div key={k} className="flex justify-between gap-2">
+                      <span className="text-gray-500 dark:text-gray-400 shrink-0">{k}</span>
+                      <span className="text-gray-900 dark:text-white text-right font-medium">{v || '—'}</span>
+                    </div>
+                  ))}
+                  {detailModal.completion_note && (
+                    <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-yellow-800 dark:text-yellow-300 text-xs">
+                      <strong>Note:</strong> {detailModal.completion_note}
+                    </div>
+                  )}
+                  {detailModal.cancellation && (
+                    <div className="mt-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50 rounded-lg text-red-800 dark:text-red-300 text-xs">
+                      <strong>Cancellation Reason ({detailModal.cancellation.cancelled_by}):</strong> {detailModal.cancellation.cancellation_reason}
+                    </div>
+                  )}
                 </div>
-              ))}
-              {detailModal.completion_note && (
-                <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-yellow-800 dark:text-yellow-300 text-xs">
-                  <strong>Note:</strong> {detailModal.completion_note}
+                <div className="mt-6 flex flex-col gap-2">
+                  {['Pending', 'Confirmed', 'Rescheduled'].includes(detailModal.booking_status) && (
+                    <button
+                      onClick={() => setCancelling(true)}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl font-medium transition"
+                    >
+                      Cancel Appointment
+                    </button>
+                  )}
+                  <button onClick={() => setDetailModal(null)}
+                    className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300 py-2.5 rounded-xl font-medium transition">
+                    Close
+                  </button>
                 </div>
-              )}
-            </div>
-            <button onClick={() => setDetailModal(null)}
-              className="mt-6 w-full bg-primary text-white py-2.5 rounded-xl font-medium hover:opacity-90 transition">
-              Close
-            </button>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Cancel Appointment</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Please provide a reason for cancelling this appointment.</p>
+                <textarea
+                  value={cancelReason}
+                  onChange={e => setCancelReason(e.target.value)}
+                  placeholder="Reason for cancellation (e.g. scheduling conflict, personal reasons)..."
+                  className="w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl p-3 h-28 outline-none focus:ring-2 focus:ring-primary/30 resize-none text-sm font-sans"
+                />
+                <div className="mt-6 flex gap-3">
+                  <button
+                    onClick={() => setCancelling(false)}
+                    disabled={cancelLoading}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300 py-2.5 rounded-xl font-medium transition text-center"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleConfirmCancel}
+                    disabled={cancelLoading || !cancelReason.trim()}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl font-medium transition disabled:opacity-40"
+                  >
+                    {cancelLoading ? "Cancelling..." : "Confirm Cancel"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

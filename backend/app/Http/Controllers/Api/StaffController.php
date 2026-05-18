@@ -186,8 +186,65 @@ class StaffController extends Controller
         $request->validate(['booking_status' => 'required|in:Pending,Confirmed,Cancelled,Completed,No Show,Rescheduled']);
 
         $appointment = Appointment::with(['patient'])->findOrFail($id);
+        $oldStatus = $appointment->booking_status;
         $appointment->booking_status = $request->booking_status;
         $appointment->save();
+
+        // Dynamically add to active queues today on Check-in (when booking_status goes to Confirmed)
+        if ($request->booking_status === 'Confirmed' && $oldStatus !== 'Confirmed') {
+            $today = date('Y-m-d');
+            
+            // Check if queue entry already exists for this appointment
+            $existingQueue = Queue::where('appointment_id', $appointment->appointment_id)
+                ->where('queue_date', $today)
+                ->first();
+
+            if (!$existingQueue) {
+                // Find today's max queue number for this doctor to assign next sequence
+                $maxQueueNumber = Queue::where('doctor_id', $appointment->doctor_id)
+                    ->where('queue_date', $today)
+                    ->max('queue_number') ?? 0;
+
+                $newQueueNumber = $maxQueueNumber + 1;
+                $priority = $newQueueNumber;
+
+                // "if he come then he will be next if some one get that slow disregard the other que"
+                if ($appointment->attendance_status === 'No Response') {
+                    // Make them NEXT in line by pushing other waiting queue items down
+                    Queue::where('doctor_id', $appointment->doctor_id)
+                        ->where('queue_date', $today)
+                        ->where('queue_status', 'Waiting')
+                        ->increment('priority_number');
+
+                    // Assign priority_number = 1 to place them right at the front of waiting queue!
+                    $priority = 1;
+                }
+
+                Queue::create([
+                    'queue_date'         => $today,
+                    'doctor_id'          => $appointment->doctor_id,
+                    'patient_id'         => $appointment->patient_id,
+                    'appointment_id'     => $appointment->appointment_id,
+                    'queue_source'       => 'Appointment',
+                    'queue_number'       => $newQueueNumber,
+                    'priority_number'    => $priority,
+                    'queue_status'       => 'Waiting',
+                    'estimated_wait_time'=> ($priority - 1) * 15,
+                ]);
+
+                // Create a notification that they are checked in
+                if ($appointment->patient_id) {
+                    SystemNotification::create([
+                        'notifiable_type' => 'patient',
+                        'notifiable_id'   => $appointment->patient_id,
+                        'title'           => 'Checked In successfully',
+                        'body'            => "You have been successfully checked in. Your queue number is Q-{$newQueueNumber}." . 
+                                             ($priority === 1 ? " You have been placed NEXT in the queue due to priority check-in!" : ""),
+                        'type'            => 'success',
+                    ]);
+                }
+            }
+        }
 
         // Notify patient about status change
         $msgMap = [

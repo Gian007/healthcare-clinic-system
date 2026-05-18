@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 const publicLinks = [
   { to: "/doctors", label: "Doctors", key: "doctors" },
   { to: "/services", label: "Services", key: "services" },
+  { to: "/schedule", label: "Schedules", key: "schedules" },
   { to: "/queue", label: "Queue", key: "queue" },
   { to: "/announcements", label: "Announcements", key: "announcements" },
 ];

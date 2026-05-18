@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../state/auth";
+import { useAdminSettings } from "../../state/adminSettings";
+import { resolveLogoUrl } from "../../config/adminSettings";
 import * as notifApi from "../../api/notificationApi";
 import { 
   FaHeartbeat, FaThLarge, FaUsers, FaCalendarCheck, FaClipboardList, 
@@ -22,10 +24,11 @@ const links = [
 
 export default function StaffLayout() {
   const [open, setOpen] = useState(false);
-  const [settings, setSettings] = useState(false);
   const [dark, setDark] = useState(() => localStorage.getItem("clinicTheme") === "dark");
 
   const { user, logout } = useAuth();
+  const { settings } = useAdminSettings();
+  const logoUrl = resolveLogoUrl(settings.branding.logoPath);
   const nav = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -69,10 +72,14 @@ export default function StaffLayout() {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-50 dark:border-slate-800 shrink-0">
           <Link to="/staff" className="flex items-center gap-3">
-            <Logo />
+            <Logo src={logoUrl} />
             <div>
-              <h1 className="font-black text-xl text-gray-900 dark:text-white leading-none tracking-tighter font-comfortaa font-fat">SHQMS</h1>
-              <p className="text-[9px] text-teal-600 dark:text-teal-400 uppercase font-bold tracking-widest mt-1 font-poppins">Staff Access</p>
+              <h1 className="font-black text-xl text-gray-900 dark:text-white leading-none tracking-tighter font-comfortaa font-fat">
+                {settings.branding.clinicName}
+              </h1>
+              <p className="text-[9px] text-teal-600 dark:text-teal-400 uppercase font-bold tracking-widest mt-1 font-poppins">
+                {settings.branding.tagline || "Staff Access"}
+              </p>
             </div>
           </Link>
           <button onClick={() => setOpen(false)} className="lg:hidden text-gray-400 hover:text-teal-600 transition-colors"><FaTimes size={18}/></button>
@@ -152,7 +159,7 @@ export default function StaffLayout() {
 
       {/* Main Content */}
       <div className="lg:pl-72">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 lg:px-8 transition-colors">
+        <header className="relative lg:sticky lg:top-0 z-30 flex h-16 items-center justify-between border-b border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 lg:px-8 transition-colors">
           <div className="flex items-center gap-3">
             <button onClick={() => setOpen(true)} className="lg:hidden p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg">
               <FaBars size={20} />

@@ -18,15 +18,32 @@ class PatientController extends Controller
         $patient = $request->user();
         $patientId = $patient->patient_id;
 
-        $appointments = Appointment::with(['doctor', 'service'])
+        $appointments = Appointment::with(['doctor', 'service', 'cancellation'])
             ->where('patient_id', $patientId)
             ->orderBy('appointment_date', 'asc')
             ->orderBy('start_time', 'asc')
             ->get();
 
+        $today = date('Y-m-d');
+        $now = now();
+        $oneHourLater = now()->addHour();
+
+        $pendingConfirm = Appointment::with(['doctor', 'service'])
+            ->where('patient_id', $patientId)
+            ->where('appointment_date', $today)
+            ->whereIn('booking_status', ['Pending', 'Confirmed', 'Rescheduled'])
+            ->where('attendance_status', 'No Response')
+            ->get()
+            ->filter(function($appt) use ($now, $oneHourLater) {
+                $apptTime = \Carbon\Carbon::parse($appt->appointment_date . ' ' . $appt->start_time);
+                return $apptTime->gt($now->subMinutes(15)) && $apptTime->lte($oneHourLater);
+            })
+            ->first();
+
         return response()->json([
             'appointments' => $appointments,
             'patient'      => $patient,
+            'pending_attendance_confirm_appointment' => $pendingConfirm,
         ]);
     }
 
@@ -193,5 +210,101 @@ class PatientController extends Controller
         ]);
 
         return response()->json(['message' => 'Appointment booked successfully.', 'appointment' => $appointment->load(['doctor', 'service'])]);
+    }
+
+    public function cancelAppointment(Request $request, $id)
+    {
+        $request->validate([
+            'cancellation_reason' => 'required|string|max:1000',
+        ]);
+
+        $patient = $request->user();
+        $appointment = Appointment::with(['doctor'])->where('appointment_id', $id)
+            ->where('patient_id', $patient->patient_id)
+            ->firstOrFail();
+
+        if (in_array($appointment->booking_status, ['Cancelled', 'Completed'])) {
+            return response()->json(['message' => 'Appointment is already ' . strtolower($appointment->booking_status) . '.'], 422);
+        }
+
+        $appointment->booking_status = 'Cancelled';
+        $appointment->save();
+
+        \App\Models\AppointmentCancellation::create([
+            'appointment_id' => $appointment->appointment_id,
+            'cancelled_by' => 'Patient',
+            'cancellation_reason' => $request->cancellation_reason,
+            'cancelled_at' => now(),
+        ]);
+
+        // Notify patient
+        SystemNotification::create([
+            'notifiable_type' => 'patient',
+            'notifiable_id'   => $patient->patient_id,
+            'title'           => 'Appointment Cancelled',
+            'body'            => "You have cancelled your appointment with Dr. {$appointment->doctor->first_name} {$appointment->doctor->last_name} on {$appointment->appointment_date}.",
+            'type'            => 'danger',
+        ]);
+
+        // Notify doctor/staff
+        SystemNotification::create([
+            'notifiable_type' => 'staff',
+            'notifiable_id'   => 0,
+            'title'           => 'Patient Cancelled Appointment',
+            'body'            => "Patient {$patient->first_name} {$patient->last_name} cancelled their appointment on {$appointment->appointment_date}. Reason: {$request->cancellation_reason}",
+            'type'            => 'warning',
+        ]);
+
+        return response()->json(['message' => 'Appointment cancelled successfully.', 'appointment' => $appointment]);
+    }
+
+    public function confirmAttendance(Request $request, $id)
+    {
+        $patient = $request->user();
+        $appointment = Appointment::with(['doctor'])->where('appointment_id', $id)
+            ->where('patient_id', $patient->patient_id)
+            ->firstOrFail();
+
+        $appointment->attendance_status = 'Yes';
+        $appointment->save();
+
+        SystemNotification::create([
+            'notifiable_type' => 'patient',
+            'notifiable_id'   => $patient->patient_id,
+            'title'           => 'Attendance Confirmed',
+            'body'            => "You have confirmed you are coming to your appointment with Dr. {$appointment->doctor->first_name} on {$appointment->appointment_date}.",
+            'type'            => 'success',
+        ]);
+
+        return response()->json(['message' => 'Attendance confirmed successfully.', 'appointment' => $appointment]);
+    }
+
+    public function declineAttendance(Request $request, $id)
+    {
+        $patient = $request->user();
+        $appointment = Appointment::with(['doctor'])->where('appointment_id', $id)
+            ->where('patient_id', $patient->patient_id)
+            ->firstOrFail();
+
+        $appointment->attendance_status = 'No';
+        $appointment->booking_status = 'Cancelled';
+        $appointment->save();
+
+        \App\Models\AppointmentCancellation::create([
+            'appointment_id' => $appointment->appointment_id,
+            'cancelled_by' => 'Patient',
+            'cancellation_reason' => 'Declined attendance in 1-hour pre-confirmation check.',
+            'cancelled_at' => now(),
+        ]);
+
+        SystemNotification::create([
+            'notifiable_type' => 'patient',
+            'notifiable_id'   => $patient->patient_id,
+            'title'           => 'Appointment Cancelled',
+            'body'            => "Your appointment with Dr. {$appointment->doctor->first_name} has been cancelled since you selected you are not going.",
+            'type'            => 'danger',
+        ]);
+
+        return response()->json(['message' => 'Appointment cancelled successfully.', 'appointment' => $appointment]);
     }
 }

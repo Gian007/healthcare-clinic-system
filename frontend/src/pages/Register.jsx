@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FaHeartbeat, FaEye, FaEyeSlash, FaCheckCircle, FaPaperPlane } from "react-icons/fa";
 import { useAuth } from "../state/auth";
+import { useAdminSettings } from "../state/adminSettings";
+import { resolveLogoUrl } from "../config/adminSettings";
 import * as authApi from "../api/authApi";
 import Logo from "../components/Logo";
 
@@ -21,6 +23,8 @@ const Field = ({ label, name, type = 'text', required, className = '', value, on
 );
 
 export default function Register() {
+  const { settings } = useAdminSettings();
+  const logoUrl = resolveLogoUrl(settings.branding.logoPath);
   const [formData, setFormData] = useState({
     first_name: '', last_name: '', middle_name: '',
     birth_date: '', sex: 'Male', contact_number: '',
@@ -113,7 +117,7 @@ export default function Register() {
       <div className="w-full max-w-xl">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <Logo size="lg" />
+            <Logo size="lg" src={logoUrl} />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Create an Account</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Join us as a patient</p>
