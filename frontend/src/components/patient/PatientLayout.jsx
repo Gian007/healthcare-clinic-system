@@ -1,6 +1,8 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuth } from "../../state/auth";
+import { useAdminSettings } from "../../state/adminSettings";
+import { resolveLogoUrl } from "../../config/adminSettings";
 import * as notifApi from "../../api/notificationApi";
 import {
   FaHeartbeat, FaCalendarAlt, FaBell, FaUser, FaSignOutAlt, FaBars, FaTimes, FaHome, FaMoon, FaSun, FaChevronLeft, FaChevronRight
@@ -8,10 +10,10 @@ import {
 import Logo from "../Logo";
 
 const links = [
-  { to: "/patient", label: "Dashboard", icon: FaHome, end: true },
-  { to: "/patient/book", label: "Book Appointment", icon: FaCalendarAlt },
-  { to: "/patient/calendar", label: "Calendar", icon: FaCalendarAlt },
-  { to: "/patient/profile", label: "Profile", icon: FaUser },
+  { to: "/patient", label: "Dashboard", icon: FaHome, end: true, key: "dashboard" },
+  { to: "/patient/book", label: "Book Appointment", icon: FaCalendarAlt, key: "bookAppointment" },
+  { to: "/patient/calendar", label: "Calendar", icon: FaCalendarAlt, key: "calendar" },
+  { to: "/patient/profile", label: "Profile", icon: FaUser, key: "profile" },
 ];
 
 export default function PatientLayout() {
@@ -22,7 +24,10 @@ export default function PatientLayout() {
   const [dark, setDark] = useState(() => localStorage.getItem("clinicTheme") === "dark");
   const [notifications, setNotifications] = useState([]);
   const { user, logout } = useAuth();
+  const { settings } = useAdminSettings();
   const nav = useNavigate();
+  const visibleLinks = links.filter((item) => settings.features.patientMenuItems[item.key] !== false);
+  const logoUrl = resolveLogoUrl(settings.branding.logoPath);
 
   useEffect(() => {
     notifApi.getNotifications()
@@ -72,9 +77,9 @@ export default function PatientLayout() {
         {/* Header */}
         <div className={`flex items-center border-b border-gray-100 dark:border-slate-800 p-5 shrink-0 h-[70px] ${collapsed ? "lg:justify-center justify-between" : "justify-between"}`}>
           <div className={`flex items-center gap-3 overflow-hidden ${collapsed ? "lg:hidden" : ""}`}>
-            <Logo />
+            <Logo src={logoUrl} />
             <div>
-              <h1 className="font-black text-xl text-gray-900 dark:text-white leading-none tracking-tighter font-comfortaa font-fat">SHQMS</h1>
+              <h1 className="font-black text-xl text-gray-900 dark:text-white leading-none tracking-tighter font-comfortaa font-fat">{settings.branding.clinicName}</h1>
               <p className="text-[9px] text-teal-600 dark:text-teal-400 uppercase font-bold tracking-widest mt-1 font-poppins">Patient Portal</p>
             </div>
           </div>
@@ -93,7 +98,7 @@ export default function PatientLayout() {
           <p className={`px-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest my-3 transition-opacity duration-200 ${collapsed ? "lg:opacity-0" : "opacity-100"}`}>
             {collapsed ? "" : "Menu"}
           </p>
-          {links.map((item) => {
+          {visibleLinks.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink

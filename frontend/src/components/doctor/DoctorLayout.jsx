@@ -3,19 +3,21 @@ import { LayoutDashboard, CalendarDays, CalendarX2, ClipboardList, Users, QrCode
 import Logo from "../Logo";
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../state/auth';
+import { useAdminSettings } from '../../state/adminSettings';
+import { resolveLogoUrl } from '../../config/adminSettings';
 import * as notifApi from '../../api/notificationApi';
 
 const links = [
-  { to: '/doctor', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/doctor/schedule', label: 'My Schedule', icon: CalendarDays },
-  { to: '/doctor/dayoff', label: 'Day Off Request', icon: CalendarX2 },
-  { to: '/doctor/appointments', label: 'Appointments', icon: ClipboardList },
-  { to: '/doctor/queue', label: 'My Queue', icon: Users },
-  { to: '/doctor/qr', label: 'Doctor QR Code', icon: QrCode },
-  { to: '/doctor/attendance', label: 'Attendance', icon: Clock3 },
-  { to: '/doctor/calendar', label: 'Clinic Calendar', icon: CalendarDays },
-  { to: '/doctor/notifications', label: 'Notifications', icon: Bell },
-  { to: '/doctor/profile', label: 'Profile', icon: User },
+  { to: '/doctor', label: 'Dashboard', icon: LayoutDashboard, end: true, key: 'dashboard' },
+  { to: '/doctor/schedule', label: 'My Schedule', icon: CalendarDays, key: 'schedule' },
+  { to: '/doctor/dayoff', label: 'Day Off Request', icon: CalendarX2, key: 'dayOff' },
+  { to: '/doctor/appointments', label: 'Appointments', icon: ClipboardList, key: 'appointments' },
+  { to: '/doctor/queue', label: 'My Queue', icon: Users, key: 'queue' },
+  { to: '/doctor/qr', label: 'Doctor QR Code', icon: QrCode, key: 'qrCode' },
+  { to: '/doctor/attendance', label: 'Attendance', icon: Clock3, key: 'attendance' },
+  { to: '/doctor/calendar', label: 'Clinic Calendar', icon: CalendarDays, key: 'calendar' },
+  { to: '/doctor/notifications', label: 'Notifications', icon: Bell, key: 'notifications' },
+  { to: '/doctor/profile', label: 'Profile', icon: User, key: 'profile' },
 ];
 
 export default function DoctorLayout() {
@@ -24,7 +26,10 @@ export default function DoctorLayout() {
   const [dark, setDark] = useState(localStorage.getItem('clinicTheme') === 'dark');
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { settings } = useAdminSettings();
   const [unreadCount, setUnreadCount] = useState(0);
+  const visibleLinks = links.filter((item) => settings.features.doctorMenuItems[item.key] !== false);
+  const logoUrl = resolveLogoUrl(settings.branding.logoPath);
 
   const fetchUnread = async () => {
     try {
@@ -66,14 +71,15 @@ export default function DoctorLayout() {
       <aside className={`fixed left-0 top-0 z-50 h-[100dvh] transition-all duration-300 transform 
         ${collapsed ? "lg:w-20" : "lg:w-72"} 
         ${open ? "translate-x-0 w-72" : "-translate-x-full lg:translate-x-0"} 
-        bg-teal-600 dark:bg-slate-900 text-white flex flex-col shadow-2xl lg:shadow-none`}>
+        bg-teal-600 dark:bg-slate-900 text-white flex flex-col shadow-2xl lg:shadow-none`}
+        style={{ backgroundColor: settings.theme.sidebarColor }}>
         
         {/* Header */}
         <div className={`flex items-center border-b border-white/10 p-5 shrink-0 ${collapsed && !open ? "lg:justify-center justify-between" : "justify-between"}`}>
           <div className={`flex items-center gap-3 overflow-hidden ${collapsed && !open ? "lg:hidden" : ""}`}>
-            <Logo />
+            <Logo src={logoUrl} />
             <div>
-              <h1 className="text-xl font-black leading-none tracking-tighter font-comfortaa font-fat">SHQMS</h1>
+              <h1 className="text-xl font-black leading-none tracking-tighter font-comfortaa font-fat">{settings.branding.clinicName}</h1>
               <p className="text-[9px] text-white/70 uppercase font-bold tracking-widest mt-1 font-poppins">Doctor Portal</p>
             </div>
           </div>
@@ -90,7 +96,7 @@ export default function DoctorLayout() {
         {/* Navigation */}
         <nav className="flex-1 p-3 px-4 space-y-0.5 overflow-y-auto scrollbar-hide">
            <p className={`px-4 text-[10px] font-bold text-white/40 uppercase tracking-widest my-4 ${collapsed && !open ? "lg:hidden" : ""}`}>Clinical Tools</p>
-           {links.map((item) => {
+           {visibleLinks.map((item) => {
             const Icon = item.icon;
             const isNotifications = item.label === 'Notifications';
             return (

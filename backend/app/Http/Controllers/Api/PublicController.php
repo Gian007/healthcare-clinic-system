@@ -13,6 +13,8 @@ use App\Models\SpecialSchedule;
 use App\Models\DoctorDayOff;
 use App\Models\Appointment;
 
+use App\Models\SystemSetting;
+
 class PublicController extends Controller
 {
     public function getClinicStatus()
@@ -89,5 +91,10 @@ class PublicController extends Controller
             ->orderBy('date', 'asc')
             ->get();
         return response()->json($announcements);
+    }
+
+    public function getSettings()
+    {
+        return response()->json(SystemSetting::getAdminPortalSettings());
     }
 }

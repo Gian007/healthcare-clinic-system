@@ -1,17 +1,28 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { FaHeartbeat } from "react-icons/fa";
 import Logo from "./Logo";
 import { FiLogIn, FiLogOut, FiSun, FiMoon, FiMenu, FiX } from "react-icons/fi";
 import { useAuth } from "../state/auth";
+import { useAdminSettings } from "../state/adminSettings";
+import { resolveLogoUrl } from "../config/adminSettings";
 import { useEffect, useState } from "react";
+
+const publicLinks = [
+  { to: "/doctors", label: "Doctors", key: "doctors" },
+  { to: "/services", label: "Services", key: "services" },
+  { to: "/queue", label: "Queue", key: "queue" },
+  { to: "/announcements", label: "Announcements", key: "announcements" },
+];
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { settings } = useAdminSettings();
   const nav = useNavigate();
 
   const [dark, setDark] = useState(() => localStorage.getItem("clinicTheme") === "dark");
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const visiblePublicLinks = publicLinks.filter((item) => settings.features.guestMenuItems[item.key] !== false);
+  const logoUrl = resolveLogoUrl(settings.branding.logoPath);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -48,8 +59,8 @@ export default function Navbar() {
     >
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
-          <Logo />
-          <span className="font-black text-xl tracking-tighter text-gray-900 dark:text-white uppercase font-comfortaa leading-none font-fat">SHQMS</span>
+          <Logo src={logoUrl} />
+          <span className="font-black text-xl tracking-tighter text-gray-900 dark:text-white uppercase font-comfortaa leading-none font-fat">{settings.branding.clinicName}</span>
         </Link>
 
         {/* Public nav Desktop */}
@@ -57,18 +68,11 @@ export default function Navbar() {
           <button onClick={() => setDark(!dark)} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
             {dark ? <FiSun className="text-lg" /> : <FiMoon className="text-lg" />}
           </button>
-          <NavLink to="/doctors" className={({ isActive }) => (isActive ? activeClass : linkClass)}>
-            Doctors
-          </NavLink>
-          <NavLink to="/services" className={({ isActive }) => (isActive ? activeClass : linkClass)}>
-            Services
-          </NavLink>
-          <NavLink to="/queue" className={({ isActive }) => (isActive ? activeClass : linkClass)}>
-            Queue
-          </NavLink>
-          <NavLink to="/announcements" className={({ isActive }) => (isActive ? activeClass : linkClass)}>
-            Announcements
-          </NavLink>
+          {visiblePublicLinks.map((item) => (
+            <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? activeClass : linkClass)}>
+              {item.label}
+            </NavLink>
+          ))}
 
           {!user ? (
             <button
@@ -111,18 +115,11 @@ export default function Navbar() {
       {/* Mobile Nav */}
       {menuOpen && (
         <nav className="md:hidden border-t dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg px-6 py-6 flex flex-col gap-6 shadow-2xl animate-in slide-in-from-top duration-300">
-          <NavLink to="/doctors" onClick={() => setMenuOpen(false)} className={({ isActive }) => (isActive ? activeClass : linkClass)}>
-            Doctors
-          </NavLink>
-          <NavLink to="/services" onClick={() => setMenuOpen(false)} className={({ isActive }) => (isActive ? activeClass : linkClass)}>
-            Services
-          </NavLink>
-          <NavLink to="/queue" onClick={() => setMenuOpen(false)} className={({ isActive }) => (isActive ? activeClass : linkClass)}>
-            Queue
-          </NavLink>
-          <NavLink to="/announcements" onClick={() => setMenuOpen(false)} className={({ isActive }) => (isActive ? activeClass : linkClass)}>
-            Announcements
-          </NavLink>
+          {visiblePublicLinks.map((item) => (
+            <NavLink key={item.to} to={item.to} onClick={() => setMenuOpen(false)} className={({ isActive }) => (isActive ? activeClass : linkClass)}>
+              {item.label}
+            </NavLink>
+          ))}
 
           <hr className="dark:border-slate-800" />
 

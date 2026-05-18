@@ -11,3 +11,5 @@ export const getAvailableSlots = (doctorId, date, serviceId) =>
     api.get('/booking/available-slots', { 
         params: { doctor_id: doctorId, date, service_id: serviceId } 
     }).then(r => r.data);
+
+export const getSettings = () => api.get('/public/settings').then(r => r.data);

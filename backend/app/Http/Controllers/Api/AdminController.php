@@ -12,6 +12,7 @@ use App\Models\Service;
 use App\Models\Specialization;
 use App\Models\Staff;
 use App\Models\SystemNotification;
+use App\Models\SystemSetting;
 use App\Mail\AccountCreatedMail;
 use App\Mail\CustomDoctorMail;
 use App\Mail\CustomStaffMail;
@@ -87,6 +88,77 @@ class AdminController extends Controller
         $admin->profile_picture = $path;
         $admin->save();
         return response()->json(['message' => 'Photo updated.', 'profile_picture' => asset('storage/' . $path)]);
+    }
+
+    public function getSettings()
+    {
+        return response()->json(SystemSetting::getAdminPortalSettings());
+    }
+
+    public function updateSettings(Request $request)
+    {
+        $validated = $request->validate([
+            'branding' => 'sometimes|array',
+            'branding.clinicName' => 'required_with:branding|string|max:80',
+            'branding.tagline' => 'nullable|string|max:120',
+            'branding.logoPath' => 'nullable|string|max:2048',
+            'features' => 'sometimes|array',
+            'features.menuItems' => 'sometimes|array',
+            'features.menuItems.*' => 'boolean',
+            'features.dashboardWidgets' => 'sometimes|array',
+            'features.dashboardWidgets.*' => 'boolean',
+            'features.patientMenuItems' => 'sometimes|array',
+            'features.patientMenuItems.*' => 'boolean',
+            'features.doctorMenuItems' => 'sometimes|array',
+            'features.doctorMenuItems.*' => 'boolean',
+            'features.guestMenuItems' => 'sometimes|array',
+            'features.guestMenuItems.*' => 'boolean',
+            'theme' => 'sometimes|array',
+            'theme.accentColor' => ['required_with:theme', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'theme.sidebarColor' => ['required_with:theme', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'theme.fontSize' => 'required_with:theme|in:compact,comfortable,large',
+            'homepage' => 'sometimes|array',
+            'homepage.hero' => 'sometimes|array',
+            'homepage.hero.subtitle' => 'nullable|string|max:255',
+            'homepage.hero.quote' => 'nullable|string|max:255',
+            'homepage.hero.ctaLabel' => 'nullable|string|max:80',
+            'homepage.schedule' => 'sometimes|array',
+            'homepage.schedule.*' => 'nullable|string|max:120',
+            'homepage.emergency' => 'sometimes|array',
+            'homepage.emergency.*' => 'nullable|string|max:255',
+            'homepage.contact' => 'sometimes|array',
+            'homepage.contact.*' => 'nullable|string|max:2048',
+            'homepage.social' => 'sometimes|array',
+            'homepage.social.*' => 'nullable|string|max:2048',
+            'homepage.footer' => 'sometimes|array',
+            'homepage.footer.*' => 'nullable|string|max:2048',
+        ]);
+
+        $settings = array_replace_recursive(SystemSetting::getAdminPortalSettings(), $validated);
+
+        return response()->json([
+            'message' => 'Settings updated.',
+            'settings' => SystemSetting::saveAdminPortalSettings($settings),
+        ]);
+    }
+
+    public function uploadBrandLogo(Request $request)
+    {
+        $request->validate(['logo' => 'required|image|max:2048']);
+
+        $settings = SystemSetting::getAdminPortalSettings();
+        $oldLogo = $settings['branding']['logoPath'] ?? '';
+
+        if ($oldLogo && ! str_starts_with($oldLogo, 'http')) {
+            Storage::disk('public')->delete($oldLogo);
+        }
+
+        $settings['branding']['logoPath'] = $request->file('logo')->store('branding-logos', 'public');
+
+        return response()->json([
+            'message' => 'Logo uploaded.',
+            'settings' => SystemSetting::saveAdminPortalSettings($settings),
+        ]);
     }
 
     /* ─────────────────────────── Patients ─────────────────────────── */

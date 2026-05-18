@@ -12,11 +12,17 @@
 <body>
     <div class="container">
         <div class="header">
-            <img src="{{ $message->embed(public_path('logo2.png')) }}" alt="SHQMS Logo" style="max-height: 80px; margin-bottom: 10px;">
-            <h1 style="color: #0D8BFF; font-size: 20px; margin: 0;">Smart Healthcare Availability and Queue Management System (SHQMS)</h1>
+            @php
+                $logoFile = public_path('logo2.png');
+                if (!empty($logoPath) && file_exists(storage_path('app/public/' . $logoPath))) {
+                    $logoFile = storage_path('app/public/' . $logoPath);
+                }
+            @endphp
+            <img src="{{ $message->embed($logoFile) }}" alt="{{ $clinicName }} Logo" style="max-height: 80px; margin-bottom: 10px;">
+            <h1 style="color: #0D8BFF; font-size: 20px; margin: 0;">{{ $tagline }} ({{ $clinicName }})</h1>
         </div>
         <p>Hello,</p>
-        <p>Thank you for choosing SHQMS. To complete your registration, please use the verification code below:</p>
+        <p>Thank you for choosing {{ $clinicName }}. To complete your registration, please use the verification code below:</p>
         
         <div class="code-box">
             {{ $code }}
@@ -25,7 +31,7 @@
         <p>This code will expire in 15 minutes. If you did not request this code, please ignore this email.</p>
         
         <div class="footer">
-            &copy; {{ date('Y') }} SHQMS. All rights reserved.
+            &copy; {{ date('Y') }} {{ $clinicName }}. All rights reserved.
         </div>
     </div>
 </body>

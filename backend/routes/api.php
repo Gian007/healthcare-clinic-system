@@ -21,6 +21,7 @@ Route::get('/public/doctors',       [\App\Http\Controllers\Api\PublicController:
 Route::get('/public/services',      [\App\Http\Controllers\Api\PublicController::class, 'getServices']);
 Route::get('/public/queue',         [\App\Http\Controllers\Api\PublicController::class, 'getQueue']);
 Route::get('/public/announcements', [\App\Http\Controllers\Api\PublicController::class, 'getAnnouncements']);
+Route::get('/public/settings',      [\App\Http\Controllers\Api\PublicController::class, 'getSettings']);
 
 /* ─────────────── Authenticated Routes ─────────────── */
 Route::middleware('auth:sanctum')->group(function () {
@@ -89,6 +90,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/profile',                      [AdminController::class, 'updateProfile']);
         Route::post('/profile/password',            [AdminController::class, 'updatePassword']);
         Route::post('/profile/photo',               [AdminController::class, 'uploadProfilePicture']);
+
+        Route::get('/settings',                     [AdminController::class, 'getSettings']);
+        Route::put('/settings',                     [AdminController::class, 'updateSettings']);
+        Route::post('/settings/logo',               [AdminController::class, 'uploadBrandLogo']);
 
         Route::get('/patients',                     [AdminController::class, 'getPatients']);
         Route::post('/patients',                    [AdminController::class, 'createPatient']);

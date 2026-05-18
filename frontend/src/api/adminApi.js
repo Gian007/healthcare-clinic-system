@@ -61,3 +61,7 @@ export const updateSpecialSchedule   = (id,d)  => api.put(`/admin/special-schedu
 export const deleteSpecialSchedule   = (id)    => api.delete(`/admin/special-schedules/${id}`).then(r => r.data);
 
 export const getAvailableSlots       = (params)=> api.get('/booking/available-slots', { params }).then(r => r.data);
+
+export const getSettings = () => api.get('/admin/settings').then(r => r.data);
+export const updateSettings = (data) => api.put('/admin/settings', data).then(r => r.data);
+export const uploadBrandLogo = (fd) => api.post('/admin/settings/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' }}).then(r => r.data);
