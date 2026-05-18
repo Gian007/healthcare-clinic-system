@@ -12,6 +12,18 @@ class DoctorAttendance extends Model
         'time_out', 'attendance_status'
     ];
 
+    protected $appends = ['date'];
+
+    public function getDateAttribute()
+    {
+        return $this->attendance_date;
+    }
+
+    public function setDateAttribute($value)
+    {
+        $this->attributes['attendance_date'] = $value;
+    }
+
      public function doctor()
     {
         return $this->belongsTo(Doctor::class, 'doctor_id', 'doctor_id');

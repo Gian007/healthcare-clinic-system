@@ -285,23 +285,24 @@ class DoctorController extends Controller
 
     public function recordAttendance(Request $request)
     {
-        $request->validate(['action' => 'required|in:time_in,break_start,break_end,time_out']);
+        $request->validate(['action' => 'required|in:time_in,time_out']);
 
         $doctor = $this->doctor($request);
         $today  = date('Y-m-d');
 
         $attendance = DoctorAttendance::firstOrCreate(
-            ['doctor_id' => $doctor->doctor_id, 'date' => $today],
-            ['date' => $today, 'doctor_id' => $doctor->doctor_id]
+            ['doctor_id' => $doctor->doctor_id, 'attendance_date' => $today],
+            ['attendance_date' => $today, 'doctor_id' => $doctor->doctor_id]
         );
 
         $now = now()->toTimeString();
-        match ($request->action) {
-            'time_in'     => $attendance->time_in     = $now,
-            'break_start' => $attendance->break_start = $now,
-            'break_end'   => $attendance->break_end   = $now,
-            'time_out'    => $attendance->time_out    = $now,
-        };
+        if ($request->action === 'time_in') {
+            $attendance->time_in = $now;
+            $attendance->attendance_status = 'Present';
+        } elseif ($request->action === 'time_out') {
+            $attendance->time_out = $now;
+            $attendance->attendance_status = 'Completed';
+        }
 
         $attendance->save();
 
@@ -313,7 +314,7 @@ class DoctorController extends Controller
         $doctorId = $this->doctor($request)->doctor_id;
         return response()->json(
             DoctorAttendance::where('doctor_id', $doctorId)
-                ->orderBy('date', 'desc')
+                ->orderBy('attendance_date', 'desc')
                 ->take(30)
                 ->get()
         );
