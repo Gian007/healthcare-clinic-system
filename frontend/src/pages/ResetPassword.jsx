@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
-import { FaHeartbeat, FaCheckCircle, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaPlusSquare, FaCheckCircle, FaEye, FaEyeSlash } from "react-icons/fa";
 import * as authApi from "../api/authApi";
 
 export default function ResetPassword() {
@@ -68,7 +68,7 @@ export default function ResetPassword() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 rounded-full bg-primary flex items-center justify-center shadow-sm mb-4">
-            <FaHeartbeat className="text-white text-2xl" />
+            <FaPlusSquare className="text-white text-2xl" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Create New Password</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Enter your new password below.</p>

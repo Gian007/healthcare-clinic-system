@@ -56,7 +56,6 @@ class SystemSetting extends Model
                     'dayOff' => true,
                     'appointments' => true,
                     'queue' => true,
-                    'qrCode' => true,
                     'attendance' => true,
                     'calendar' => true,
                     'notifications' => true,

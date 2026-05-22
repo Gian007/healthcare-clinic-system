@@ -31,10 +31,20 @@ function Section({ icon, title, children }) {
   );
 }
 
+const Field = ({ label, name, type = 'text', state, setState, errors }) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
+    <input name={name} type={type} value={state[name]} onChange={e => setState(p => ({...p, [name]: e.target.value}))}
+      className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:border-slate-700 dark:text-white transition ${errors?.[name] ? 'border-red-400' : 'border-gray-300 dark:border-slate-700'}`} />
+    {errors?.[name] && <p className="text-xs text-red-500 mt-1">{errors[name]}</p>}
+  </div>
+);
+
 export default function PatientProfile() {
   const { user, login, fetchUser } = useAuth();
   const [success, setSuccess]     = useState('');
   const [error, setError]         = useState('');
+  const [uploadError, setUploadError] = useState('');
   const [loading, setLoading]     = useState(false);
   const photoRef                  = useRef();
   
@@ -61,6 +71,17 @@ export default function PatientProfile() {
   const [idSelfie, setIdSelfie] = useState(null);
   
   const [previews, setPreviews] = useState({ front: null, back: null, selfie: null });
+
+  const getFileSizeLabel = (file) => {
+    if (!file) return null;
+    const mb = file.size / (1024 * 1024);
+    const tooLarge = mb > 10.0;
+    return (
+      <span className={`text-[10px] block mt-1 font-semibold ${tooLarge ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
+        Size: {mb.toFixed(2)} MB {tooLarge ? '(Too Large - Max 10MB)' : '(Ready - Will be compressed)'}
+      </span>
+    );
+  };
 
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
@@ -138,21 +159,119 @@ export default function PatientProfile() {
   const submitId = async (e) => {
     e.preventDefault();
     if (!idFront || !idBack || !idSelfie) { 
-      setError('Please upload all three required photos.'); return; 
+      setUploadError('Please upload all three required photos.'); return; 
     }
-    setLoading(true); setError('');
-    const fd = new FormData();
-    fd.append('id_front', idFront);
-    fd.append('id_back', idBack);
-    fd.append('id_selfie', idSelfie);
+
+    // Client-side validation for file size and type
+    const maxSizeBytes = 10 * 1024 * 1024; // 10MB limit per photo
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+
+    const files = [
+      { name: 'Front of ID', file: idFront },
+      { name: 'Back of ID', file: idBack },
+      { name: 'Selfie holding ID', file: idSelfie }
+    ];
+
+    for (const f of files) {
+      if (!allowedTypes.includes(f.file.type)) {
+        setUploadError(`Invalid file type for ${f.name}. Please upload only images (JPG, JPEG, PNG, or WEBP).`);
+        return;
+      }
+      if (f.file.size > maxSizeBytes) {
+        setUploadError(`${f.name} is too large (${(f.file.size / (1024 * 1024)).toFixed(2)} MB). Each individual photo must be 10 MB or less.`);
+        return;
+      }
+    }
+
+    setLoading(true); setUploadError('');
+
+    const compressAndToBase64 = (file, maxWidth = 1200, maxHeight = 1200, quality = 0.7) => {
+      return new Promise((resolve, reject) => {
+        if (!file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(file);
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+          const img = new Image();
+          img.src = event.target.result;
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              let width = img.width;
+              let height = img.height;
+
+              if (width > height) {
+                if (width > maxWidth) {
+                  height = Math.round((height * maxWidth) / width);
+                  width = maxWidth;
+                }
+              } else {
+                if (height > maxHeight) {
+                  width = Math.round((width * maxHeight) / height);
+                  height = maxHeight;
+                }
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+
+              const dataUrl = canvas.toDataURL('image/jpeg', quality);
+              resolve(dataUrl);
+            } catch (err) {
+              resolve(event.target.result);
+            }
+          };
+          img.onerror = () => {
+            resolve(event.target.result);
+          };
+        };
+        reader.onerror = (error) => reject(error);
+      });
+    };
+
     try {
-      const res = await patientApi.uploadVerificationId(fd);
+      const [base64Front, base64Back, base64Selfie] = await Promise.all([
+        compressAndToBase64(idFront),
+        compressAndToBase64(idBack),
+        compressAndToBase64(idSelfie)
+      ]);
+
+      const payload = {
+        id_front: base64Front,
+        id_back: base64Back,
+        id_selfie: base64Selfie,
+        id_type: 'Valid ID'
+      };
+
+      const res = await patientApi.uploadVerificationId(payload);
       if (fetchUser) await fetchUser();
       setSuccess(res.message || 'ID submitted for review!');
       setIdFront(null); setIdBack(null); setIdSelfie(null);
       setPreviews({ front: null, back: null, selfie: null });
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to submit ID.');
+      console.error('ID Upload Error:', err);
+      const errDetails = `Msg: ${err.message || 'none'}, Code: ${err.code || 'none'}, Status: ${err.response?.status || 'none'}, URL: ${err.config?.url || 'none'}`;
+      if (err.message === 'Network Error') {
+        setUploadError(`Network Error (${errDetails}). The upload was interrupted. This usually happens when files are too large, CORS is blocked, or the server is unreachable.`);
+      } else if (err.response?.data?.errors) {
+        const messages = Object.values(err.response.data.errors).flatMap(msg => msg).join(' ');
+        setUploadError(`${messages || 'Validation failed.'} (${errDetails})`);
+      } else if (err.response?.data?.message) {
+        setUploadError(`${err.response.data.message} (${errDetails})`);
+      } else if (err.response?.status === 413) {
+        setUploadError(`The uploaded files are too large for the server. (${errDetails})`);
+      } else {
+        setUploadError(`${err.message || 'Failed to submit ID.'} (${errDetails})`);
+      }
     }
     setLoading(false);
   };
@@ -160,19 +279,13 @@ export default function PatientProfile() {
   const handleFileChange = (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
+    setUploadError('');
     if (type === 'front') { setIdFront(file); setPreviews(p => ({...p, front: URL.createObjectURL(file)})); }
     if (type === 'back') { setIdBack(file); setPreviews(p => ({...p, back: URL.createObjectURL(file)})); }
     if (type === 'selfie') { setIdSelfie(file); setPreviews(p => ({...p, selfie: URL.createObjectURL(file)})); }
   };
 
-  const Field = ({ label, name, type = 'text', state, setState, errors }) => (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
-      <input name={name} type={type} value={state[name]} onChange={e => setState(p => ({...p, [name]: e.target.value}))}
-        className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:border-slate-700 dark:text-white transition ${errors?.[name] ? 'border-red-400' : 'border-gray-300 dark:border-slate-700'}`} />
-      {errors?.[name] && <p className="text-xs text-red-500 mt-1">{errors[name]}</p>}
-    </div>
-  );
+
 
   const verificationStatus = user?.verification_status || 'Pending';
   const statusConfig = {
@@ -240,13 +353,14 @@ export default function PatientProfile() {
                  <li>All images must be clear and readable. No glares or blurs.</li>
                  <li>The ID must be currently valid (not expired).</li>
                  <li>Selfie must clearly show your face holding the ID next to it.</li>
+                 <li><strong className="text-primary">File Size Limit:</strong> Up to <strong>10 MB per photo</strong>. Photos are automatically compressed client-side to ensure fast and reliable upload.</li>
                </ul>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Front ID */}
-              <div className="space-y-2">
-                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Front of ID</label>
+              <div className="space-y-2 text-center">
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Front of ID</label>
                 <input type="file" ref={frontRef} className="hidden" accept="image/*" onChange={e => handleFileChange(e, 'front')} />
                 <button type="button" onClick={() => frontRef.current?.click()} 
                   className={`w-full aspect-[4/3] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition overflow-hidden relative ${previews.front ? 'border-primary' : 'border-gray-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
@@ -259,11 +373,12 @@ export default function PatientProfile() {
                     </div>
                   )}
                 </button>
+                {getFileSizeLabel(idFront)}
               </div>
 
               {/* Back ID */}
-              <div className="space-y-2">
-                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Back of ID</label>
+              <div className="space-y-2 text-center">
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Back of ID</label>
                 <input type="file" ref={backRef} className="hidden" accept="image/*" onChange={e => handleFileChange(e, 'back')} />
                 <button type="button" onClick={() => backRef.current?.click()} 
                   className={`w-full aspect-[4/3] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition overflow-hidden relative ${previews.back ? 'border-primary' : 'border-gray-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
@@ -276,11 +391,12 @@ export default function PatientProfile() {
                     </div>
                   )}
                 </button>
+                {getFileSizeLabel(idBack)}
               </div>
 
               {/* Selfie holding ID */}
-              <div className="space-y-2">
-                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Selfie Holding ID</label>
+              <div className="space-y-2 text-center">
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider text-left">Selfie Holding ID</label>
                 <input type="file" ref={selfieRef} className="hidden" accept="image/*" onChange={e => handleFileChange(e, 'selfie')} />
                 <button type="button" onClick={() => selfieRef.current?.click()} 
                   className={`w-full aspect-[4/3] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition overflow-hidden relative ${previews.selfie ? 'border-primary' : 'border-gray-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
@@ -293,10 +409,20 @@ export default function PatientProfile() {
                     </div>
                   )}
                 </button>
+                {getFileSizeLabel(idSelfie)}
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
+              {uploadError && (
+                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 p-4 rounded-2xl text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                  <FaExclamationCircle className="shrink-0 text-red-500" />
+                  <div className="flex-1 text-left">
+                    <span className="font-bold block uppercase text-[10px] tracking-wider mb-0.5 text-red-700 dark:text-red-300">Upload Failed</span>
+                    {uploadError}
+                  </div>
+                </div>
+              )}
               <p className="text-[11px] text-gray-400 text-center italic">Make sure the text on your ID is readable in all photos.</p>
               <button type="submit" disabled={loading || !idFront || !idBack || !idSelfie}
                 className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-lg hover:opacity-95 transition disabled:opacity-50 shadow-xl shadow-primary/20">

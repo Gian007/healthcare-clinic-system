@@ -4,39 +4,37 @@ import StaffTableBadge from "../../components/staff/StaffTableBadge";
 import * as staffApi from "../../api/staffApi";
 import * as publicApi from "../../api/publicApi";
 import { useAuth } from "../../state/auth";
-import { FaClock, FaRegBuilding } from "react-icons/fa";
 
 export default function StaffQueue() {
   const { dark } = useOutletContext() || {};
   const { user } = useAuth();
-
   const isStaff = user?.role === "staff";
-  const isAdmin = user?.role === "admin";
 
   const [queue, setQueue] = useState([]);
   const [doctors, setDoctors] = useState([]);
+  const [doctorAttendances, setDoctorAttendances] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [doctorFilter, setDoctorFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("queues"); // "queues" or "directory"
+  const [busyId, setBusyId] = useState(null);
 
   useEffect(() => {
-    fetchQueue();
+    fetchQueue().finally(() => setLoading(false));
+    const interval = setInterval(fetchQueue, 8000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchQueue = async () => {
     try {
       const [qData, dData] = await Promise.all([
         staffApi.getQueue(),
-        publicApi.getDoctors()
+        publicApi.getDoctors(),
       ]);
+      const attendanceData = await staffApi.getDoctorAttendances();
       setQueue(qData || []);
       setDoctors(dData || []);
+      setDoctorAttendances(attendanceData || []);
     } catch (error) {
       console.error("Failed to fetch queue and doctors:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -47,472 +45,422 @@ export default function StaffQueue() {
     : "bg-white border-gray-200 text-gray-900";
   const subCard = dark
     ? "bg-gray-800 border-gray-700 text-white"
-    : "bg-teal-50 border-teal-100 text-gray-900";
+    : "bg-gray-50 border-gray-100 text-gray-900";
   const input = dark
     ? "bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
     : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-400";
-  const tableHead = dark
-    ? "bg-gray-800 text-gray-300"
-    : "bg-gray-50 text-gray-500";
-  const divide = dark ? "divide-gray-800" : "divide-gray-100";
 
-  async function updateStatus(queueId, nextStatus) {
-    if (!isStaff) return; // Strict front-end guard
-    try {
-      await staffApi.updateQueueStatus(queueId, { queue_status: nextStatus });
-      fetchQueue();
-    } catch (error) {
-      alert("Failed to update status");
-    }
-  }
+  const activeQueue = useMemo(
+    () => queue.filter((q) => !["Done", "Cancelled"].includes(q.queue_status)),
+    [queue]
+  );
 
-  const todayWeekday = useMemo(() => {
-    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    return days[new Date().getDay()];
-  }, []);
+  const filteredQueue = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return activeQueue;
 
-  const activeSchedules = useMemo(() => {
-    const list = [];
-    // 1. Add doctors with active schedules today
-    doctors.forEach(doc => {
-      doc.schedules?.forEach(sch => {
-        if (sch.day_of_week === todayWeekday && sch.schedule_status === "Active") {
-          list.push({
-            id: doc.doctor_id,
-            name: `Dr. ${doc.last_name}`,
-            room: sch.room || "General Room",
-            specialization: doc.specialization?.specialization_name || "General Practice"
-          });
-        }
-      });
+    return activeQueue.filter((q) => {
+      const text = [
+        q.queue_number,
+        q.patient?.patient_number,
+        q.patient?.first_name,
+        q.patient?.middle_name,
+        q.patient?.last_name,
+        q.doctor?.first_name,
+        q.doctor?.last_name,
+        q.queue_status,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return text.includes(term);
     });
+  }, [activeQueue, search]);
 
-    // 2. Add doctors from the queue who have active items but might not have standard schedules
-    queue.forEach(q => {
-      if (q.doctor && !list.some(d => d.id === q.doctor_id)) {
-        list.push({
-          id: q.doctor_id,
-          name: `Dr. ${q.doctor.last_name}`,
-          room: q.doctor.schedules?.find(s => s.day_of_week === todayWeekday)?.room || "Consultation Room",
-          specialization: q.doctor.specialization?.specialization_name || "Specialist"
+  const doctorGroups = useMemo(() => {
+    const todayWeekday = new Date().toLocaleDateString("en-US", { weekday: "long" });
+    const map = new Map();
+
+    doctors.forEach((doctor) => {
+      const schedule = doctor.schedules?.find(
+        (s) => s.day_of_week === todayWeekday && s.schedule_status === "Active"
+      );
+      if (schedule) {
+        map.set(doctor.doctor_id, {
+          id: doctor.doctor_id,
+          name: doctorName(doctor),
+          room: schedule.room || "Consultation Room",
+          specialization: doctor.specialization?.specialization_name || "General Practice",
+          attendance: doctorAttendances.find((a) => Number(a.doctor_id) === Number(doctor.doctor_id)),
+          list: [],
         });
       }
     });
-    return list;
-  }, [doctors, queue, todayWeekday]);
 
-  // List of doctors for the filter dropdown
-  const doctorsList = activeSchedules;
-
-  const queueGroups = useMemo(() => {
-    return activeSchedules.map((d) => {
-      const list = queue.filter((q) => q.doctor_id === d.id && q.queue_status !== "Cancelled" && q.queue_status !== "Done")
-        .sort((a, b) => (a.priority_number ?? a.queue_number) - (b.priority_number ?? b.queue_number));
-      const now = list.find((q) => q.queue_status === "Serving" || q.queue_status === "Active");
-      const next = list.filter((q) => q.queue_status === "Waiting");
-      return { ...d, list, now, next };
-    });
-  }, [queue, activeSchedules]);
-
-  // Group today's doctor schedules by Room
-  const roomGroups = useMemo(() => {
-    const groups = {};
-    doctors.forEach(doc => {
-      doc.schedules?.forEach(sch => {
-        if (sch.day_of_week === todayWeekday && sch.schedule_status === "Active") {
-          const rName = sch.room || "General Consultation Room";
-          if (!groups[rName]) {
-            groups[rName] = [];
-          }
-          groups[rName].push({
-            doctor_id: doc.doctor_id,
-            name: `Dr. ${doc.first_name} ${doc.last_name}`,
-            specialization: doc.specialization?.specialization_name || "General Practice",
-            start_time: sch.start_time,
-            end_time: sch.end_time,
-            lunch_start: sch.lunch_start,
-            lunch_end: sch.lunch_end,
-            break1_start: sch.break1_start,
-            break1_end: sch.break1_end,
-            break2_start: sch.break2_start,
-            break2_end: sch.break2_end,
-            slot_limit: sch.slot_limit
-          });
-        }
-      });
-    });
-
-    // Merge in any doctor from today's queue not covered in the active schedules fetch
-    queue.forEach(q => {
-      if (q.doctor) {
-        const todaySched = q.doctor.schedules?.find(s => s.day_of_week === todayWeekday);
-        const rName = todaySched?.room || "Consultation Room";
-        if (!groups[rName]) {
-          groups[rName] = [];
-        }
-        if (!groups[rName].some(d => d.doctor_id === q.doctor_id)) {
-          groups[rName].push({
-            doctor_id: q.doctor_id,
-            name: `Dr. ${q.doctor.first_name} ${q.doctor.last_name}`,
-            specialization: q.doctor.specialization?.specialization_name || "Specialist",
-            start_time: todaySched?.start_time || "09:00",
-            end_time: todaySched?.end_time || "17:00",
-            slot_limit: todaySched?.slot_limit || 8
-          });
-        }
+    activeQueue.forEach((q) => {
+      if (!map.has(q.doctor_id)) {
+        map.set(q.doctor_id, {
+          id: q.doctor_id,
+          name: doctorName(q.doctor),
+          room: "Consultation Room",
+          specialization: q.doctor?.specialization?.specialization_name || "Specialist",
+          attendance: doctorAttendances.find((a) => Number(a.doctor_id) === Number(q.doctor_id)),
+          list: [],
+        });
       }
+      map.get(q.doctor_id).list.push(q);
     });
 
-    return Object.entries(groups).map(([room, list]) => ({
-      room,
-      doctorsList: list.sort((a, b) => a.start_time.localeCompare(b.start_time))
-    }));
-  }, [doctors, queue, todayWeekday]);
+    return [...map.values()].map((doctor) => {
+      const sorted = doctor.list.sort(sortQueue);
+      return {
+        ...doctor,
+        current: sorted.find((q) => q.queue_status === "Serving"),
+        waiting: sorted.filter((q) => q.queue_status === "Waiting"),
+        notArrived: sorted.filter((q) => q.queue_status === "Active"),
+        isPresent: isDoctorPresent(doctor.attendance),
+      };
+    });
+  }, [activeQueue, doctors, doctorAttendances]);
 
-  const filtered = queue.filter((q) => {
-    const dName = q.doctor ? `Dr. ${q.doctor.last_name}` : 'No Doctor';
-    const matchDoctor = doctorFilter === "All" || dName.includes(doctorFilter);
-    const matchStatus = statusFilter === "All" || q.queue_status === statusFilter;
-    const matchSearch =
-      (q.patient?.first_name + " " + q.patient?.last_name).toLowerCase().includes(search.toLowerCase()) ||
-      q.queue_number.toString().includes(search) ||
-      (q.patient?.patient_number || "").toLowerCase().includes(search.toLowerCase());
+  const counts = useMemo(
+    () => ({
+      notArrived: activeQueue.filter((q) => q.queue_status === "Active").length,
+      waiting: activeQueue.filter((q) => q.queue_status === "Waiting").length,
+      serving: activeQueue.filter((q) => q.queue_status === "Serving").length,
+      done: queue.filter((q) => q.queue_status === "Done").length,
+    }),
+    [activeQueue, queue]
+  );
 
-    return matchDoctor && matchStatus && matchSearch;
-  });
+  async function runAction(id, action) {
+    if (!isStaff) return;
+    try {
+      setBusyId(id);
+      await action();
+      await fetchQueue();
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to update queue.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const tapPatientIn = (q) => runAction(q.queue_id, () => staffApi.tapInQueue(q.queue_id));
+  const tapPatientOut = (q) => runAction(q.queue_id, () => staffApi.tapOutQueue(q.queue_id));
+
+  const doctorAttendanceIn = (doctor) => {
+    return runAction(`doctor-attendance-${doctor.id}`, () => staffApi.tapInDoctor(doctor.id));
+  };
+
+  const doctorAttendanceOut = (doctor) => {
+    return runAction(`doctor-attendance-${doctor.id}`, () => staffApi.tapOutDoctor(doctor.id));
+  };
+
+  const doctorStartNextPatient = (doctor) => {
+    if (!doctor.isPresent) return alert("Doctor must tap in before the queue can start.");
+    if (doctor.current) return alert("This doctor already has a patient in progress.");
+    const next = doctor.waiting[0];
+    if (!next) return alert("No tapped-in waiting patient for this doctor.");
+    return runAction(`doctor-${doctor.id}`, () => staffApi.tapInQueue(next.queue_id));
+  };
+
+  const doctorCompleteCurrent = (doctor) => {
+    if (!doctor.current) return alert("No patient in progress for this doctor.");
+    return runAction(`doctor-${doctor.id}`, () => staffApi.tapOutQueue(doctor.current.queue_id));
+  };
 
   return (
     <div>
-      {/* Header */}
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h1 className={`text-2xl font-semibold ${pageTitle}`}>
-            Queue Management
-          </h1>
-          <p className={`text-sm ${muted}`}>Multiple active consulting room queues</p>
+          <h1 className={`text-2xl font-semibold ${pageTitle}`}>Queue Management</h1>
+          <p className={`text-sm ${muted}`}>
+            Doctors must tap in before any patient queue can start. Patient tap in marks arrival, then starts only when the doctor is present.
+          </p>
         </div>
 
         {isStaff && (
           <Link
             to="/staff/walk-in"
-            className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 font-bold shadow-md shadow-teal-600/10"
+            className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-bold text-white shadow-md shadow-teal-600/10 hover:bg-teal-700"
           >
             Add Walk-in
           </Link>
         )}
       </div>
 
-      {/* Tab Selector */}
-      <div className="mt-6 flex justify-start">
-        <div className="inline-flex rounded-xl bg-gray-100 dark:bg-slate-900 p-1 border border-gray-200/50 dark:border-slate-800">
-          <button
-            onClick={() => setActiveTab("queues")}
-            className={`rounded-lg px-5 py-2 text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
-              activeTab === "queues"
-                ? "bg-teal-600 text-white shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
-            }`}
-          >
-            🔄 Live Queues
-          </button>
-          <button
-            onClick={() => setActiveTab("directory")}
-            className={`rounded-lg px-5 py-2 text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
-              activeTab === "directory"
-                ? "bg-teal-600 text-white shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
-            }`}
-          >
-            <FaRegBuilding /> Room Schedules Directory
-          </button>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat dark={dark} label="Queue Number Only" value={counts.notArrived} help="Not yet in hospital" />
+        <Stat dark={dark} label="Waiting" value={counts.waiting} help="Tapped in at hospital" />
+        <Stat dark={dark} label="In Progress" value={counts.serving} help="With doctor now" />
+        <Stat dark={dark} label="Completed" value={counts.done} help="Finished today" />
+      </div>
+
+      <div className={`mt-5 rounded-2xl border p-4 shadow-sm ${card}`}>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search patient, queue number, doctor, or status..."
+          className={`w-full rounded-lg border px-4 py-2 text-sm ${input}`}
+        />
+        <div className={`mt-3 grid gap-2 text-xs ${muted} sm:grid-cols-3`}>
+          <p><b className="text-blue-500">Active</b> = has a queue number but has not arrived yet</p>
+          <p><b className="text-yellow-500">Waiting</b> = arrived and waiting for their turn</p>
+          <p><b className="text-teal-500">Serving</b> = in progress with doctor</p>
         </div>
       </div>
 
       {loading ? (
-        <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-64 bg-white dark:bg-slate-900 rounded-2xl animate-pulse border border-slate-100 dark:border-slate-800/80" />
-          ))}
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <div className="h-96 animate-pulse rounded-2xl border border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900" />
+          <div className="h-96 animate-pulse rounded-2xl border border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900" />
         </div>
-      ) : activeTab === "queues" ? (
-        /* ================= TAB 1: LIVE QUEUES & CONTROL ================= */
-        <>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {queueGroups.map((d) => (
-              <div
-                key={d.id}
-                className={`overflow-hidden rounded-2xl border shadow-sm flex flex-col justify-between ${card}`}
-              >
-                <div className="bg-gradient-to-r from-teal-600 to-teal-500 p-5 text-white shrink-0">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h2 className="font-semibold text-lg">{d.name}</h2>
-                      <p className="text-xs opacity-90 truncate mt-0.5">{d.specialization}</p>
-                    </div>
-                    <span className="text-[10px] bg-white/20 uppercase tracking-widest font-black px-2.5 py-1 rounded-md shrink-0">
-                      {d.room}
-                    </span>
-                  </div>
-                </div>
+      ) : (
+        <div className="mt-6 grid gap-6 xl:grid-cols-2">
+          <section className={`rounded-2xl border shadow-sm ${card}`}>
+            <div className="border-b border-gray-100 p-5 dark:border-gray-800">
+              <h2 className="text-lg font-semibold">Patient Tap In / Tap Out</h2>
+              <p className={`text-sm ${muted}`}>Left side: patient arrival and patient completion controls.</p>
+            </div>
 
-                <div className="p-5 flex-1 flex flex-col justify-between">
-                  <div>
-                    <p className={`text-[10px] uppercase tracking-wider font-bold ${muted}`}>Now Serving</p>
-                    <div
-                      className={`mt-2 rounded-xl border p-4 text-2xl font-black text-center text-teal-700 dark:text-teal-400 ${subCard}`}
-                    >
-                      {d.now ? `Q-${d.now.queue_number}` : "Idle"}
-                    </div>
-                  </div>
-
-                  <div className="mt-5 pt-4 border-t border-gray-100 dark:border-slate-800/40">
-                    <p className={`text-[10px] font-bold uppercase tracking-wider ${muted} mb-2`}>Next Patients</p>
-                    <div className="space-y-2">
-                      {d.next.length ? (
-                        d.next.slice(0, 3).map((p) => (
-                          <div key={p.queue_id} className="flex justify-between items-center gap-3 text-xs">
-                            <div className="flex items-center gap-2 overflow-hidden">
-                              <div className="h-6 w-6 rounded-full bg-teal-100 dark:bg-teal-900/40 border border-teal-200 dark:border-teal-800 flex items-center justify-center shrink-0 overflow-hidden text-[8px] font-bold shadow-sm">
-                                {p.patient?.profile_picture ? (
-                                  <img 
-                                    src={`${import.meta.env.VITE_BACKEND_URL}/storage/${p.patient.profile_picture}`} 
-                                    className="w-full h-full object-cover" 
-                                    onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${p.patient.first_name}+${p.patient.last_name}&background=random`; }}
-                                  />
-                                ) : (
-                                  <span className="text-teal-600 dark:text-teal-400">{(p.patient?.first_name?.[0] || "") + (p.patient?.last_name?.[0] || "")}</span>
-                                )}
-                              </div>
-                              <span className={`truncate font-medium ${muted}`}>{p.patient?.first_name} {p.patient?.last_name}</span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="font-bold text-teal-600 dark:text-teal-400">Q-{p.queue_number}</span>
-                              {isStaff && (
-                                <button
-                                  onClick={() => {
-                                    if (confirm(`Are you sure you want to remove ${p.patient?.first_name} ${p.patient?.last_name} from the queue?`)) {
-                                      updateStatus(p.queue_id, "Cancelled");
-                                    }
-                                  }}
-                                  className="text-red-500 hover:text-red-700 font-bold p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/20 text-[10px] transition"
-                                  title="Remove patient"
-                                >
-                                  ✕
-                                </button>
-                              )}
-                            </div>
+            <div className="max-h-[680px] overflow-y-auto p-4">
+              {filteredQueue.length === 0 ? (
+                <p className={`p-8 text-center text-sm ${muted}`}>No active queue records.</p>
+              ) : (
+                <div className="space-y-3">
+                  {filteredQueue.sort(sortQueue).map((q) => (
+                    <div key={q.queue_id} className={`rounded-xl border p-4 ${subCard}`}>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex min-w-0 gap-3">
+                          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-teal-100 text-lg font-black text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+                            {q.queue_number}
                           </div>
-                        ))
-                      ) : (
-                        <p className={`text-xs italic ${muted} text-center py-2`}>No waiting patients</p>
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold">{patientName(q.patient)}</p>
+                            <p className={`truncate text-xs ${muted}`}>
+                              Q-{q.queue_number} - {q.patient?.patient_number || "No patient ID"} - {doctorName(q.doctor)}
+                            </p>
+                            <p className={`mt-1 text-xs ${muted}`}>{statusHelp(q.queue_status)}</p>
+                          </div>
+                        </div>
+                        <StaffTableBadge status={q.queue_status} />
+                      </div>
+
+                      {isStaff && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {["Active", "Waiting"].includes(q.queue_status) && (
+                            <button
+                              disabled={busyId === q.queue_id}
+                              onClick={() => tapPatientIn(q)}
+                              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              Tap In Patient
+                            </button>
+                          )}
+
+                          {q.queue_status === "Serving" && (
+                            <button
+                              disabled={busyId === q.queue_id}
+                              onClick={() => tapPatientOut(q)}
+                              className="rounded-lg bg-green-600 px-4 py-2 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-50"
+                            >
+                              Tap Out Patient
+                            </button>
+                          )}
+
+                          {["Active", "Waiting"].includes(q.queue_status) && (
+                            <button
+                              disabled={busyId === q.queue_id}
+                              onClick={() => {
+                                if (confirm("Remove this patient from the queue?")) {
+                                  runAction(q.queue_id, () => staffApi.updateQueueStatus(q.queue_id, { queue_status: "Cancelled" }));
+                                }
+                              }}
+                              className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50"
+                            >
+                              Cancel Queue
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
-                  </div>
+                  ))}
                 </div>
-              </div>
-            ))}
-          </div>
+              )}
+            </div>
+          </section>
 
-          <div className={`mt-6 rounded-2xl border p-4 shadow-sm ${card}`}>
-            <div className="grid gap-3 md:grid-cols-[1fr_160px_160px]">
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by patient, queue number..."
-                className={`rounded-lg border px-4 py-2 text-sm ${input}`}
-              />
-
-              <select
-                value={doctorFilter}
-                onChange={(e) => setDoctorFilter(e.target.value)}
-                className={`rounded-lg border px-3 py-2 text-sm ${input}`}
-              >
-                <option value="All">All Doctors</option>
-                {doctorsList.map((d) => (
-                  <option key={d.id} value={d.name}>{d.name}</option>
-                ))}
-              </select>
-
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className={`rounded-lg border px-3 py-2 text-sm ${input}`}
-              >
-                <option value="All">All Status</option>
-                <option value="Waiting">Waiting</option>
-                <option value="Serving">Serving</option>
-                <option value="Done">Done</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
+          <section className={`rounded-2xl border shadow-sm ${card}`}>
+            <div className="border-b border-gray-100 p-5 dark:border-gray-800">
+              <h2 className="text-lg font-semibold">Doctor Tap In / Tap Out</h2>
+              <p className={`text-sm ${muted}`}>Right side: doctor attendance, queue start, and current session completion.</p>
             </div>
 
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-sm">
-                <thead className={tableHead}>
-                  <tr>
-                    <th className="px-4 py-3">Queue Number</th>
-                    <th className="px-4 py-3">Patient Name</th>
-                    <th className="px-4 py-3">Doctor</th>
-                    <th className="px-4 py-3">Check-in Time</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Action</th>
-                  </tr>
-                </thead>
-
-                <tbody className={`divide-y ${divide}`}>
-                  {filtered.length === 0 ? (
-                    <tr><td colSpan="6" className="p-8 text-center text-gray-500">No matching queues found.</td></tr>
-                  ) : (
-                    filtered.map((q) => (
-                      <tr key={q.queue_id}>
-                        <td className="px-4 py-3 font-semibold">Q-{q.queue_number}</td>
-
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="grid h-8 w-8 place-items-center rounded-full bg-teal-100 text-xs font-bold text-teal-700">
-                              {q.patient?.first_name ? q.patient.first_name[0] : '?'}
-                            </div>
-                            <span>{q.patient?.first_name} {q.patient?.last_name}</span>
+            <div className="max-h-[680px] overflow-y-auto p-4">
+              {doctorGroups.length === 0 ? (
+                <p className={`p-8 text-center text-sm ${muted}`}>No doctor queues today.</p>
+              ) : (
+                <div className="space-y-4">
+                  {doctorGroups.map((doctor) => (
+                    <div key={doctor.id} className={`overflow-hidden rounded-xl border ${subCard}`}>
+                      <div className="bg-gradient-to-r from-teal-600 to-teal-500 p-4 text-white">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="font-semibold">{doctor.name}</h3>
+                            <p className="text-xs opacity-90">{doctor.room} - {doctor.specialization}</p>
                           </div>
-                        </td>
-
-                        <td className="px-4 py-3">{q.doctor ? `Dr. ${q.doctor.last_name}` : 'N/A'}</td>
-                        <td className="px-4 py-3">{new Date(q.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
-                        <td className="px-4 py-3">
-                          <StaffTableBadge status={q.queue_status} />
-                        </td>
-
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2">
-                            {isStaff && q.queue_status === "Waiting" && (
-                              <button
-                                onClick={() => updateStatus(q.queue_id, "Serving")}
-                                className="rounded-md bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700 font-bold"
-                              >
-                                Start Serving
-                              </button>
-                            )}
-
-                            {isStaff && q.queue_status === "Serving" && (
-                              <button
-                                onClick={() => updateStatus(q.queue_id, "Done")}
-                                className="rounded-md bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700 font-bold"
-                              >
-                                Complete
-                              </button>
-                            )}
-
-                            {isStaff && ["Waiting", "Serving"].includes(q.queue_status) && (
-                              <button
-                                onClick={() => {
-                                  if (confirm(`Are you sure you want to remove this patient from the queue?`)) {
-                                    updateStatus(q.queue_id, "Cancelled");
-                                  }
-                                }}
-                                className="rounded-md bg-rose-600 px-3 py-1 text-xs text-white hover:bg-rose-700 font-bold"
-                              >
-                                Remove
-                              </button>
-                            )}
-
-                            {isAdmin && ["Waiting", "Serving"].includes(q.queue_status) && (
-                              <span className={`text-xs italic ${muted}`}>Monitoring Only</span>
-                            )}
-
-                            {q.queue_status === "Done" && (
-                              <span className={`text-xs ${muted}`}>Finished</span>
-                            )}
-
-                            {q.queue_status === "Cancelled" && (
-                              <span className="text-xs text-rose-500 font-semibold">Removed</span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      ) : (
-        /* ================= TAB 2: ROOM DIRECTORY ================= */
-        roomGroups.length === 0 ? (
-          <div className="text-center text-gray-500 py-16 max-w-md mx-auto">
-            <p className="text-5xl mb-4">🏢</p>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">No Schedules Today</h3>
-            <p className="text-sm text-gray-500 mt-1">There are no consulting rooms scheduled for today.</p>
-          </div>
-        ) : (
-          <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {roomGroups.map((group) => (
-              <div 
-                key={group.room} 
-                className={`border rounded-2xl shadow-sm overflow-hidden flex flex-col justify-between transition-all ${card}`}
-              >
-                {/* Header */}
-                <div className="bg-gradient-to-br from-slate-700 to-slate-600 p-5 text-white shrink-0">
-                  <span className="text-[10px] bg-white/20 uppercase tracking-widest font-black px-2.5 py-1 rounded-lg">
-                    Location Directory
-                  </span>
-                  <h2 className="font-black text-xl mt-2 tracking-tight">{group.room}</h2>
-                  <p className="text-xs opacity-90 mt-0.5">{group.doctorsList.length} Scheduled Doctor(s) Today</p>
-                </div>
-
-                {/* Scheduled Doctors List */}
-                <div className="p-5 flex-1 space-y-6">
-                  {group.doctorsList.map((doc, index) => (
-                    <div 
-                      key={doc.doctor_id} 
-                      className={`pb-5 ${index < group.doctorsList.length - 1 ? 'border-b border-gray-100 dark:border-slate-800/50' : ''}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="h-9 w-9 rounded-full bg-teal-100 dark:bg-teal-950/30 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-sm shrink-0">
-                          {doc.name.replace("Dr. ", "")[0]}
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="font-bold text-gray-900 dark:text-white leading-tight truncate">{doc.name}</h3>
-                          <p className="text-[11px] text-teal-600 dark:text-teal-400 font-medium truncate">{doc.specialization}</p>
+                          <span className={`rounded-full px-3 py-1 text-xs font-bold ${doctor.isPresent ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                            {doctor.isPresent ? "Tapped In" : "Not Tapped In"}
+                          </span>
                         </div>
                       </div>
 
-                      <div className="mt-4 space-y-1.5 text-xs text-gray-600 dark:text-slate-400">
-                        <div className="flex justify-between bg-gray-50 dark:bg-slate-800/30 px-3 py-2 rounded-xl border border-gray-100/30 dark:border-slate-800/10">
-                          <span className="font-semibold">Shift Hours:</span>
-                          <span className="text-gray-950 dark:text-white font-bold">{doc.start_time} - {doc.end_time}</span>
+                      <div className="p-4">
+                        <div className={`mb-4 rounded-xl border p-3 ${dark ? "border-gray-700 bg-gray-900" : "border-gray-100 bg-white"}`}>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className={`text-xs font-bold uppercase tracking-wider ${muted}`}>Doctor Attendance</p>
+                              <p className="text-sm font-semibold">
+                                Time In: {formatTime(doctor.attendance?.time_in)} | Time Out: {formatTime(doctor.attendance?.time_out)}
+                              </p>
+                            </div>
+                            {isStaff && (
+                              <div className="flex gap-2">
+                                <button
+                                  disabled={busyId === `doctor-attendance-${doctor.id}` || doctor.isPresent}
+                                  onClick={() => doctorAttendanceIn(doctor)}
+                                  className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-slate-800"
+                                >
+                                  Doctor Tap In
+                                </button>
+                                <button
+                                  disabled={busyId === `doctor-attendance-${doctor.id}` || !doctor.isPresent || Boolean(doctor.current)}
+                                  onClick={() => doctorAttendanceOut(doctor)}
+                                  className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-slate-800"
+                                >
+                                  Doctor Tap Out
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          {!doctor.isPresent && (
+                            <p className="mt-2 text-xs font-semibold text-rose-500">
+                              Queue start is locked until this doctor taps in.
+                            </p>
+                          )}
                         </div>
-                        {doc.lunch_start && doc.lunch_end && (
-                          <div className="flex justify-between px-3 text-[11px]">
-                            <span>🥪 Lunch Break:</span>
-                            <span className="font-semibold text-gray-800 dark:text-slate-300">{doc.lunch_start} - {doc.lunch_end}</span>
+
+                        <p className={`text-xs font-bold uppercase tracking-wider ${muted}`}>Current In Progress</p>
+                        <div className={`mt-2 rounded-xl border p-4 ${dark ? "border-gray-700 bg-gray-900" : "border-teal-100 bg-white"}`}>
+                          {doctor.current ? (
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-2xl font-black text-teal-600">Q-{doctor.current.queue_number}</p>
+                                <p className="text-sm font-semibold">{patientName(doctor.current.patient)}</p>
+                              </div>
+                              <StaffTableBadge status="Serving" />
+                            </div>
+                          ) : (
+                            <p className={`py-2 text-center text-sm ${muted}`}>No active patient</p>
+                          )}
+                        </div>
+
+                        {isStaff && (
+                          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                            <button
+                              disabled={busyId === `doctor-${doctor.id}` || !doctor.isPresent || Boolean(doctor.current) || doctor.waiting.length === 0}
+                              onClick={() => doctorStartNextPatient(doctor)}
+                              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-slate-800"
+                            >
+                              Start Next Patient
+                            </button>
+                            <button
+                              disabled={busyId === `doctor-${doctor.id}` || !doctor.current}
+                              onClick={() => doctorCompleteCurrent(doctor)}
+                              className="rounded-lg bg-green-600 px-4 py-2 text-xs font-bold text-white hover:bg-green-700 disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-slate-800"
+                            >
+                              Complete Current Patient
+                            </button>
                           </div>
                         )}
-                        {((doc.break1_start && doc.break1_end) || (doc.break2_start && doc.break2_end)) && (
-                          <div className="flex justify-between px-3 text-[11px]">
-                            <span>☕ Tea Breaks:</span>
-                            <span className="font-semibold text-gray-800 dark:text-slate-300">
-                              {doc.break1_start && `${doc.break1_start}-${doc.break1_end}`}
-                              {doc.break1_start && doc.break2_start && " | "}
-                              {doc.break2_start && `${doc.break2_start}-${doc.break2_end}`}
-                            </span>
-                          </div>
-                        )}
-                        {doc.slot_limit && (
-                          <div className="flex justify-between px-3 text-[11px]">
-                            <span>🎯 Patient Cap:</span>
-                            <span className="font-semibold text-gray-800 dark:text-slate-300">{doc.slot_limit} Slots</span>
-                          </div>
-                        )}
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <MiniList title="Waiting in Hospital" list={doctor.waiting} muted={muted} />
+                          <MiniList title="Queue No. Only" list={doctor.notArrived} muted={muted} />
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            ))}
-          </div>
-        )
+              )}
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );
+}
+
+function Stat({ dark, label, value, help }) {
+  return (
+    <div className={`rounded-2xl border p-4 shadow-sm ${dark ? "border-gray-800 bg-gray-900 text-white" : "border-gray-200 bg-white text-gray-900"}`}>
+      <p className="text-xs font-bold uppercase tracking-wider text-gray-500">{label}</p>
+      <p className="mt-2 text-3xl font-black">{value}</p>
+      <p className="mt-1 text-xs text-gray-500">{help}</p>
+    </div>
+  );
+}
+
+function MiniList({ title, list, muted }) {
+  return (
+    <div>
+      <p className={`mb-2 text-[10px] font-bold uppercase tracking-wider ${muted}`}>{title}</p>
+      <div className="space-y-2">
+        {list.length === 0 ? (
+          <p className={`rounded-lg border border-dashed p-3 text-center text-xs ${muted}`}>None</p>
+        ) : (
+          list.slice(0, 4).map((q) => (
+            <div key={q.queue_id} className="flex items-center justify-between rounded-lg bg-white/60 p-2 text-xs dark:bg-slate-900/50">
+              <span className="truncate">{patientName(q.patient)}</span>
+              <b className="ml-2 shrink-0 text-teal-600">Q-{q.queue_number}</b>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function sortQueue(a, b) {
+  return (a.priority_number ?? a.queue_number) - (b.priority_number ?? b.queue_number);
+}
+
+function patientName(patient) {
+  if (!patient) return "Unknown Patient";
+  return [patient.first_name, patient.middle_name, patient.last_name].filter(Boolean).join(" ");
+}
+
+function doctorName(doctor) {
+  if (!doctor) return "No Doctor";
+  return `Dr. ${[doctor.first_name, doctor.last_name].filter(Boolean).join(" ")}`;
+}
+
+function isDoctorPresent(attendance) {
+  return Boolean(attendance?.time_in && !attendance?.time_out);
+}
+
+function formatTime(value) {
+  if (!value) return "--:--";
+  const [hour, minute] = value.split(":");
+  const date = new Date();
+  date.setHours(Number(hour), Number(minute || 0), 0, 0);
+  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+function statusHelp(status) {
+  if (status === "Active") return "Has queue number but not yet in hospital.";
+  if (status === "Waiting") return "Patient is already in the hospital and waiting.";
+  if (status === "Serving") return "Patient is currently in progress with the doctor.";
+  return status;
 }

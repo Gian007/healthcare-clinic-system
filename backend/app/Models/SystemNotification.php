@@ -14,6 +14,7 @@ class SystemNotification extends Model
         'title',
         'body',
         'type',
+        'link',
         'is_read',
     ];
 
@@ -26,7 +27,11 @@ class SystemNotification extends Model
      */
     public function scopeForUser($query, string $type, int $id)
     {
-        return $query->where('notifiable_type', $type)->where('notifiable_id', $id);
+        return $query->where('notifiable_type', $type)
+            ->where(function ($q) use ($id) {
+                $q->where('notifiable_id', $id)
+                  ->orWhere('notifiable_id', 0);
+            });
     }
 
     /**

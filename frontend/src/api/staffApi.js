@@ -11,6 +11,12 @@ export const getPendingVerifications   = ()     => api.get('/staff/verifications
 export const processVerification       = (id,d) => api.post(`/staff/verifications/${id}`, d).then(r => r.data);
 export const getAppointments           = ()     => api.get('/staff/appointments').then(r => r.data);
 export const updateAppointmentStatus   = (id,d) => api.put(`/staff/appointments/${id}/status`, d).then(r => r.data);
+export const createWalkIn              = (data) => api.post('/staff/walk-ins', data).then(r => r.data);
 export const getSchedules              = ()     => api.get('/staff/schedules').then(r => r.data);
+export const getDoctorAttendances      = ()     => api.get('/staff/doctor-attendances').then(r => r.data);
+export const tapInDoctor               = (id)   => api.post(`/staff/doctors/${id}/tap-in`).then(r => r.data);
+export const tapOutDoctor              = (id)   => api.post(`/staff/doctors/${id}/tap-out`).then(r => r.data);
 export const getQueue                  = ()     => api.get('/staff/queue').then(r => r.data);
 export const updateQueueStatus         = (id,d) => api.put(`/staff/queue/${id}/status`, d).then(r => r.data);
+export const tapInQueue                = (id)   => api.post(`/staff/queue/${id}/tap-in`).then(r => r.data);
+export const tapOutQueue               = (id)   => api.post(`/staff/queue/${id}/tap-out`).then(r => r.data);

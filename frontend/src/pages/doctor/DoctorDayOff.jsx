@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CalendarX2, Plus, Trash2, Loader2, CalendarRange, Clock } from 'lucide-react';
+import { FaCalendarTimes as CalendarX2, FaPlus as Plus, FaTrash as Trash2, FaSpinner as Loader2, FaCalendarAlt as CalendarRange, FaClock as Clock } from 'react-icons/fa';
 import { getDayOffs, requestDayOff, cancelDayOff } from '../../api/doctorApi';
 import { Badge, Button, Card, Modal, PageHeader } from '../../components/doctor/DoctorUI';
 

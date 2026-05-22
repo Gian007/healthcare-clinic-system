@@ -101,7 +101,17 @@ class AuthController extends Controller
             return response()->json(['message' => 'Verification code sent to your email.']);
         } catch (\Exception $e) {
             Log::error("OTP Email failed: " . $e->getMessage());
-            return response()->json(['message' => 'Failed to send verification code. Please check your email configuration.'], 500);
+
+            if (app()->environment(['local', 'testing'])) {
+                return response()->json([
+                    'message' => 'Verification code generated. Email delivery is not available on this local setup.',
+                    'otp_code' => (string) $code,
+                ]);
+            }
+
+            return response()->json([
+                'message' => 'Failed to send verification code. Please try again later.'
+            ], 500);
         }
     }
 

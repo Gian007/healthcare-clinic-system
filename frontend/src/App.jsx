@@ -39,7 +39,7 @@ import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminDoctors from "./pages/admin/AdminDoctors";
 import AdminSchedules from "./pages/admin/AdminSchedules";
-import AdminRooms from "./pages/admin/AdminRooms";
+
 import AdminServices from "./pages/admin/AdminServices";
 import AdminStaff from "./pages/admin/AdminStaff";
 import AdminPatients from "./pages/admin/AdminPatients";
@@ -56,7 +56,7 @@ import DoctorSchedule from "./pages/doctor/DoctorSchedule";
 import DoctorDayOff from "./pages/doctor/DoctorDayOff";
 import DoctorAppointments from "./pages/doctor/DoctorAppointments";
 import DoctorQueue from "./pages/doctor/DoctorQueue";
-import DoctorQRCode from "./pages/doctor/DoctorQRCode";
+
 import DoctorAttendance from "./pages/doctor/DoctorAttendance";
 import DoctorProfile from "./pages/doctor/DoctorProfile";
 import DoctorNotifications from "./pages/doctor/DoctorNotifications";
@@ -115,6 +115,7 @@ export default function App() {
             <Route index element={<PatientDashboard />} />
             <Route path="book" element={<BookAppointment />} />
             <Route path="calendar" element={<ClinicCalendar />} />
+            <Route path="queue" element={<Queue />} />
             <Route path="profile" element={<PatientProfile />} />
           </Route>
 
@@ -151,7 +152,7 @@ export default function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="doctors" element={<AdminDoctors />} />
             <Route path="schedules" element={<AdminSchedules />} />
-            <Route path="rooms" element={<AdminRooms />} />
+            
             <Route path="queue" element={<StaffQueue />} />
             <Route path="services" element={<AdminServices />} />
             <Route path="staff" element={<AdminStaff />} />
@@ -176,7 +177,7 @@ export default function App() {
             <Route path="dayoff" element={<DoctorDayOff />} />
             <Route path="appointments" element={<DoctorAppointments />} />
             <Route path="queue" element={<DoctorQueue />} />
-            <Route path="qr" element={<DoctorQRCode />} />
+            
             <Route path="attendance" element={<DoctorAttendance />} />
             <Route path="calendar" element={<ClinicCalendar />} />
             <Route path="notifications" element={<DoctorNotifications />} />

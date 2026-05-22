@@ -587,7 +587,11 @@ export default function BookAppointment() {
                             }`}
                           >
                             <span>{formatTime(sch.start_time)}</span>
-                            {!sch.is_available && <span className="text-[10px] font-black uppercase mt-1">Occupied</span>}
+                            {!sch.is_available && (
+                              <span className="text-[10px] font-black uppercase mt-1">
+                                {sch.is_past ? "Passed" : "Occupied"}
+                              </span>
+                            )}
                           </button>
                         );
                       })}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PhoneCall, SkipForward, CheckCircle2, Loader2, Users } from 'lucide-react';
+import { FaPhoneAlt as PhoneCall, FaStepForward as SkipForward, FaCheckCircle as CheckCircle2, FaSpinner as Loader2, FaUsers as Users } from 'react-icons/fa';
 import { getQueue, updateQueueStatus } from '../../api/doctorApi';
 import { Badge, Button, Card, PageHeader } from '../../components/doctor/DoctorUI';
 
@@ -8,9 +8,9 @@ export default function DoctorQueue() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
-  const fetchData = () => {
-    setLoading(true);
-    getQueue()
+  const fetchData = (showLoader = false) => {
+    if (showLoader) setLoading(true);
+    return getQueue()
       .then(data => {
         setQueue(data);
       })
@@ -18,22 +18,29 @@ export default function DoctorQueue() {
         console.error('Error fetching queue:', err);
       })
       .finally(() => {
-        setLoading(false);
+        if (showLoader) setLoading(false);
       });
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
+
+    const interval = setInterval(() => {
+      fetchData(false);
+    }, 8000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const current = queue.find(q => q.queue_status === 'Serving' || q.queue_status === 'Active');
+  const current = queue.find(q => q.queue_status === 'Serving');
   const waiting = queue.filter(q => q.queue_status === 'Waiting');
+  const notArrived = queue.filter(q => q.queue_status === 'Active');
   const done = queue.filter(q => q.queue_status === 'Done');
 
-  const callNext = () => {
+  const tapInNext = () => {
     if (current) return alert('Please finish or skip the current patient first.');
     const next = waiting[0];
-    if (!next) return alert('No waiting patients in the queue.');
+    if (!next) return alert('No tapped-in waiting patients in the hospital.');
     
     setUpdating(true);
     updateQueueStatus(next.queue_id, 'Serving')
@@ -48,7 +55,7 @@ export default function DoctorQueue() {
       });
   };
 
-  const markDone = () => {
+  const tapOutCurrent = () => {
     if (!current) return alert('No active patient currently in progress.');
     
     setUpdating(true);
@@ -96,7 +103,7 @@ export default function DoctorQueue() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="My Queue" subtitle="Manage your patients and session flow in real-time" />
+      <PageHeader title="My Queue" subtitle="Tap in the next waiting patient and tap out when the consultation is complete" />
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
@@ -109,8 +116,8 @@ export default function DoctorQueue() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Stat title="In Progress" value={current ? 1 : 0} />
             <Stat title="Waiting" value={waiting.length} />
+            <Stat title="Queue No. Only" value={notArrived.length} />
             <Stat title="Completed Today" value={done.length} />
-            <Stat title="Avg Wait Time" value={waiting.length > 0 ? formatWaitTime(waiting[0].created_at) : '0 min'} />
           </div>
 
           {/* Current Patient Card */}
@@ -146,11 +153,11 @@ export default function DoctorQueue() {
                 <Button 
                   variant="green" 
                   disabled={!current || updating} 
-                  onClick={markDone}
+                  onClick={tapOutCurrent}
                   className="flex items-center gap-2 py-2 px-4 shadow-sm"
                 >
                   <CheckCircle2 size={16} />
-                  <span>Mark as Done</span>
+                  <span>Tap Out / Complete</span>
                 </Button>
                 <Button 
                   variant="outline" 
@@ -174,12 +181,12 @@ export default function DoctorQueue() {
                   Upcoming Queue ({waiting.length})
                 </h2>
                 <Button 
-                  onClick={callNext} 
+                  onClick={tapInNext} 
                   disabled={waiting.length === 0 || updating}
                   className="flex items-center gap-2"
                 >
                   <PhoneCall size={15} />
-                  <span>Call Next</span>
+                  <span>Tap In Next</span>
                 </Button>
               </div>
               
@@ -187,6 +194,9 @@ export default function DoctorQueue() {
                 <div className="py-12 text-center text-slate-400 dark:text-slate-600">
                   <Users className="mx-auto mb-2 opacity-50" size={32} />
                   <p className="font-medium">No waiting patients left</p>
+                  {notArrived.length > 0 && (
+                    <p className="mt-1 text-xs">There are {notArrived.length} queue number(s), but they are not tapped in at the hospital yet.</p>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">

@@ -8,6 +8,7 @@ export default function StaffSchedule() {
   const { dark } = useOutletContext();
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading]     = useState(true);
+  const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
     staffApi.getSchedules()
@@ -86,6 +87,14 @@ export default function StaffSchedule() {
                 </div>
                 {slots.length === 0 && (
                   <p className={`text-sm text-center py-4 ${muted}`}>No schedule set</p>
+                )}
+                <div className="mt-3 flex justify-end">
+                  <button onClick={() => setExpandedId(prev => prev === doctor?.doctor_id ? null : doctor?.doctor_id)} className="text-teal-600 underline text-sm">{expandedId === doctor?.doctor_id ? 'Hide' : 'View / Edit'}</button>
+                </div>
+                {expandedId === doctor?.doctor_id && (
+                  <div className="mt-2 p-3 border-t border-gray-200 dark:border-gray-700">
+                    <p className="text-xs text-gray-500">Edit schedule functionality coming soon.</p>
+                  </div>
                 )}
               </div>
             </div>

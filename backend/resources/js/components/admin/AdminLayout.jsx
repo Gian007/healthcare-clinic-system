@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, LogOut, HeartPulse
 } from "lucide-react";
 import Logo from "../Logo";
+import { useBranding } from "../../state/branding";
 
 const links = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -27,6 +28,7 @@ export default function AdminLayout() {
   const [dark, setDark] = useState(() => localStorage.getItem("clinicTheme") === "dark");
 
   const { user, logout } = useAuth();
+  const { branding } = useBranding();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -42,9 +44,9 @@ export default function AdminLayout() {
   const initials = user ? `${(user.first_name || "A")[0]}${(user.last_name || "")[0] || ""}` : "A";
 
   return (
-    <div className="min-h-screen bg-[#f4fbfa] dark:bg-slate-950 transition-colors">
+    <div className="min-h-screen bg-neutralbg dark:bg-slate-950 transition-colors">
       {/* Mobile Trigger */}
-      <button onClick={() => setMobileOpen(true)} className="md:hidden fixed top-4 left-4 z-40 rounded-xl bg-teal-600 p-3 text-white shadow-lg"><Menu size={20}/></button>
+      <button onClick={() => setMobileOpen(true)} className="md:hidden fixed top-4 left-4 z-40 rounded-xl bg-primary p-3 text-white shadow-lg"><Menu size={20}/></button>
       
       {/* Overlay */}
       {mobileOpen && <button onClick={() => setMobileOpen(false)} className="fixed inset-0 z-40 bg-black/40 md:hidden backdrop-blur-sm" />}
@@ -53,14 +55,14 @@ export default function AdminLayout() {
       <aside className={`fixed left-0 top-0 z-50 h-[100dvh] transition-all duration-300 transform 
         ${collapsed ? "md:w-20" : "md:w-72"} 
         ${mobileOpen ? "translate-x-0 w-72" : "-translate-x-full md:translate-x-0"} 
-        bg-teal-600 dark:bg-slate-900 text-white flex flex-col shadow-2xl lg:shadow-none`}>
+        bg-primary dark:bg-slate-900 text-white flex flex-col shadow-2xl lg:shadow-none`}>
         
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/10 shrink-0">
           <div className={`flex items-center gap-3 overflow-hidden ${(collapsed && !mobileOpen) ? "md:hidden" : ""}`}>
             <Logo />
             <div>
-              <h1 className="text-xl font-black leading-none tracking-tighter font-comfortaa font-fat">SHQMS</h1>
+              <h1 className="text-xl font-black leading-none tracking-tighter font-comfortaa font-fat">{branding.name}</h1>
               <p className="text-[9px] text-white/70 uppercase font-bold tracking-widest mt-1 font-poppins">Admin Portal</p>
             </div>
           </div>
@@ -85,7 +87,7 @@ export default function AdminLayout() {
                 onClick={() => setMobileOpen(false)} 
                 title={item.label} 
                 className={({ isActive }) => `flex items-center gap-4 rounded-xl px-4 py-3 text-sm transition-all duration-200 ${
-                  isActive ? "bg-white text-teal-700 dark:text-slate-900 font-bold shadow-lg" : "hover:bg-white/10"
+                  isActive ? "bg-white text-primary dark:text-slate-900 font-bold shadow-lg" : "hover:bg-white/10"
                 } ${(collapsed && !mobileOpen) ? "md:justify-center px-2" : ""}`}
               >
                 <Icon size={20} className="shrink-0" />

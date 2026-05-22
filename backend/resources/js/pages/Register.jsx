@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FaHeartbeat, FaEye, FaEyeSlash, FaCheckCircle, FaPaperPlane } from "react-icons/fa";
 import { useAuth } from "../state/auth";
+import { useBranding } from "../state/branding";
 import * as authApi from "../api/authApi";
 import Logo from "../components/Logo";
 
@@ -35,6 +36,7 @@ export default function Register() {
   const [showPw, setShowPw]   = useState(false);
 
   const { register } = useAuth();
+  const { branding } = useBranding();
   const nav = useNavigate();
 
   const handleChange = (e) => {
@@ -230,7 +232,7 @@ export default function Register() {
                 <button type="button" className="text-primary underline font-medium hover:opacity-80">Terms and Conditions</button>
                 {' '}and{' '}
                 <button type="button" className="text-primary underline font-medium hover:opacity-80">Privacy Policy</button>
-                {' '}of SHQMS.
+                {' '}of {branding.name}.
               </span>
             </label>
             {errors.terms && <p className="text-xs text-red-500 mt-1">{errors.terms}</p>}

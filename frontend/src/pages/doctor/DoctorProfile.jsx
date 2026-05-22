@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { User, FileText, Phone, Mail, Camera, Loader2, CheckCircle2, Lock } from 'lucide-react';
+import { FaUser as User, FaFileAlt as FileText, FaPhone as Phone, FaEnvelope as Mail, FaCamera as Camera, FaSpinner as Loader2, FaCheckCircle as CheckCircle2, FaLock as Lock } from 'react-icons/fa';
 import { Button, Card, PageHeader } from '../../components/doctor/DoctorUI';
 import { useAuth } from '../../state/auth';
 import * as doctorApi from '../../api/doctorApi';

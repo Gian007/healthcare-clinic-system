@@ -40,11 +40,23 @@ export default function AdminDashboard() {
   });
   const [loading, setLoading] = useState(true);
 
+  const loadData = async () => {
+    try {
+      const res = await adminApi.getDashboard();
+      setData(res);
+    } catch (error) {
+      console.error("Failed to load admin dashboard:", error);
+    }
+  };
+
   useEffect(() => {
-    adminApi.getDashboard()
-      .then(setData)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    loadData().finally(() => setLoading(false));
+
+    const interval = setInterval(() => {
+      loadData();
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const { stats, recent_patients, recent_appointments } = data;

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, CalendarDays, CalendarX2, ClipboardList, Users, QrCode, Clock3, User, Menu, X, Moon, Sun, LogOut, Stethoscope, ChevronLeft, ChevronRight, HeartPulse, Bell } from 'lucide-react';
+import { FaThLarge as LayoutDashboard, FaCalendarAlt as CalendarDays, FaCalendarTimes as CalendarX2, FaClipboardList as ClipboardList, FaUsers as Users, FaQrcode as QrCode, FaClock as Clock3, FaUser as User, FaBars as Menu, FaTimes as X, FaMoon as Moon, FaSun as Sun, FaSignOutAlt as LogOut, FaChevronLeft as ChevronLeft, FaChevronRight as ChevronRight, FaBell as Bell } from 'react-icons/fa';
 import Logo from "../Logo";
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../state/auth';

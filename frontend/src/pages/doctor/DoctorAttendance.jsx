@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LogIn, LogOut, Clock3, Loader2, Calendar } from 'lucide-react';
+import { FaSignInAlt as LogIn, FaSignOutAlt as LogOut, FaClock as Clock3, FaSpinner as Loader2, FaCalendar as Calendar } from 'react-icons/fa';
 import { getAttendance, recordAttendance } from '../../api/doctorApi';
 import { Badge, Button, Card, PageHeader } from '../../components/doctor/DoctorUI';
 

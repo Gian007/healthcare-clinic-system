@@ -84,19 +84,69 @@ export default function AdminDoctors() {
     setLoading(false);
   };
 
-  // Full Medical Registry Fallback - Loops through every specialization provided by USER
+  // Medical Specialization Registry — same list as AdminServices
   const displaySpecs = useMemo(() => {
     const registry = [
-      { cat: 'Recommended Starter List', names: ["General Medicine", "Pediatrics", "OB-GYNE", "Dentistry", "Dermatology", "ENT", "Orthopedics", "Cardiology", "Ophthalmology", "General Surgery", "Radiology", "Physical Therapy", "Psychiatry"] },
-      { cat: 'Core General Specializations', names: ["General Medicine", "Family Medicine", "Internal Medicine", "General Practitioner (GP)", "Pediatrics", "OB-GYNE (Obstetrics and Gynecology)", "Dermatology", "ENT (Ear, Nose, and Throat)", "Ophthalmology", "Orthopedics", "Cardiology", "Neurology", "Psychiatry", "Pulmonology", "Gastroenterology", "Nephrology", "Urology", "Endocrinology", "Rheumatology", "Infectious Disease", "Oncology", "Geriatrics"] },
-      { cat: 'Surgical Specializations', names: ["General Surgery", "Cardiothoracic Surgery", "Neurosurgery", "Orthopedic Surgery", "Plastic Surgery", "Vascular Surgery", "Pediatric Surgery", "Urologic Surgery", "Surgical Oncology"] },
-      { cat: 'Dental & Oral', names: ["Dentistry", "Orthodontics", "Oral Surgery", "Pediatric Dentistry", "Prosthodontics"] },
-      { cat: 'Women & Child Care', names: ["Maternal Care", "Fertility Specialist", "Neonatology", "Pediatric Cardiology", "Pediatric Neurology"] },
-      { cat: 'Diagnostic & Imaging', names: ["Radiology", "Ultrasound Specialist", "Pathology", "Laboratory Medicine"] },
-      { cat: 'Emergency & Critical Care', names: ["Emergency Medicine", "Trauma Care", "Critical Care Medicine", "Intensive Care Unit (ICU)"] },
-      { cat: 'Therapy & Rehabilitation', names: ["Physical Therapy", "Occupational Therapy", "Speech Therapy", "Rehabilitation Medicine"] },
-      { cat: 'Mental Health', names: ["Psychology", "Psychiatry", "Behavioral Therapy"] },
-      { cat: 'Clinic Support Roles', names: ["Nurse", "Nurse Assistant", "Midwife", "Pharmacist", "Medical Technologist", "Receptionist", "Laboratory Technician", "Radiologic Technologist"] }
+      { cat: 'Doctor Specializations', names: [
+        "General Practitioner (GP)",
+        "Family Medicine Physician",
+        "Internal Medicine Physician",
+        "Pediatrician",
+        "Obstetrician-Gynecologist (OB-GYN)",
+        "Cardiologist",
+        "Dermatologist",
+        "ENT Specialist (Otolaryngologist)",
+        "Pulmonologist",
+        "Gastroenterologist",
+        "Neurologist",
+        "Neurosurgeon",
+        "Nephrologist",
+        "Endocrinologist",
+        "Rheumatologist",
+        "Infectious Disease Specialist",
+        "Oncologist",
+        "Hematologist",
+        "Allergist / Immunologist",
+        "Psychiatrist",
+        "Ophthalmologist",
+        "Orthopedic Surgeon",
+        "General Surgeon",
+        "Urologist",
+        "Rehabilitation Medicine Specialist",
+        "Anesthesiologist",
+        "Emergency Medicine Physician",
+        "Pathologist",
+        "Radiologist",
+        "Nuclear Medicine Specialist",
+        "Geriatrician",
+        "Sports Medicine Physician",
+        "Occupational Medicine Physician",
+        "Preventive Medicine Physician",
+        "Pain Management Specialist",
+        "Sleep Medicine Specialist",
+        "Plastic and Reconstructive Surgeon",
+        "Vascular Surgeon",
+        "Thoracic Surgeon",
+        "Cardiothoracic Surgeon",
+        "Colorectal Surgeon",
+        "Hepatobiliary Surgeon",
+        "Transplant Surgeon",
+        "Clinical Geneticist"
+      ]},
+      { cat: 'Dental Specializations', names: [
+        "General Dentist",
+        "Orthodontist",
+        "Oral and Maxillofacial Surgeon",
+        "Endodontist",
+        "Prosthodontist",
+        "Periodontist",
+        "Pediatric Dentist (Pedodontist)",
+        "Cosmetic Dentist",
+        "Oral Pathologist",
+        "Oral Radiologist",
+        "Oral Medicine Specialist",
+        "Dental Public Health Specialist"
+      ]}
     ];
 
     const all = [];
@@ -109,19 +159,37 @@ export default function AdminDoctors() {
       });
     });
 
+    // Merge real DB specializations — replace mock IDs with real ones by name match
     if (specializations.length > 0) {
       specializations.forEach(s => {
         const found = all.find(x => x.name === s.name);
         if (found) {
-           found.specialization_id = s.specialization_id;
-           found.description = s.description || found.description;
+          found.specialization_id = s.specialization_id;
+          found.description = s.description || found.description;
         } else {
-           all.push(s);
+          all.push(s);
         }
       });
     }
-    return all.sort((a,b) => a.name.localeCompare(b.name));
+    return all;
   }, [specializations]);
+
+  // Helper: check if a specialization ID or name is covered by any existing service
+  const isSpecLinkedToService = (id) => {
+    const spec = displaySpecs.find(x => x.specialization_id === id);
+    const specName = spec?.name || (typeof id === 'string' && id.startsWith('NEW:') ? id.replace('NEW:', '') : null);
+    return services.some(svc => {
+      // Check by ID
+      if (svc.specializations?.some(x => x.specialization_id === id)) return true;
+      if (svc.specialization_id === id) return true;
+      // Check by name (handles cases where DB IDs match names from services)
+      if (specName && svc.specializations?.some(x =>
+        x.name?.toLowerCase() === specName.toLowerCase() ||
+        x.specialization_name?.toLowerCase() === specName.toLowerCase()
+      )) return true;
+      return false;
+    });
+  };
 
   const list = useMemo(() =>
     records.filter(d => `${d.first_name} ${d.last_name} ${d.email} ${d.license_number} ${d.specialization?.name}`.toLowerCase().includes(query.toLowerCase())),
@@ -389,7 +457,7 @@ export default function AdminDoctors() {
                       const sp = displaySpecs.find(x => x.specialization_id === id);
                       const isNew = typeof id === 'string' && id.startsWith('NEW:');
                       const label = isNew ? id.replace('NEW:', '') : (sp?.name || 'Unknown');
-                      const isLinkedToService = services.some(svc => svc.specializations?.some(x => x.specialization_id === id) || svc.specialization_id === id);
+                      const isLinkedToService = isSpecLinkedToService(id);
                       return (
                         <span key={id} className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border shadow-sm transition-all animate-in zoom-in-95 ${isLinkedToService ? 'bg-primary/10 text-primary border-primary/20' : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800'}`}>
                           {!isLinkedToService && !isNew && <span title="Not linked to any service">⚠️</span>}
@@ -430,11 +498,11 @@ export default function AdminDoctors() {
                         </select>
                       </div>
                       
-                      {formData.specialization_ids.length > 0 && formData.specialization_ids.some(id => !services.some(svc => svc.specializations?.some(sp => sp.specialization_id === id) || svc.specialization_id === id)) && (
+                      {formData.specialization_ids.length > 0 && formData.specialization_ids.some(id => !isSpecLinkedToService(id) && !(typeof id === 'string' && id.startsWith('NEW:'))) && (
                         <div className="text-[11px] text-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800 font-bold shadow-sm flex items-start gap-2 leading-relaxed">
                           <span className="text-lg mt-[-2px]">⚠️</span>
                           <span>
-                            One or more specializations are not yet linked to a service. 
+                            One or more specializations are not yet linked to a service.
                             <br/>
                             <span className="text-amber-600/70 font-medium italic">Please ensure at least one service exists for these fields.</span>
                           </span>

@@ -5,7 +5,7 @@ import { useAdminSettings } from "../../state/adminSettings";
 import { resolveLogoUrl } from "../../config/adminSettings";
 import * as notifApi from "../../api/notificationApi";
 import {
-  FaHeartbeat, FaCalendarAlt, FaBell, FaUser, FaSignOutAlt, FaBars, FaTimes, FaHome, FaMoon, FaSun, FaChevronLeft, FaChevronRight
+  FaCalendarAlt, FaBell, FaUser, FaSignOutAlt, FaBars, FaTimes, FaHome, FaMoon, FaSun, FaChevronLeft, FaChevronRight, FaListOl
 } from "react-icons/fa";
 import Logo from "../Logo";
 
@@ -13,6 +13,7 @@ const links = [
   { to: "/patient", label: "Dashboard", icon: FaHome, end: true, key: "dashboard" },
   { to: "/patient/book", label: "Book Appointment", icon: FaCalendarAlt, key: "bookAppointment" },
   { to: "/patient/calendar", label: "Calendar", icon: FaCalendarAlt, key: "calendar" },
+  { to: "/patient/queue", label: "Live Queue", icon: FaListOl, key: "queue" },
   { to: "/patient/profile", label: "Profile", icon: FaUser, key: "profile" },
 ];
 

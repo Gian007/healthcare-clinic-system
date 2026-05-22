@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FaHeartbeat, FaEye, FaEyeSlash, FaCheckCircle, FaPaperPlane } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaCheckCircle, FaPaperPlane } from "react-icons/fa";
 import { useAuth } from "../state/auth";
 import { useAdminSettings } from "../state/adminSettings";
 import { resolveLogoUrl } from "../config/adminSettings";
@@ -33,10 +33,14 @@ export default function Register() {
   });
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [otpNotice, setOtpNotice] = useState('');
   const [errors, setErrors]   = useState({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [showPw, setShowPw]   = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [consent, setConsent] = useState(false);
 
   const { register } = useAuth();
   const nav = useNavigate();
@@ -63,11 +67,16 @@ export default function Register() {
     }
     setOtpLoading(true);
     setErrors(p => ({ ...p, email: '' }));
+    setOtpNotice('');
     try {
-      await authApi.sendOTP(formData.email);
+      const res = await authApi.sendOTP(formData.email);
+      if (res?.otp_code) {
+        setFormData(p => ({ ...p, otp_code: res.otp_code }));
+      }
+      setOtpNotice(res?.message || 'Verification code sent!');
       setOtpSent(true);
     } catch (err) {
-      setErrors({ email: err.response?.data?.message || 'Failed to send code. Please ensure your email is unique and valid.' });
+      setErrors({ email: err.response?.data?.message || 'Failed to send code. Please use a valid email address.' });
     } finally {
       setOtpLoading(false);
     }
@@ -88,6 +97,10 @@ export default function Register() {
     }
     if (!formData.terms) {
       setErrors({ terms: 'You must accept the Terms and Conditions.' });
+      return;
+    }
+    if (!consent) {
+      setErrors({ consent: 'You must provide consent for your personal information.' });
       return;
     }
 
@@ -165,7 +178,6 @@ export default function Register() {
                   placeholder="9XXXXXXXXX"
                   className={`flex-1 border rounded-r-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:border-slate-700 dark:text-white ${errors.contact_number ? 'border-red-400' : 'border-gray-300'}`} />
               </div>
-              <p className="text-[10px] text-gray-500 mt-1 italic">Format: 09123456789</p>
               {errors.contact_number && <p className="text-xs text-red-500 mt-1">{errors.contact_number}</p>}
             </div>
             <div className="md:col-span-2">
@@ -188,7 +200,7 @@ export default function Register() {
                   </button>
                 </div>
                 {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
-                {otpSent && <p className="text-[10px] text-green-600 dark:text-green-400 mt-1 font-medium italic">Verification code sent!</p>}
+                {otpSent && <p className="text-[10px] text-green-600 dark:text-green-400 mt-1 font-medium italic">{otpNotice || 'Verification code sent!'}</p>}
               </div>
 
               <div>
@@ -225,20 +237,126 @@ export default function Register() {
           </div>
 
           {/* Terms and Conditions */}
-          <div className="border-t dark:border-slate-700 pt-4">
+          <div className="border-t dark:border-slate-700 pt-4 space-y-3">
             <label className="flex items-start gap-3 cursor-pointer">
               <input type="checkbox" name="terms" checked={formData.terms} onChange={handleChange}
-                className="mt-1 w-4 h-4 text-primary border-gray-300 rounded" />
+                className="mt-1 w-4 h-4 text-primary border-gray-300 rounded shrink-0" />
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 I agree to the{' '}
-                <button type="button" className="text-primary underline font-medium hover:opacity-80">Terms and Conditions</button>
+                <button type="button" className="text-primary underline font-medium hover:opacity-80" onClick={() => setShowTerms(true)}>Terms and Conditions</button>
                 {' '}and{' '}
-                <button type="button" className="text-primary underline font-medium hover:opacity-80">Privacy Policy</button>
+                <button type="button" className="text-primary underline font-medium hover:opacity-80" onClick={() => setShowPrivacy(true)}>Privacy Policy</button>
                 {' '}of SHQMS.
               </span>
             </label>
             {errors.terms && <p className="text-xs text-red-500 mt-1">{errors.terms}</p>}
+            
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" checked={consent} onChange={(e) => { setConsent(e.target.checked); setErrors(p => ({ ...p, consent: '' })); }}
+                className="mt-1 w-4 h-4 text-primary border-gray-300 rounded shrink-0" />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                I consent to the collection, processing, and sharing of my personal information with the selected healthcare facility.
+              </span>
+            </label>
+            {errors.consent && <p className="text-xs text-red-500 mt-1">{errors.consent}</p>}
           </div>
+            {/* Terms Modal */}
+            {showTerms && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto relative shadow-2xl">
+                  <button type="button" className="absolute top-4 right-4 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 p-2 rounded-full transition" onClick={() => setShowTerms(false)}>✕</button>
+                  <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">Terms and Conditions</h2>
+                  <div className="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300 space-y-4">
+                    <p className="font-semibold text-gray-900 dark:text-white">Last Updated: May 2026</p>
+                    <p>Welcome to the Smart Healthcare Availability & Queue Management System ("SHQMS"). By creating an account, accessing, or using the platform, users agree to comply with the following Terms and Conditions.</p>
+
+                    <h3 className="font-bold text-gray-900 dark:text-white mt-4">1. Acceptance of Terms</h3>
+                    <p>By accessing or using the Smart Healthcare Availability & Queue Management System, users acknowledge that they have read, understood, and agreed to be bound by these Terms and Conditions, Privacy Policy, and applicable laws and regulations.</p>
+                    <p>If a user does not agree with these terms, access to the platform should be discontinued immediately.</p>
+
+                    <h3 className="font-bold text-gray-900 dark:text-white mt-4">2. Purpose of the Platform</h3>
+                    <p>The Smart Healthcare Availability & Queue Management System is designed to provide:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Real-time doctor availability monitoring</li>
+                      <li>Appointment scheduling</li>
+                      <li>Queue management</li>
+                      <li>Clinic announcements and notifications</li>
+                      <li>Healthcare service information</li>
+                    </ul>
+                    <p>The platform serves as a scheduling and information management tool and does not provide medical diagnosis, treatment, or emergency healthcare services.</p>
+
+                    <h3 className="font-bold text-gray-900 dark:text-white mt-4">3. User Registration and Account Responsibilities</h3>
+                    <p>Users are required to provide accurate and complete information during registration.</p>
+                    <p>Users are responsible for:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Maintaining the confidentiality of their account credentials</li>
+                      <li>Ensuring information provided is accurate and updated</li>
+                      <li>Securing access to their accounts</li>
+                    </ul>
+                    <p>The system reserves the right to suspend or terminate accounts that provide false, misleading, or fraudulent information.</p>
+
+                    <h3 className="font-bold text-gray-900 dark:text-white mt-4">4. Identification Verification</h3>
+                    <p>Patients may be required to upload a valid government-issued identification card or other approved identification documents for appointment verification purposes.</p>
+                    <p>The submitted identification shall be used solely for:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Patient verification</li>
+                      <li>Appointment confirmation</li>
+                      <li>Fraud prevention</li>
+                      <li>Healthcare facility requirements</li>
+                    </ul>
+                    <p>Submission of falsified identification documents may result in account termination and report to authorities.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* Privacy Policy Modal */}
+            {showPrivacy && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto relative shadow-2xl">
+                  <button type="button" className="absolute top-4 right-4 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 p-2 rounded-full transition" onClick={() => setShowPrivacy(false)}>✕</button>
+                  <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">Privacy Policy</h2>
+                  <div className="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300 space-y-4">
+                    <p className="font-semibold text-gray-900 dark:text-white">Last Updated: May 2026</p>
+                    <p>The Smart Healthcare Availability & Queue Management System ("SHQMS") is committed to protecting the privacy and security of our users' personal and health-related information.</p>
+
+                    <h3 className="font-bold text-gray-900 dark:text-white mt-4">Information Collection</h3>
+                    <p>We collect information necessary for the operation of the healthcare scheduling and queue management platform, including:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Personal Identifiable Information (PII) such as name, contact details, and birth date</li>
+                      <li>Medical and appointment history scheduled through the platform</li>
+                      <li>Identification documents for verification purposes</li>
+                    </ul>
+
+                    <h3 className="font-bold text-gray-900 dark:text-white mt-4">Use of Information</h3>
+                    <p>The collected information is used to:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Facilitate appointment scheduling and queue management</li>
+                      <li>Verify patient identity to prevent fraud</li>
+                      <li>Send system notifications and announcements</li>
+                      <li>Improve healthcare service delivery</li>
+                    </ul>
+
+                    <h3 className="font-bold text-gray-900 dark:text-white mt-4">Data Sharing</h3>
+                    <p>User data may be shared with:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Selected healthcare facilities and designated medical professionals</li>
+                      <li>Third-party service providers (e.g., cloud hosting, email notifications) under strict confidentiality agreements</li>
+                    </ul>
+                    <p>We will not sell, rent, or trade your personal information to unassociated third parties.</p>
+
+                    <h3 className="font-bold text-gray-900 dark:text-white mt-4">Changes to This Privacy Policy</h3>
+                    <p>The Smart Healthcare Availability & Queue Management System reserves the right to update this Privacy Policy when necessary. Users will be notified of significant changes through system notifications, email announcements, or platform updates.</p>
+
+                    <h3 className="font-bold text-gray-900 dark:text-white mt-4">Contact Information</h3>
+                    <p>For questions, concerns, or privacy-related requests, users may contact:</p>
+                    <ul className="list-none">
+                      <li><strong>Email:</strong> smartqueuesys@gmail.com</li>
+                      <li><strong>Customer Support:</strong> +63 951 124 6064</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
 
           <button type="submit" disabled={loading || success}
             className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:opacity-95 disabled:opacity-50 transition flex items-center justify-center gap-2">

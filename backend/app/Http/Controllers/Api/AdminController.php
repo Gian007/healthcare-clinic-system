@@ -547,32 +547,45 @@ class AdminController extends Controller
     public function createService(Request $request)
     {
         $inputIds = $request->specialization_ids ?? [];
-        $existingIds = array_filter($inputIds, fn($id) => is_numeric($id));
-        $manualNames = array_map(fn($id) => str_replace('NEW:', '', $id), array_filter($inputIds, fn($id) => is_string($id) && Str::startsWith($id, 'NEW:')));
 
         $request->validate([
             'service_name'  => 'required|string|max:255|unique:services,service_name',
             'description'   => 'nullable|string',
             'duration_mins' => 'required|integer|min:5',
             'base_fee'      => 'required|numeric|min:0',
-            'specialization_ids' => 'required|array',
+            'specialization_ids' => 'required|array|min:1',
         ]);
 
-        // Validate only existing numeric IDs
-        if (!empty($existingIds)) {
-            $validator = \Validator::make(['ids' => $existingIds], [
-                'ids.*' => 'exists:specializations,specialization_id'
-            ]);
-            if ($validator->fails()) {
-                return response()->json(['errors' => $validator->errors()], 422);
+        // Resolve all IDs — numeric real IDs pass through, 'NEW:name' strings get firstOrCreate'd
+        $finalIds = [];
+        foreach ($inputIds as $entry) {
+            if (is_numeric($entry)) {
+                // Real DB ID — verify it exists
+                $spec = Specialization::find($entry);
+                if ($spec) {
+                    $finalIds[] = $spec->specialization_id;
+                }
+            } elseif (is_string($entry) && Str::startsWith($entry, 'NEW:')) {
+                $name = trim(str_replace('NEW:', '', $entry));
+                if ($name) {
+                    $spec = Specialization::firstOrCreate(
+                        ['specialization_name' => $name],
+                        ['description' => 'Custom Entry']
+                    );
+                    $finalIds[] = $spec->specialization_id;
+                }
+            } elseif (is_string($entry)) {
+                // Plain name string — firstOrCreate
+                $spec = Specialization::firstOrCreate(
+                    ['specialization_name' => $entry],
+                    ['description' => 'Custom Entry']
+                );
+                $finalIds[] = $spec->specialization_id;
             }
         }
 
-        // Create manual specializations first
-        $finalIds = $existingIds;
-        foreach ($manualNames as $name) {
-            $spec = Specialization::firstOrCreate(['specialization_name' => $name], ['description' => 'Custom Entry']);
-            $finalIds[] = $spec->specialization_id;
+        if (empty($finalIds)) {
+            return response()->json(['errors' => ['specialization_ids' => ['At least one valid specialization is required.']]], 422);
         }
 
         $service = Service::create([
@@ -593,30 +606,43 @@ class AdminController extends Controller
     {
         $service = Service::findOrFail($id);
         $inputIds = $request->specialization_ids ?? [];
-        $existingIds = array_filter($inputIds, fn($id) => is_numeric($id));
-        $manualNames = array_map(fn($id) => str_replace('NEW:', '', $id), array_filter($inputIds, fn($id) => is_string($id) && Str::startsWith($id, 'NEW:')));
 
         $request->validate([
             'service_name'  => 'required|string|max:255|unique:services,service_name,'.$id.',service_id',
             'description'   => 'nullable|string',
             'duration_mins' => 'required|integer|min:5',
             'base_fee'      => 'required|numeric|min:0',
-            'specialization_ids' => 'required|array',
+            'specialization_ids' => 'required|array|min:1',
         ]);
 
-        if (!empty($existingIds)) {
-            $validator = \Validator::make(['ids' => $existingIds], [
-                'ids.*' => 'exists:specializations,specialization_id'
-            ]);
-            if ($validator->fails()) {
-                return response()->json(['errors' => $validator->errors()], 422);
+        // Resolve all IDs — numeric real IDs pass through, 'NEW:name' strings get firstOrCreate'd
+        $finalIds = [];
+        foreach ($inputIds as $entry) {
+            if (is_numeric($entry)) {
+                $spec = Specialization::find($entry);
+                if ($spec) {
+                    $finalIds[] = $spec->specialization_id;
+                }
+            } elseif (is_string($entry) && Str::startsWith($entry, 'NEW:')) {
+                $name = trim(str_replace('NEW:', '', $entry));
+                if ($name) {
+                    $spec = Specialization::firstOrCreate(
+                        ['specialization_name' => $name],
+                        ['description' => 'Custom Entry']
+                    );
+                    $finalIds[] = $spec->specialization_id;
+                }
+            } elseif (is_string($entry)) {
+                $spec = Specialization::firstOrCreate(
+                    ['specialization_name' => $entry],
+                    ['description' => 'Custom Entry']
+                );
+                $finalIds[] = $spec->specialization_id;
             }
         }
 
-        $finalIds = $existingIds;
-        foreach ($manualNames as $name) {
-            $spec = Specialization::firstOrCreate(['specialization_name' => $name], ['description' => 'Custom Entry']);
-            $finalIds[] = $spec->specialization_id;
+        if (empty($finalIds)) {
+            return response()->json(['errors' => ['specialization_ids' => ['At least one valid specialization is required.']]], 422);
         }
 
         $service->update([
@@ -647,9 +673,13 @@ class AdminController extends Controller
 
     public function createSpecialization(Request $request)
     {
-        $request->validate(['name' => 'required|string|max:255|unique:specializations,specialization_name']);
-        $spec = Specialization::create(['specialization_name' => $request->name, 'description' => '']);
-        return response()->json(['message' => 'Specialization created.', 'specialization' => $spec]);
+        $request->validate(['name' => 'required|string|max:255']);
+        // Use firstOrCreate so re-submitting an existing name never throws a 422
+        $spec = Specialization::firstOrCreate(
+            ['specialization_name' => $request->name],
+            ['description' => '']
+        );
+        return response()->json(['message' => 'Specialization saved.', 'specialization' => $spec]);
     }
 
     /* ─────────────────────────── Schedules ─────────────────────────── */

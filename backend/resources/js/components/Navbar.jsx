@@ -3,10 +3,12 @@ import { FaHeartbeat } from "react-icons/fa";
 import Logo from "./Logo";
 import { FiLogIn, FiLogOut, FiSun, FiMoon, FiMenu, FiX } from "react-icons/fi";
 import { useAuth } from "../state/auth";
+import { useBranding } from "../state/branding";
 import { useEffect, useState } from "react";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { branding } = useBranding();
   const nav = useNavigate();
 
   const [dark, setDark] = useState(() => localStorage.getItem("clinicTheme") === "dark");
@@ -49,7 +51,7 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
           <Logo />
-          <span className="font-black text-xl tracking-tighter text-gray-900 dark:text-white uppercase font-comfortaa leading-none font-fat">SHQMS</span>
+          <span className="font-black text-xl tracking-tighter text-gray-900 dark:text-white uppercase font-comfortaa leading-none font-fat">{branding.name}</span>
         </Link>
 
         {/* Public nav Desktop */}

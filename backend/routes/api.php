@@ -39,7 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/notifications/{id}/read',      [NotificationController::class, 'markRead']);
 
     /* ── Patient Routes ── */
-    Route::prefix('patient')->group(function () {
+    Route::prefix('patient')->middleware('role:patient')->group(function () {
         Route::get('/dashboard',          [PatientController::class, 'dashboard']);
         Route::put('/profile',            [PatientController::class, 'updateProfile']);
         Route::post('/profile/password',  [PatientController::class, 'updatePassword']);
@@ -52,7 +52,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     /* ── Doctor Routes ── */
-    Route::prefix('doctor')->group(function () {
+    Route::prefix('doctor')->middleware('role:doctor')->group(function () {
         Route::get('/dashboard',                    [DoctorController::class, 'dashboard']);
         Route::get('/appointments',                 [DoctorController::class, 'getAppointments']);
         Route::put('/appointments/{id}/status',     [DoctorController::class, 'updateAppointmentStatus']);
@@ -70,7 +70,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     /* ── Staff Routes ── */
-    Route::prefix('staff')->group(function () {
+    Route::prefix('staff')->middleware('role:staff')->group(function () {
         Route::get('/dashboard',                        [StaffController::class, 'dashboard']);
         Route::put('/profile',                          [StaffController::class, 'updateProfile']);
         Route::post('/profile/password',                [StaffController::class, 'updatePassword']);
@@ -82,13 +82,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/verifications/{id}',              [StaffController::class, 'approveVerification']);
         Route::get('/appointments',                     [StaffController::class, 'getAppointments']);
         Route::put('/appointments/{id}/status',         [StaffController::class, 'updateAppointmentStatus']);
+        Route::post('/walk-ins',                        [StaffController::class, 'storeWalkIn']);
         Route::get('/schedules',                        [StaffController::class, 'getSchedules']);
+        Route::get('/doctor-attendances',               [StaffController::class, 'getDoctorAttendances']);
+        Route::post('/doctors/{id}/tap-in',             [StaffController::class, 'tapInDoctor']);
+        Route::post('/doctors/{id}/tap-out',            [StaffController::class, 'tapOutDoctor']);
         Route::get('/queue',                            [StaffController::class, 'getQueue']);
         Route::put('/queue/{id}/status',                [StaffController::class, 'updateQueueStatus']);
+        Route::post('/queue/{id}/tap-in',               [StaffController::class, 'tapInQueue']);
+        Route::post('/queue/{id}/tap-out',              [StaffController::class, 'tapOutQueue']);
     });
 
     /* ── Admin Routes ── */
-    Route::prefix('admin')->group(function () {
+    Route::prefix('admin')->middleware('role:admin')->group(function () {
         Route::get('/dashboard',                    [AdminController::class, 'dashboard']);
         Route::post('/notifications/broadcast',     [NotificationController::class, 'broadcast']);
         Route::put('/profile',                      [AdminController::class, 'updateProfile']);
@@ -158,8 +164,8 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('/test', fn() => response()->json(['status' => 'ok', 'message' => 'Laravel API is running.']));
 
 Route::get('/test-email', function () {
-    \Illuminate\Support\Facades\Mail::raw('Brevo is working!', function ($message) {
-        $message->to('giansalomon29@gmail.com')
+    \Illuminate\Support\Facades\Mail::raw('Clinic system SMTP mailer is working!', function ($message) {
+        $message->to('smartqueuesys@gmail.com')
                 ->subject('Test Email');
     });
     return 'Email Sent!';

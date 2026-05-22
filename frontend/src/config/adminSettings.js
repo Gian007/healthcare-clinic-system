@@ -38,7 +38,6 @@ export const DEFAULT_ADMIN_SETTINGS = {
       dayOff: true,
       appointments: true,
       queue: true,
-      qrCode: true,
       attendance: true,
       calendar: true,
       notifications: true,

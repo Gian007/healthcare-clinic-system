@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 import * as notifApi from "../../api/notificationApi";
 
 const TYPE_ICONS = { success: '✅', info: '🔔', warning: '⚠️', danger: '❌' };
@@ -12,6 +12,7 @@ const TYPE_COLORS = {
 
 export default function StaffNotifications() {
   const { dark } = useOutletContext();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading]             = useState(true);
 
@@ -88,19 +89,40 @@ export default function StaffNotifications() {
                     </span>
                   </div>
                   <p className={`text-sm mt-1 ${muted}`}>{n.body}</p>
-                    <div className="flex gap-4 mt-2">
-                      {!n.is_read && (
-                        <button onClick={() => handleMarkRead(n.notif_id)}
-                          className="text-xs text-primary hover:underline">
-                          Mark as read
-                        </button>
+                    <div className="flex flex-col gap-2 mt-2">
+                      {n.link && n.link.includes('/staff/patients?review=') && (
+                        <div className="mb-1">
+                          <button
+                            onClick={() => {
+                              if (!n.is_read) handleMarkRead(n.notif_id);
+                              navigate(n.link);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition shadow-sm cursor-pointer"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Review Documents
+                          </button>
+                        </div>
                       )}
-                      {n.link && (
-                        <button onClick={() => window.location.href = n.link}
-                          className="text-xs text-teal-600 hover:underline font-medium">
-                          Go to Page →
-                        </button>
-                      )}
+                      <div className="flex gap-4 items-center">
+                        {!n.is_read && (
+                          <button onClick={() => handleMarkRead(n.notif_id)}
+                            className="text-xs text-primary hover:underline">
+                            Mark as read
+                          </button>
+                        )}
+                        {n.link && !n.link.includes('/staff/patients?review=') && (
+                          <button onClick={() => {
+                            if (!n.is_read) handleMarkRead(n.notif_id);
+                            navigate(n.link);
+                          }}
+                            className="text-xs text-teal-600 hover:underline font-medium">
+                            Go to Page →
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

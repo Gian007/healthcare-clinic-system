@@ -5,15 +5,18 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Doctor;
+use App\Models\DoctorAttendance;
 use App\Models\DoctorSchedule;
 use App\Models\Patient;
 use App\Models\PatientVerification;
 use App\Models\Queue;
 use App\Models\Staff;
 use App\Models\SystemNotification;
+use App\Models\WalkinVisit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class StaffController extends Controller
@@ -23,6 +26,8 @@ class StaffController extends Controller
     public function dashboard(Request $request)
     {
         $today = date('Y-m-d');
+        $this->syncTodayAppointmentQueues($today);
+        $this->syncCompletedAppointmentStatuses($today);
 
         $appointmentsToday = Appointment::with(['patient', 'doctor', 'service'])
             ->where('appointment_date', $today)
@@ -117,6 +122,10 @@ class StaffController extends Controller
 
     public function updatePatient(Request $request, $id)
     {
+        if ($request->user()->role === 'Nurse') {
+            return response()->json(['message' => 'Access denied. Nurses cannot modify patient records.'], 403);
+        }
+
         $patient = Patient::findOrFail($id);
         $request->validate([
             'account_status' => 'sometimes|in:Active,Inactive,Suspended',
@@ -139,6 +148,10 @@ class StaffController extends Controller
 
     public function approveVerification(Request $request, $patientId)
     {
+        if ($request->user()->role === 'Nurse') {
+            return response()->json(['message' => 'Access denied. Nurses cannot verify patient identity documents.'], 403);
+        }
+
         $request->validate(['action' => 'required|in:approve,reject', 'reason' => 'nullable|string']);
 
         $patient = Patient::findOrFail($patientId);
@@ -174,6 +187,8 @@ class StaffController extends Controller
 
     public function getAppointments()
     {
+        $this->syncCompletedAppointmentStatuses(date('Y-m-d'));
+
         return response()->json(
             Appointment::with(['patient', 'doctor', 'service'])
                 ->orderBy('appointment_date', 'desc')
@@ -190,19 +205,19 @@ class StaffController extends Controller
         $appointment->booking_status = $request->booking_status;
         $appointment->save();
 
-        // Dynamically add to active queues today on Check-in (when booking_status goes to Confirmed)
+        // Dynamically add to active queues on Check-in (when booking_status goes to Confirmed)
         if ($request->booking_status === 'Confirmed' && $oldStatus !== 'Confirmed') {
-            $today = date('Y-m-d');
+            $queueDate = $appointment->appointment_date;
             
             // Check if queue entry already exists for this appointment
             $existingQueue = Queue::where('appointment_id', $appointment->appointment_id)
-                ->where('queue_date', $today)
+                ->where('queue_date', $queueDate)
                 ->first();
 
             if (!$existingQueue) {
-                // Find today's max queue number for this doctor to assign next sequence
+                // Find max queue number for this doctor to assign next sequence
                 $maxQueueNumber = Queue::where('doctor_id', $appointment->doctor_id)
-                    ->where('queue_date', $today)
+                    ->where('queue_date', $queueDate)
                     ->max('queue_number') ?? 0;
 
                 $newQueueNumber = $maxQueueNumber + 1;
@@ -212,7 +227,7 @@ class StaffController extends Controller
                 if ($appointment->attendance_status === 'No Response') {
                     // Make them NEXT in line by pushing other waiting queue items down
                     Queue::where('doctor_id', $appointment->doctor_id)
-                        ->where('queue_date', $today)
+                        ->where('queue_date', $queueDate)
                         ->where('queue_status', 'Waiting')
                         ->increment('priority_number');
 
@@ -221,25 +236,27 @@ class StaffController extends Controller
                 }
 
                 Queue::create([
-                    'queue_date'         => $today,
+                    'queue_date'         => $queueDate,
                     'doctor_id'          => $appointment->doctor_id,
                     'patient_id'         => $appointment->patient_id,
                     'appointment_id'     => $appointment->appointment_id,
                     'queue_source'       => 'Appointment',
                     'queue_number'       => $newQueueNumber,
                     'priority_number'    => $priority,
-                    'queue_status'       => 'Waiting',
+                    'checked_in_at'      => now(),
+                    'is_activated'       => false,
+                    'queue_status'       => 'Active',
                     'estimated_wait_time'=> ($priority - 1) * 15,
                 ]);
 
-                // Create a notification that they are checked in
+                // Create a notification that they have a queue number, but are not tapped in yet.
                 if ($appointment->patient_id) {
                     SystemNotification::create([
                         'notifiable_type' => 'patient',
                         'notifiable_id'   => $appointment->patient_id,
-                        'title'           => 'Checked In successfully',
-                        'body'            => "You have been successfully checked in. Your queue number is Q-{$newQueueNumber}." . 
-                                             ($priority === 1 ? " You have been placed NEXT in the queue due to priority check-in!" : ""),
+                        'title'           => 'Queue Number Assigned',
+                        'body'            => "Your queue number is Q-{$newQueueNumber}. Please tap in at the clinic when you arrive so staff know you are in the hospital." .
+                                             ($priority === 1 ? " You will be prioritized once tapped in." : ""),
                         'type'            => 'success',
                     ]);
                 }
@@ -269,6 +286,90 @@ class StaffController extends Controller
 
     /* ─────────────────────────── Schedule ─────────────────────────── */
 
+    public function storeWalkIn(Request $request)
+    {
+        if ($request->user()->role === 'Nurse') {
+            return response()->json(['message' => 'Access denied. Nurses cannot register walk-in patients.'], 403);
+        }
+
+        $request->validate([
+            'patient_id'       => 'nullable|exists:patients,patient_id',
+            'first_name'       => 'required_without:patient_id|string|max:255',
+            'last_name'        => 'required_without:patient_id|string|max:255',
+            'birth_date'       => 'required_without:patient_id|date',
+            'sex'              => 'required_without:patient_id|in:Male,Female',
+            'contact_number'   => ['required_without:patient_id', 'nullable', 'regex:/^09[0-9]{9}$/'],
+            'address'          => 'required_without:patient_id|string|max:1000',
+            'doctor_id'        => 'required|exists:doctors,doctor_id',
+            'service_id'       => 'required|exists:services,service_id',
+            'reason_for_visit' => 'required|string|max:1000',
+        ], [
+            'contact_number.regex' => 'Phone number must start with 09 and be exactly 11 digits.',
+        ]);
+
+        $patient = $request->patient_id
+            ? Patient::findOrFail($request->patient_id)
+            : Patient::create([
+                'patient_number'      => 'PAT-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT),
+                'first_name'          => $request->first_name,
+                'last_name'           => $request->last_name,
+                'middle_name'         => $request->middle_name,
+                'birth_date'          => $request->birth_date,
+                'sex'                 => $request->sex,
+                'civil_status'        => $request->civil_status ?? 'Single',
+                'contact_number'      => $request->contact_number,
+                'email'               => 'walkin-' . Str::uuid() . '@clinic.local',
+                'password'            => Hash::make(Str::random(16)),
+                'address'             => $request->address,
+                'registration_type'   => 'Walk-in',
+                'account_status'      => 'Active',
+                'verification_status' => 'Walk-in Temporary',
+            ]);
+
+        $today = date('Y-m-d');
+        $walkIn = WalkinVisit::create([
+            'patient_id'       => $patient->patient_id,
+            'doctor_id'        => $request->doctor_id,
+            'service_id'       => $request->service_id,
+            'visit_date'       => $today,
+            'arrival_time'     => now()->toTimeString(),
+            'reason_for_visit' => $request->reason_for_visit,
+            'created_by'       => $request->user()->staff_id,
+            'walkin_status'    => 'Queued',
+        ]);
+
+        $maxQueueNumber = Queue::where('doctor_id', $request->doctor_id)
+            ->where('queue_date', $today)
+            ->max('queue_number') ?? 0;
+        $newQueueNumber = $maxQueueNumber + 1;
+        $doctorPresent = $this->isDoctorTappedIn((int) $request->doctor_id, $today);
+        $hasCurrent = Queue::where('doctor_id', $request->doctor_id)
+            ->where('queue_date', $today)
+            ->where('queue_status', 'Serving')
+            ->exists();
+
+        $queue = Queue::create([
+            'queue_date'          => $today,
+            'doctor_id'           => $request->doctor_id,
+            'patient_id'          => $patient->patient_id,
+            'walkin_id'           => $walkIn->walkin_id,
+            'queue_source'        => 'Walk-in',
+            'queue_number'        => $newQueueNumber,
+            'priority_number'     => $newQueueNumber,
+            'checked_in_at'       => now(),
+            'is_activated'        => true,
+            'queue_status'        => ($doctorPresent && ! $hasCurrent) ? 'Serving' : 'Waiting',
+            'estimated_wait_time' => ($newQueueNumber - 1) * 15,
+        ]);
+
+        return response()->json([
+            'message' => 'Walk-in registered and added to queue.',
+            'patient' => $patient,
+            'walkin' => $walkIn,
+            'queue' => $queue->fresh(['patient', 'doctor']),
+        ], 201);
+    }
+
     public function getSchedules()
     {
         return response()->json(
@@ -276,14 +377,94 @@ class StaffController extends Controller
         );
     }
 
+    public function getDoctorAttendances()
+    {
+        $today = date('Y-m-d');
+
+        return response()->json(
+            DoctorAttendance::with('doctor')
+                ->where('attendance_date', $today)
+                ->get()
+        );
+    }
+
+    public function tapInDoctor($id)
+    {
+        $doctor = Doctor::findOrFail($id);
+        $today = date('Y-m-d');
+
+        $attendance = DoctorAttendance::firstOrNew([
+            'doctor_id' => $doctor->doctor_id,
+            'attendance_date' => $today,
+        ]);
+
+        if ($attendance->time_in && ! $attendance->time_out) {
+            return response()->json(['message' => 'Doctor is already tapped in.', 'attendance' => $attendance]);
+        }
+
+        if (! $attendance->time_in) {
+            $attendance->time_in = now()->toTimeString();
+        }
+
+        $attendance->time_out = null;
+        $attendance->attendance_status = 'Present';
+        $attendance->save();
+        $nextQueue = $this->startNextWaitingQueue($doctor->doctor_id, $today);
+
+        return response()->json([
+            'message' => $nextQueue
+                ? 'Doctor tapped in and the next waiting patient is now in progress.'
+                : 'Doctor tapped in.',
+            'attendance' => $attendance->fresh('doctor'),
+            'next_queue' => $nextQueue?->fresh(['patient', 'doctor']),
+        ]);
+    }
+
+    public function tapOutDoctor($id)
+    {
+        $doctor = Doctor::findOrFail($id);
+        $today = date('Y-m-d');
+
+        $hasActivePatient = Queue::where('doctor_id', $doctor->doctor_id)
+            ->where('queue_date', $today)
+            ->where('queue_status', 'Serving')
+            ->exists();
+
+        if ($hasActivePatient) {
+            return response()->json(['message' => 'Complete the current patient before tapping the doctor out.'], 422);
+        }
+
+        $attendance = DoctorAttendance::where('doctor_id', $doctor->doctor_id)
+            ->where('attendance_date', $today)
+            ->first();
+
+        if (! $attendance || ! $attendance->time_in) {
+            return response()->json(['message' => 'Doctor has not tapped in today.'], 422);
+        }
+
+        if ($attendance->time_out) {
+            return response()->json(['message' => 'Doctor is already tapped out.', 'attendance' => $attendance]);
+        }
+
+        $attendance->time_out = now()->toTimeString();
+        $attendance->attendance_status = 'Completed';
+        $attendance->save();
+
+        return response()->json(['message' => 'Doctor tapped out.', 'attendance' => $attendance->fresh('doctor')]);
+    }
+
     /* ─────────────────────────── Queue ─────────────────────────── */
 
     public function getQueue()
     {
         $today = date('Y-m-d');
+        $this->syncTodayAppointmentQueues($today);
+        $this->syncCompletedAppointmentStatuses($today);
+
         return response()->json(
             Queue::with(['patient', 'doctor'])
                 ->where('queue_date', $today)
+                ->orderBy('priority_number')
                 ->orderBy('queue_number')
                 ->get()
         );
@@ -298,44 +479,222 @@ class StaffController extends Controller
             return response()->json(['message' => 'Cannot mark complete. The patient session must be In Progress first.'], 422);
         }
 
+        if ($request->queue_status === 'Serving' && ! $this->isDoctorTappedIn($queue->doctor_id, $queue->queue_date)) {
+            return response()->json(['message' => 'Doctor must tap in before this queue can start.'], 422);
+        }
+
         $queue->queue_status = $request->queue_status;
         $queue->save();
 
         if ($request->queue_status === 'Done') {
-            if ($queue->patient_id) {
-                SystemNotification::create([
-                    'notifiable_type' => 'patient',
-                    'notifiable_id'   => $queue->patient_id,
-                    'title'           => 'Appointment Completed',
-                    'body'            => 'Thank you. Your appointment is now complete. We hope to see you again soon!',
-                    'type'            => 'success',
-                ]);
-            }
-
-            // Automate the next patient in the queue
-            $nextQueue = Queue::where('doctor_id', $queue->doctor_id)
-                ->where('queue_date', $queue->queue_date)
-                ->where('queue_status', 'Waiting')
-                ->orderBy('queue_number', 'asc')
-                ->first();
-
-            if ($nextQueue) {
-                $nextQueue->queue_status = 'Serving';
-                $nextQueue->save();
-
-                // Send notification to the next patient that their consultation is starting
-                if ($nextQueue->patient_id) {
-                    SystemNotification::create([
-                        'notifiable_type' => 'patient',
-                        'notifiable_id'   => $nextQueue->patient_id,
-                        'title'           => 'Consultation Started',
-                        'body' => 'It is your turn! Please proceed to the doctor\'s clinic room.',
-                        'type'            => 'info',
-                    ]);
-                }
-            }
+            $this->notifyCompletedAndAdvanceNext($queue);
         }
 
         return response()->json(['message' => 'Queue status updated.', 'queue' => $queue]);
+    }
+
+    public function tapInQueue($id)
+    {
+        $queue = Queue::with(['patient', 'doctor'])->findOrFail($id);
+
+        if (in_array($queue->queue_status, ['Done', 'Cancelled'])) {
+            return response()->json(['message' => 'This queue item is already closed.'], 422);
+        }
+
+        $current = Queue::where('doctor_id', $queue->doctor_id)
+            ->where('queue_date', $queue->queue_date)
+            ->where('queue_status', 'Serving')
+            ->where('queue_id', '!=', $queue->queue_id)
+            ->exists();
+
+        $firstQueue = Queue::where('doctor_id', $queue->doctor_id)
+            ->where('queue_date', $queue->queue_date)
+            ->where(function ($query) use ($queue) {
+                $query->where('queue_status', 'Waiting')
+                    ->orWhere('queue_id', $queue->queue_id);
+            })
+            ->orderBy('priority_number', 'asc')
+            ->orderBy('queue_number', 'asc')
+            ->first();
+
+        $doctorPresent = $this->isDoctorTappedIn($queue->doctor_id, $queue->queue_date);
+
+        $queue->checked_in_at = now();
+        $queue->is_activated = true;
+        $queue->queue_status = ($doctorPresent && ! $current && $firstQueue && $firstQueue->queue_id === $queue->queue_id)
+            ? 'Serving'
+            : 'Waiting';
+        $queue->save();
+
+        if ($queue->queue_status === 'Serving' && $queue->patient_id) {
+            SystemNotification::create([
+                'notifiable_type' => 'patient',
+                'notifiable_id'   => $queue->patient_id,
+                'title'           => 'Consultation Started',
+                'body'            => 'It is your turn. Please proceed to the doctor\'s clinic room.',
+                'type'            => 'info',
+            ]);
+        }
+
+        return response()->json([
+            'message' => $queue->queue_status === 'Serving'
+                ? 'Patient tapped in and is now in progress.'
+                : ($doctorPresent
+                    ? 'Patient tapped in and is now waiting in the hospital.'
+                    : 'Patient tapped in and is waiting. The queue cannot start until the doctor taps in.'),
+            'queue' => $queue->fresh(['patient', 'doctor']),
+        ]);
+    }
+
+    public function tapOutQueue($id)
+    {
+        $queue = Queue::with(['patient', 'doctor'])->findOrFail($id);
+
+        if ($queue->queue_status !== 'Serving') {
+            return response()->json(['message' => 'Only an in-progress queue item can be tapped out.'], 422);
+        }
+
+        $queue->queue_status = 'Done';
+        $queue->save();
+
+        $nextQueue = $this->notifyCompletedAndAdvanceNext($queue);
+
+        return response()->json([
+            'message' => 'Patient tapped out and queue completed.',
+            'queue' => $queue->fresh(['patient', 'doctor']),
+            'next_queue' => $nextQueue?->fresh(['patient', 'doctor']),
+        ]);
+    }
+
+    private function notifyCompletedAndAdvanceNext(Queue $queue): ?Queue
+    {
+        $this->completeLinkedAppointment($queue);
+
+        if ($queue->patient_id) {
+            SystemNotification::create([
+                'notifiable_type' => 'patient',
+                'notifiable_id'   => $queue->patient_id,
+                'title'           => 'Appointment Completed',
+                'body'            => 'Thank you. Your appointment is now complete. We hope to see you again soon!',
+                'type'            => 'success',
+            ]);
+        }
+
+        return $this->startNextWaitingQueue($queue->doctor_id, $queue->queue_date);
+    }
+
+    private function completeLinkedAppointment(Queue $queue): void
+    {
+        if (! $queue->appointment_id) {
+            return;
+        }
+
+        $appointment = Appointment::where('appointment_id', $queue->appointment_id)->first();
+        if (! $appointment || $appointment->booking_status === 'Completed') {
+            return;
+        }
+
+        $appointment->booking_status = 'Completed';
+        $appointment->save();
+    }
+
+    private function syncCompletedAppointmentStatuses(string $today): void
+    {
+        $completedQueues = Queue::where('queue_date', $today)
+            ->where('queue_status', 'Done')
+            ->whereNotNull('appointment_id')
+            ->get();
+
+        foreach ($completedQueues as $queue) {
+            $this->completeLinkedAppointment($queue);
+        }
+    }
+
+    private function startNextWaitingQueue(int $doctorId, string $date): ?Queue
+    {
+        if (! $this->isDoctorTappedIn($doctorId, $date)) {
+            return null;
+        }
+
+        $hasCurrent = Queue::where('doctor_id', $doctorId)
+            ->where('queue_date', $date)
+            ->where('queue_status', 'Serving')
+            ->exists();
+
+        if ($hasCurrent) {
+            return null;
+        }
+
+        $nextQueue = Queue::where('doctor_id', $doctorId)
+            ->where('queue_date', $date)
+            ->where('queue_status', 'Waiting')
+            ->orderBy('priority_number', 'asc')
+            ->orderBy('queue_number', 'asc')
+            ->first();
+
+        if (! $nextQueue) {
+            return null;
+        }
+
+        $nextQueue->queue_status = 'Serving';
+        $nextQueue->save();
+
+        if ($nextQueue->patient_id) {
+            SystemNotification::create([
+                'notifiable_type' => 'patient',
+                'notifiable_id'   => $nextQueue->patient_id,
+                'title'           => 'Consultation Started',
+                'body'            => 'It is your turn. Please proceed to the doctor\'s clinic room.',
+                'type'            => 'info',
+            ]);
+        }
+
+        return $nextQueue;
+    }
+
+    private function isDoctorTappedIn(int $doctorId, string $date): bool
+    {
+        return DoctorAttendance::where('doctor_id', $doctorId)
+            ->where('attendance_date', $date)
+            ->whereNotNull('time_in')
+            ->whereNull('time_out')
+            ->exists();
+    }
+
+    private function syncTodayAppointmentQueues(string $today): void
+    {
+        $appointments = Appointment::where('appointment_date', $today)
+            ->where('booking_status', 'Confirmed')
+            ->whereDoesntHave('queue')
+            ->orderBy('doctor_id')
+            ->orderBy('start_time')
+            ->get();
+
+        foreach ($appointments as $appointment) {
+            $this->createAppointmentQueue($appointment, $today);
+        }
+    }
+
+    private function createAppointmentQueue(Appointment $appointment, string $today): Queue
+    {
+        $maxQueueNumber = Queue::where('doctor_id', $appointment->doctor_id)
+            ->where('queue_date', $today)
+            ->max('queue_number') ?? 0;
+
+        $newQueueNumber = $maxQueueNumber + 1;
+
+        return Queue::create([
+            'queue_date'          => $today,
+            'doctor_id'           => $appointment->doctor_id,
+            'patient_id'          => $appointment->patient_id,
+            'appointment_id'      => $appointment->appointment_id,
+            'queue_source'        => 'Appointment',
+            'queue_number'        => $newQueueNumber,
+            'priority_number'     => $newQueueNumber,
+            'checked_in_at'       => now(),
+            'is_activated'        => false,
+            'queue_status'        => 'Active',
+            'estimated_wait_time' => ($newQueueNumber - 1) * 15,
+        ]);
     }
 }

@@ -59,7 +59,10 @@ class NotificationController extends Controller
 
         $notif = SystemNotification::where('notif_id', $id)
             ->where('notifiable_type', $type)
-            ->where('notifiable_id', $uid)
+            ->where(function ($q) use ($uid) {
+                $q->where('notifiable_id', $uid)
+                  ->orWhere('notifiable_id', 0);
+            })
             ->firstOrFail();
 
         $notif->update(['is_read' => true]);

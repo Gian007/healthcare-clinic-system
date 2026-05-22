@@ -43,7 +43,6 @@ const doctorMenuOptions = [
   ["dayOff", "Day Off Request"],
   ["appointments", "Appointments"],
   ["queue", "My Queue"],
-  ["qrCode", "Doctor QR Code"],
   ["attendance", "Attendance"],
   ["calendar", "Clinic Calendar"],
   ["notifications", "Notifications"],

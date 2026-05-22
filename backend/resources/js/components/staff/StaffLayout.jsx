@@ -7,6 +7,7 @@ import {
   FaQrcode, FaBell, FaSignOutAlt, FaSun, FaMoon, FaBars, FaTimes, FaCog, FaClinicMedical
 } from "react-icons/fa";
 import Logo from "../Logo";
+import { useBranding } from "../../state/branding";
 
 const links = [
   { name: "Dashboard", path: "/staff", icon: FaThLarge },
@@ -26,6 +27,7 @@ export default function StaffLayout() {
   const [dark, setDark] = useState(() => localStorage.getItem("clinicTheme") === "dark");
 
   const { user, logout } = useAuth();
+  const { branding } = useBranding();
   const nav = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -60,7 +62,7 @@ export default function StaffLayout() {
   });
 
   return (
-    <div className="min-h-screen bg-[#eefafa] dark:bg-slate-950 transition-colors duration-300">
+    <div className="min-h-screen bg-neutralbg dark:bg-slate-950 transition-colors duration-300">
       {/* Mobile Overlay */}
       {open && <button onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-black/40 lg:hidden backdrop-blur-sm" />}
 
@@ -71,8 +73,8 @@ export default function StaffLayout() {
           <Link to="/staff" className="flex items-center gap-3">
             <Logo />
             <div>
-              <h1 className="font-black text-xl text-gray-900 dark:text-white leading-none tracking-tighter font-comfortaa font-fat">SHQMS</h1>
-              <p className="text-[9px] text-teal-600 dark:text-teal-400 uppercase font-bold tracking-widest mt-1 font-poppins">Staff Access</p>
+              <h1 className="font-black text-xl text-gray-900 dark:text-white leading-none tracking-tighter font-comfortaa font-fat">{branding.name}</h1>
+              <p className="text-[9px] text-primary uppercase font-bold tracking-widest mt-1 font-poppins">Staff Access</p>
             </div>
           </Link>
           <button onClick={() => setOpen(false)} className="lg:hidden text-gray-400 hover:text-teal-600 transition-colors"><FaTimes size={18}/></button>
@@ -92,8 +94,8 @@ export default function StaffLayout() {
                 className={({ isActive }) =>
                   `flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-200 ${
                     isActive
-                      ? "bg-teal-600 text-white shadow-lg shadow-teal-600/20 scale-[1.02]"
-                      : "text-gray-500 dark:text-gray-400 hover:bg-teal-50 dark:hover:bg-slate-800/50 hover:text-teal-700 dark:hover:text-white"
+                      ? "bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]"
+                      : "text-gray-500 dark:text-gray-400 hover:bg-primary/10 dark:hover:bg-slate-800/50 hover:text-primary dark:hover:text-white"
                   }`
                 }
               >
@@ -131,8 +133,8 @@ export default function StaffLayout() {
           </div>
 
           {/* User Footer */}
-          <div className="p-3 bg-teal-50/50 dark:bg-slate-900/50 flex items-center gap-3 border-t border-gray-50 dark:border-slate-800">
-            <div className="h-9 w-9 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-sm shrink-0 border-2 border-white dark:border-slate-800 shadow-sm overflow-hidden">
+          <div className="p-3 bg-primary/5 dark:bg-slate-900/50 flex items-center gap-3 border-t border-gray-50 dark:border-slate-800">
+            <div className="h-9 w-9 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm shrink-0 border-2 border-white dark:border-slate-800 shadow-sm overflow-hidden">
               {user?.profile_picture ? (
                 <img 
                   src={`${import.meta.env.VITE_BACKEND_URL}/storage/${user.profile_picture}?t=${new Date().getTime()}`} 
@@ -176,9 +178,9 @@ export default function StaffLayout() {
             <div className="flex items-center gap-3">
                <div className="hidden sm:block text-right">
                   <p className="text-xs font-bold text-gray-900 dark:text-white leading-tight">{staffName}</p>
-                  <p className="text-[10px] text-teal-600 font-bold uppercase tracking-tighter">Staff</p>
+                  <p className="text-[10px] text-primary font-bold uppercase tracking-tighter">Staff</p>
                </div>
-               <div className="h-9 w-9 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-xs border-2 border-white dark:border-slate-800 shadow-sm overflow-hidden">
+               <div className="h-9 w-9 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs border-2 border-white dark:border-slate-800 shadow-sm overflow-hidden">
                   {user?.profile_picture ? (
                     <img src={`${import.meta.env.VITE_BACKEND_URL}/storage/${user.profile_picture}`} className="h-full w-full object-cover" />
                   ) : initials}

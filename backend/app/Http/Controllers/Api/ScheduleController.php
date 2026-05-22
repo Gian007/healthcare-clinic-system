@@ -476,14 +476,22 @@ class ScheduleController extends Controller
                 
                 $isFull = $count >= 1;
 
+                $requestDateStr = Carbon::parse($request->date)->format('Y-m-d');
+                $slotDateTime = Carbon::parse($requestDateStr . ' ' . $timeStr, 'Asia/Manila');
+                $nowInManila = Carbon::now('Asia/Manila');
+                $isPast = $slotDateTime->lt($nowInManila);
+
+                $isAvailable = !$isFull && !$isPast;
+
                 $allSlots[] = [
                     'time' => $timeStr,
                     'start_time' => $timeStr,
                     'end_time' => $slotEnd->format('H:i'),
                     'room' => $sched->room,
                     'schedule_id' => $sched->schedule_id,
-                    'is_available' => !$isFull,
-                    'is_full' => $isFull
+                    'is_available' => $isAvailable,
+                    'is_full' => $isFull,
+                    'is_past' => $isPast
                 ];
 
                 $current->addMinutes($duration);

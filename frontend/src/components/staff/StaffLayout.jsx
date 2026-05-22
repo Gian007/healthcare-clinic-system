@@ -5,15 +5,15 @@ import { useAdminSettings } from "../../state/adminSettings";
 import { resolveLogoUrl } from "../../config/adminSettings";
 import * as notifApi from "../../api/notificationApi";
 import { 
-  FaHeartbeat, FaThLarge, FaUsers, FaCalendarCheck, FaClipboardList, 
-  FaQrcode, FaBell, FaSignOutAlt, FaSun, FaMoon, FaBars, FaTimes, FaCog, FaClinicMedical
+  FaThLarge, FaUsers, FaCalendarCheck, FaClipboardList, 
+  FaHistory, FaBell, FaSignOutAlt, FaSun, FaMoon, FaBars, FaTimes, FaCog, FaClinicMedical
 } from "react-icons/fa";
 import Logo from "../Logo";
 
 const links = [
   { name: "Dashboard", path: "/staff", icon: FaThLarge },
   { name: "Queue Management", path: "/staff/queue", icon: FaClipboardList },
-  { name: "Scan Patient", path: "/staff/scan", icon: FaQrcode },
+  { name: "Patient History", path: "/staff/scan", icon: FaHistory },
   { name: "Appointments", path: "/staff/appointments", icon: FaCalendarCheck },
   { name: "Walk-in Registration", path: "/staff/walk-in", icon: FaClinicMedical },
   { name: "Patients", path: "/staff/patients", icon: FaUsers },
@@ -88,27 +88,34 @@ export default function StaffLayout() {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-3 px-4 space-y-0.5 scrollbar-hide">
           <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest my-4">Management</p>
-          {links.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.path === "/staff"}
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-200 ${
-                    isActive
-                      ? "bg-teal-600 text-white shadow-lg shadow-teal-600/20 scale-[1.02]"
-                      : "text-gray-500 dark:text-gray-400 hover:bg-teal-50 dark:hover:bg-slate-800/50 hover:text-teal-700 dark:hover:text-white"
-                  }`
-                }
-              >
-                <Icon size={18} />
-                <span>{item.name}</span>
-              </NavLink>
-            );
-          })}
+          {links
+            .filter((item) => {
+              if (user?.db_role === "Nurse") {
+                if (item.path === "/staff/walk-in") return false;
+              }
+              return true;
+            })
+            .map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  end={item.path === "/staff"}
+                  onClick={() => setOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-200 ${
+                      isActive
+                        ? "bg-teal-600 text-white shadow-lg shadow-teal-600/20 scale-[1.02]"
+                        : "text-gray-500 dark:text-gray-400 hover:bg-teal-50 dark:hover:bg-slate-800/50 hover:text-teal-700 dark:hover:text-white"
+                    }`
+                  }
+                >
+                  <Icon size={18} />
+                  <span>{item.name}</span>
+                </NavLink>
+              );
+            })}
         </nav>
 
         {/* Bottom Actions */}
@@ -151,7 +158,7 @@ export default function StaffLayout() {
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{staffName}</p>
-              <p className="text-[10px] text-gray-500 truncate">Staff Member</p>
+              <p className="text-[10px] text-gray-500 truncate">{user?.db_role || "Staff Member"}</p>
             </div>
           </div>
         </div>
@@ -183,7 +190,7 @@ export default function StaffLayout() {
             <div className="flex items-center gap-3">
                <div className="hidden sm:block text-right">
                   <p className="text-xs font-bold text-gray-900 dark:text-white leading-tight">{staffName}</p>
-                  <p className="text-[10px] text-teal-600 font-bold uppercase tracking-tighter">Staff</p>
+                  <p className="text-[10px] text-teal-600 font-bold uppercase tracking-tighter">{user?.db_role || "Staff"}</p>
                </div>
                <div className="h-9 w-9 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-xs border-2 border-white dark:border-slate-800 shadow-sm overflow-hidden">
                   {user?.profile_picture ? (

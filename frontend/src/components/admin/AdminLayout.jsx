@@ -15,7 +15,6 @@ const links = [
   { to: "/admin/queue", label: "Live Queue", icon: HeartPulse, key: "queue" },
   { to: "/admin/doctors", label: "Doctors", icon: Stethoscope, key: "doctors" },
   { to: "/admin/schedules", label: "Schedules", icon: CalendarDays, key: "schedules" },
-  { to: "/admin/rooms", label: "Room Directory", icon: Hospital, key: "rooms" },
   { to: "/admin/services", label: "Services", icon: BriefcaseMedical, key: "services" },
   { to: "/admin/staff", label: "Staff Management", icon: Users, key: "staff" },
   { to: "/admin/patients", label: "Patient Accounts", icon: UserRound, key: "patients" },

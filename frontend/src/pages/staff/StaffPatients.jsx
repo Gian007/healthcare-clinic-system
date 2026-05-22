@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import StaffTableBadge from "../../components/staff/StaffTableBadge";
 import * as staffApi from "../../api/staffApi";
 import { FaIdCard, FaCamera, FaImage, FaCheckCircle, FaTimesCircle, FaChevronDown, FaExclamationTriangle } from "react-icons/fa";
+import { useAuth } from "../../state/auth";
 
 export default function StaffPatients() {
   const { dark } = useOutletContext();
+  const { user } = useAuth();
+  const isNurse = user?.db_role === "Nurse";
+  const [searchParams, setSearchParams] = useSearchParams();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -58,6 +62,33 @@ export default function StaffPatients() {
       alert("Failed to load patient details");
     }
   };
+
+  const handleVerifyShortcut = async (patient) => {
+    try {
+      const data = await staffApi.getPatient(patient.patient_id);
+      setSelectedPatient(data);
+      setExpandVerify(true);
+      setShowRejectBox(false);
+      setRejectReason("");
+      setRejectNote("");
+      setShowModal(true);
+    } catch (error) {
+      alert("Failed to load patient details");
+    }
+  };
+
+  useEffect(() => {
+    const reviewId = searchParams.get('review');
+    if (reviewId && patients.length > 0) {
+      const patientId = parseInt(reviewId, 10);
+      const targetPatient = patients.find(p => p.patient_id === patientId);
+      if (targetPatient) {
+        handleVerifyShortcut(targetPatient);
+        // Clear the review query parameter so the modal doesn't reopen unexpectedly
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, patients]);
 
   const handleUpdate = async () => {
     try {
@@ -143,6 +174,7 @@ export default function StaffPatients() {
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Gender</th>
                 <th className="px-4 py-3">Phone</th>
+                <th className="px-4 py-3">Verification</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Actions</th>
               </tr>
@@ -150,9 +182,9 @@ export default function StaffPatients() {
 
             <tbody className={`divide-y ${divide}`}>
               {loading ? (
-                <tr><td colSpan="6" className="p-8 text-center text-gray-500">Loading patients...</td></tr>
+                <tr><td colSpan="7" className="p-8 text-center text-gray-500">Loading patients...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan="6" className="p-8 text-center text-gray-500">No patients found.</td></tr>
+                <tr><td colSpan="7" className="p-8 text-center text-gray-500">No patients found.</td></tr>
               ) : (
                 filtered.map((p) => (
                   <tr key={p.patient_id} className="hover:bg-teal-50/30 dark:hover:bg-teal-900/10 transition-colors">
@@ -177,6 +209,31 @@ export default function StaffPatients() {
 
                     <td className="px-4 py-3">{p.sex || 'N/A'}</td>
                     <td className="px-4 py-3">{p.contact_number || 'N/A'}</td>
+
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleVerifyShortcut(p)}
+                        className="focus:outline-none text-left cursor-pointer group"
+                        title="Click to review verification documents"
+                      >
+                        {p.verification_status === 'Approved' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 border border-green-200 dark:border-green-800 group-hover:bg-green-100 dark:group-hover:bg-green-900/30 transition-colors">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-600 dark:bg-green-400 animate-pulse"></span>
+                            Verified
+                          </span>
+                        ) : p.verification_status === 'Under Review' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 border border-amber-200 dark:border-amber-800 group-hover:bg-amber-100 dark:group-hover:bg-amber-900/30 transition-colors">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-600 dark:bg-amber-400 animate-pulse"></span>
+                            Under Review
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-50 text-gray-700 dark:bg-gray-800/60 dark:text-gray-400 border border-gray-200 dark:border-gray-700 group-hover:bg-gray-100 dark:group-hover:bg-gray-800 transition-colors">
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-500 dark:bg-gray-400"></span>
+                            Not Verified
+                          </span>
+                        )}
+                      </button>
+                    </td>
 
                     <td className="px-4 py-3">
                       <StaffTableBadge status={p.account_status} />
@@ -228,13 +285,21 @@ export default function StaffPatients() {
                   <p className="text-[10px] text-teal-600 dark:text-teal-400 font-bold uppercase tracking-widest">{selectedPatient.patient_number || 'No ID'}</p>
                 </div>
               </div>
+
+              {isNurse && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-3.5 rounded-xl text-xs font-semibold border border-blue-100 dark:border-blue-950 flex items-center gap-2">
+                  <span className="text-base">ℹ️</span>
+                  <span>You have read-only access to patient records as a Nurse. Editing is disabled.</span>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={`text-[10px] font-bold tracking-wider uppercase ${muted}`}>First Name</label>
                   <input 
                     value={selectedPatient.first_name || ''} 
                     onChange={(e) => setSelectedPatient({...selectedPatient, first_name: e.target.value})}
-                    className={`w-full mt-1 p-2.5 rounded-xl border text-sm focus:ring-2 focus:ring-teal-500/20 outline-none transition ${input}`}
+                    disabled={isNurse}
+                    className={`w-full mt-1 p-2.5 rounded-xl border text-sm focus:ring-2 focus:ring-teal-500/20 outline-none transition disabled:opacity-70 disabled:cursor-not-allowed ${input}`}
                   />
                 </div>
                 <div>
@@ -242,7 +307,8 @@ export default function StaffPatients() {
                   <input 
                     value={selectedPatient.last_name || ''} 
                     onChange={(e) => setSelectedPatient({...selectedPatient, last_name: e.target.value})}
-                    className={`w-full mt-1 p-2.5 rounded-xl border text-sm focus:ring-2 focus:ring-teal-500/20 outline-none transition ${input}`}
+                    disabled={isNurse}
+                    className={`w-full mt-1 p-2.5 rounded-xl border text-sm focus:ring-2 focus:ring-teal-500/20 outline-none transition disabled:opacity-70 disabled:cursor-not-allowed ${input}`}
                   />
                 </div>
               </div>
@@ -253,7 +319,8 @@ export default function StaffPatients() {
                   <input 
                     value={selectedPatient.contact_number || ''} 
                     onChange={(e) => setSelectedPatient({...selectedPatient, contact_number: e.target.value})}
-                    className={`w-full mt-1 p-2.5 rounded-xl border text-sm focus:ring-2 focus:ring-teal-500/20 outline-none transition ${input}`}
+                    disabled={isNurse}
+                    className={`w-full mt-1 p-2.5 rounded-xl border text-sm focus:ring-2 focus:ring-teal-500/20 outline-none transition disabled:opacity-70 disabled:cursor-not-allowed ${input}`}
                   />
                 </div>
                 <div>
@@ -261,7 +328,8 @@ export default function StaffPatients() {
                   <select 
                     value={selectedPatient.account_status}
                     onChange={(e) => setSelectedPatient({...selectedPatient, account_status: e.target.value})}
-                    className={`w-full mt-1 p-2.5 rounded-xl border text-sm focus:ring-2 focus:ring-teal-500/20 outline-none transition ${input}`}
+                    disabled={isNurse}
+                    className={`w-full mt-1 p-2.5 rounded-xl border text-sm focus:ring-2 focus:ring-teal-500/20 outline-none transition disabled:opacity-70 disabled:cursor-not-allowed ${input}`}
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -276,7 +344,8 @@ export default function StaffPatients() {
                   <select 
                     value={selectedPatient.sex || ''} 
                     onChange={(e) => setSelectedPatient({...selectedPatient, sex: e.target.value})}
-                    className={`w-full mt-1 p-2.5 rounded-xl border text-sm focus:ring-2 focus:ring-teal-500/20 outline-none transition ${input}`}
+                    disabled={isNurse}
+                    className={`w-full mt-1 p-2.5 rounded-xl border text-sm focus:ring-2 focus:ring-teal-500/20 outline-none transition disabled:opacity-70 disabled:cursor-not-allowed ${input}`}
                   >
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -367,12 +436,18 @@ export default function StaffPatients() {
 
                         {selectedPatient.verification_status !== 'Approved' && !showRejectBox && (
                           <div className="flex gap-2 pt-2">
-                            <button onClick={() => handleVerify('approve')} disabled={verifying} className="flex-1 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition disabled:opacity-50 flex items-center justify-center gap-2">
-                              <FaCheckCircle /> Approve
-                            </button>
-                            <button onClick={() => setShowRejectBox(true)} className="flex-1 py-2 rounded-xl bg-rose-500 text-white text-xs font-bold hover:bg-rose-600 transition flex items-center justify-center gap-2">
-                              <FaTimesCircle /> Reject
-                            </button>
+                            {isNurse ? (
+                              <p className="text-xs italic text-gray-500 text-center w-full">Identity verification can only be approved/rejected by receptionists or admin staff.</p>
+                            ) : (
+                              <>
+                                <button onClick={() => handleVerify('approve')} disabled={verifying} className="flex-1 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                                  <FaCheckCircle /> Approve
+                                </button>
+                                <button onClick={() => setShowRejectBox(true)} className="flex-1 py-2 rounded-xl bg-rose-500 text-white text-xs font-bold hover:bg-rose-600 transition flex items-center justify-center gap-2">
+                                  <FaTimesCircle /> Reject
+                                </button>
+                              </>
+                            )}
                           </div>
                         )}
 
@@ -421,14 +496,16 @@ export default function StaffPatients() {
               <button 
                 onClick={() => setShowModal(false)}
                 className={`px-6 py-2.5 rounded-xl text-sm font-medium transition ${dark ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}>
-                Cancel
+                {isNurse ? 'Close' : 'Cancel'}
               </button>
-              <button 
-                onClick={handleUpdate}
-                disabled={saving}
-                className="px-8 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-bold hover:bg-teal-700 transition disabled:opacity-50 shadow-lg shadow-teal-600/20">
-                {saving ? 'Saving...' : 'Update Patient'}
-              </button>
+              {!isNurse && (
+                <button 
+                  onClick={handleUpdate}
+                  disabled={saving}
+                  className="px-8 py-2.5 bg-teal-600 text-white rounded-xl text-sm font-bold hover:bg-teal-700 transition disabled:opacity-50 shadow-lg shadow-teal-600/20">
+                  {saving ? 'Saving...' : 'Update Patient'}
+                </button>
+              )}
             </div>
           </div>
         </div>

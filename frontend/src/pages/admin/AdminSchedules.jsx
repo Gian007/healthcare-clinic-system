@@ -37,8 +37,8 @@ export default function AdminSchedules() {
   const [formErrors, setFormErrors] = useState({});
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // Memoized Rooms from dynamic system settings
-  const rooms = useMemo(() => settings.rooms || [], [settings]);
+  // Memoized Rooms - Not needed, keep as empty array for compatibility
+  const rooms = [];
 
   useEffect(() => {
     fetchAll();
@@ -88,57 +88,13 @@ export default function AdminSchedules() {
     setClinicHours(prev => prev.map(h => h.id === id ? { ...h, [field]: val } : h));
   };
 
-  /* ─────────────────────────── Rooms Directory Management ─────────────────────────── */
-  const saveRoom = async (roomData) => {
-    if (!roomData.name?.trim()) {
-      alert("Room Name / Number is strictly required.");
-      return;
-    }
-    setSaving(true);
-    try {
-      let updatedRooms = [];
-      if (roomData.isEdit) {
-        updatedRooms = rooms.map(r => r.id === roomData.id ? { id: r.id, name: roomData.name, purpose: roomData.purpose, status: roomData.status } : r);
-      } else {
-        updatedRooms = [...rooms, { id: Date.now().toString(), name: roomData.name, purpose: roomData.purpose, status: roomData.status }];
-      }
-
-      const res = await adminApi.updateSettings({ rooms: updatedRooms });
-      setSettings(res.settings);
-      setModal(null);
-      alert(roomData.isEdit ? "Room updated successfully." : "New Room registered successfully.");
-    } catch (e) {
-      console.error(e);
-      alert("Failed to save room details.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const deleteRoom = async (roomId) => {
-    if (!window.confirm("Are you sure you want to delete this room? This will not affect existing historical schedule records but is recommended for future assignments.")) return;
-    setSaving(true);
-    try {
-      const updatedRooms = rooms.filter(r => r.id !== roomId);
-      const res = await adminApi.updateSettings({ rooms: updatedRooms });
-      setSettings(res.settings);
-      alert("Room deleted successfully.");
-    } catch (e) {
-      console.error(e);
-      alert("Failed to delete room.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  /* ─────────────────────────── Tab 2: Doctor Schedules ─────────────────────────── */
   const saveDoctorSchedule = async (e) => {
     e.preventDefault();
     setSaving(true); setFormErrors({});
 
     // Client-side validation to enforce required Room
     if (!modal.data.room?.trim()) {
-      setFormErrors({ general: "The Room/Dept field is required. Please specify a room." });
+      setFormErrors({ general: "The Room/Dept field is required." });
       setSaving(false);
       return;
     }
@@ -232,7 +188,6 @@ export default function AdminSchedules() {
         {[
           { id: 'hospital', label: 'Clinic Hours', icon: <FaHospital/> },
           { id: 'doctors',  label: 'Doctor Regular', icon: <FaUserMd/> },
-          { id: 'rooms',    label: 'Rooms Directory', icon: <FaHospital/> },
           { id: 'dayoffs',  label: 'Day Off Requests', icon: <FaUmbrellaBeach/> },
           { id: 'special',  label: 'Holidays & Special', icon: <FaStar/> },
         ].map(t => (
@@ -369,57 +324,7 @@ export default function AdminSchedules() {
         </div>
       )}
 
-      {/* Tab Content: Rooms Directory */}
-      {tab === 'rooms' && (
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex justify-end mb-6">
-            <button 
-              onClick={() => setModal({ type: 'room', mode: 'add', data: { name: '', purpose: '', status: 'Active' } })}
-              className="bg-teal-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg hover:opacity-90 transition"
-            >
-              <FaHospital/> Register New Room
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {rooms.length === 0 ? (
-               <div className="md:col-span-2 xl:col-span-3 py-20 bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center">
-                  <div className="h-16 w-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-300 mb-4">
-                     <FaHospital size={32}/>
-                  </div>
-                  <h4 className="text-lg font-bold text-slate-400">No rooms registered.</h4>
-                  <p className="text-sm text-slate-400 mt-1">Click the button above to register your clinic rooms in the directory.</p>
-               </div>
-            ) : rooms.map(r => (
-              <div key={r.id} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:border-teal-200 dark:hover:border-teal-900 transition-all group">
-                <div>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="h-12 w-12 rounded-2xl bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-teal-600 text-xl shadow-inner">
-                      <FaHospital/>
-                    </div>
-                    <Badge variant={r.status === 'Active' ? 'success' : 'neutral'}>{r.status}</Badge>
-                  </div>
-                  <h4 className="font-black text-lg text-slate-800 dark:text-white leading-tight">{r.name}</h4>
-                  <p className="text-sm text-slate-500 font-medium mt-2">{r.purpose || "No descriptive purpose provided."}</p>
-                </div>
-                <div className="flex justify-end gap-2 mt-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button 
-                    onClick={() => setModal({ type: 'room', mode: 'edit', data: { ...r, isEdit: true } })}
-                    className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition font-bold text-xs"
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => deleteRoom(r.id)}
-                    className="p-2.5 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 transition font-bold text-xs"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* Tab Content: Day Off Requests */}
       {tab === 'dayoffs' && (
@@ -572,61 +477,12 @@ export default function AdminSchedules() {
                 </div>
 
                 <TextInput label="Total Slot Limit" type="number" value={modal.data.slot_limit} onChange={v => setModal({...modal, data: {...modal.data, slot_limit: v}})} />
-                {rooms.length === 0 ? (
-                  <TextInput 
-                    label="Room/Dept" 
-                    placeholder="e.g. Room 101"
-                    value={modal.data.room} 
-                    onChange={v => setModal({...modal, data: {...modal.data, room: v}})} 
-                  />
-                ) : (
-                  <SelectInput 
-                    label="Room/Dept" 
-                    value={modal.data.room} 
-                    onChange={v => setModal({...modal, data: {...modal.data, room: v}})}
-                    options={[
-                      { label: '-- Select Room --', value: '' },
-                      ...rooms.filter(r => r.status === 'Active').map(r => {
-                        // Check if this room is occupied during the selected day, start_time, and end_time
-                        const isOccupied = doctorSchedules.some(s => {
-                          if (s.schedule_status !== 'Active') return false;
-                          if (s.schedule_id === modal.data.schedule_id) return false; // exclude self when editing
-                          if (s.day_of_week !== modal.data.day_of_week) return false;
-                          if (s.room !== r.name) return false;
-                          
-                          // Strict overlap check: s.start_time < modal.data.end_time AND s.end_time > modal.data.start_time
-                          const sStart = s.start_time.slice(0,5);
-                          const sEnd = s.end_time.slice(0,5);
-                          const mStart = modal.data.start_time?.slice(0,5);
-                          const mEnd = modal.data.end_time?.slice(0,5);
-                          if (!mStart || !mEnd) return false;
-                          return (sStart < mEnd && sEnd > mStart);
-                        });
-
-                        const occupyingDoctor = isOccupied ? doctorSchedules.find(s => {
-                          if (s.schedule_status !== 'Active') return false;
-                          if (s.schedule_id === modal.data.schedule_id) return false;
-                          if (s.day_of_week !== modal.data.day_of_week) return false;
-                          if (s.room !== r.name) return false;
-                          const sStart = s.start_time.slice(0,5);
-                          const sEnd = s.end_time.slice(0,5);
-                          const mStart = modal.data.start_time?.slice(0,5);
-                          const mEnd = modal.data.end_time?.slice(0,5);
-                          if (!mStart || !mEnd) return false;
-                          return (sStart < mEnd && sEnd > mStart);
-                        }) : null;
-
-                        const docLabel = occupyingDoctor ? ` [Occupied: Dr. ${occupyingDoctor.doctor?.last_name || 'Staff'} ${occupyingDoctor.start_time.slice(0,5)}-${occupyingDoctor.end_time.slice(0,5)}]` : ' (Available)';
-
-                        return { 
-                          label: `${r.name}${docLabel}`, 
-                          value: r.name,
-                          disabled: isOccupied 
-                        };
-                      })
-                    ]}
-                  />
-                )}
+                <TextInput 
+                  label="Room/Dept" 
+                  placeholder="e.g. Room 101"
+                  value={modal.data.room} 
+                  onChange={v => setModal({...modal, data: {...modal.data, room: v}})} 
+                />
                 <SelectInput label="Status" value={modal.data.schedule_status} onChange={v => setModal({...modal, data: {...modal.data, schedule_status: v}})} options={[{label:'Active',value:'Active'},{label:'Inactive',value:'Inactive'}]} />
               </div>
               <button disabled={saving} type="submit" className="w-full bg-teal-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg hover:opacity-90 transition">
@@ -709,34 +565,6 @@ export default function AdminSchedules() {
                <button disabled={saving} type="submit" className="w-full bg-slate-900 dark:bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg hover:opacity-90 transition">
                   {saving ? 'Processing...' : (modal.mode === 'add' ? 'Create Event' : 'Save Changes')}
                </button>
-            </form>
-          )}
-
-          {modal.type === 'room' && (
-            <form onSubmit={(e) => { e.preventDefault(); saveRoom(modal.data); }} className="space-y-6">
-              <div className="space-y-4">
-                <TextInput 
-                  label="Room Name / Number" 
-                  placeholder="e.g. Room 101, Pediatric wing" 
-                  value={modal.data.name} 
-                  onChange={v => setModal({...modal, data: {...modal.data, name: v}})} 
-                />
-                <TextInput 
-                  label="Purpose / Details" 
-                  placeholder="e.g. General Consultations, Ultrasound, Dental Chair" 
-                  value={modal.data.purpose} 
-                  onChange={v => setModal({...modal, data: {...modal.data, purpose: v}})} 
-                />
-                <SelectInput 
-                  label="Status" 
-                  value={modal.data.status} 
-                  onChange={v => setModal({...modal, data: {...modal.data, status: v}})} 
-                  options={[{label:'Active',value:'Active'},{label:'Maintenance',value:'Maintenance'}]} 
-                />
-              </div>
-              <button disabled={saving} type="submit" className="w-full bg-teal-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg hover:opacity-90 transition">
-                 {saving ? 'Processing...' : (modal.mode === 'add' ? 'Register Room' : 'Save Changes')}
-              </button>
             </form>
           )}
 

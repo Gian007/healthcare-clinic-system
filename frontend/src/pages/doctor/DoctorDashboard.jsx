@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, Users, Clock3, CheckCircle2 } from 'lucide-react';
+import { FaPlusSquare as Activity, FaUsers as Users } from 'react-icons/fa';
 import { Card, Badge, Button, PageHeader } from '../../components/doctor/DoctorUI';
 import { Link } from 'react-router-dom';
 import * as doctorApi from '../../api/doctorApi';
@@ -12,18 +12,23 @@ export default function DoctorDashboard() {
   });
   const [loading, setLoading] = useState(true);
 
+  const loadData = async () => {
+    try {
+      const res = await doctorApi.getDashboard();
+      setData(res);
+    } catch (error) {
+      console.error("Failed to load doctor dashboard:", error);
+    }
+  };
+
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const res = await doctorApi.getDashboard();
-        setData(res);
-      } catch (error) {
-        console.error("Failed to load doctor dashboard:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
+    loadData().finally(() => setLoading(false));
+
+    const interval = setInterval(() => {
+      loadData();
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) {
@@ -32,7 +37,8 @@ export default function DoctorDashboard() {
 
   const { appointments_today, queues_today, stats } = data;
   const waiting = stats.waiting;
-  const current = queues_today.find(q => q.queue_status === 'Active' || q.queue_status === 'Serving');
+  const activeQueue = queues_today.filter(q => !['Done', 'Cancelled'].includes(q.queue_status));
+  const current = queues_today.find(q => q.queue_status === 'Serving') || queues_today.find(q => q.queue_status === 'Waiting');
 
   return <div>
     <PageHeader title="Dashboard" subtitle={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} />
@@ -42,11 +48,9 @@ export default function DoctorDashboard() {
         <Info label="Waiting" value={waiting} /><Info label="Completed" value={stats.completed} /><Info label="Start Time" value="9:00 AM" /><Info label="End Time" value="5:00 PM" />
       </div>
     </div>
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
       <Mini title="Today's Appointments" value={stats.total_appointments} icon={<Activity />} />
       <Mini title="Current Queue" value={current ? `Q-${current.queue_number}` : '---'} icon={<Users />} />
-      <Mini title="Patients Today" value={queues_today.length} icon={<Clock3 />} />
-      <Mini title="Completed" value={stats.completed} icon={<CheckCircle2 />} />
     </div>
     <div className="grid lg:grid-cols-2 gap-6">
       <Card className="p-5">
@@ -91,10 +95,10 @@ export default function DoctorDashboard() {
           <Link to="/doctor/queue"><Button variant="outline">Manage Queue</Button></Link>
         </div>
         <div className="space-y-3">
-          {queues_today.length === 0 ? (
+          {activeQueue.length === 0 ? (
              <div className="text-center text-slate-500 py-4">No one is in the queue.</div>
           ) : (
-            queues_today.slice(0,3).map(q => (
+            activeQueue.slice(0,3).map(q => (
               <div key={q.queue_id} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl flex justify-between items-center group hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-teal-100 dark:bg-teal-900/40 border border-teal-200 dark:border-teal-800 flex items-center justify-center shrink-0 overflow-hidden shadow-sm">

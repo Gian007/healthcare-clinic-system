@@ -43,19 +43,69 @@ export default function AdminServices() {
       });
   }, []);
 
-  // Full Medical Registry Fallback - Loops through every specialization provided by USER
+  // Medical Specialization Registry
   const displaySpecs = useMemo(() => {
     const registry = [
-      { cat: 'Recommended Starter List', names: ["General Medicine", "Pediatrics", "OB-GYNE", "Dentistry", "Dermatology", "ENT", "Orthopedics", "Cardiology", "Ophthalmology", "General Surgery", "Radiology", "Physical Therapy", "Psychiatry"] },
-      { cat: 'Core General Specializations', names: ["General Medicine", "Family Medicine", "Internal Medicine", "General Practitioner (GP)", "Pediatrics", "OB-GYNE (Obstetrics and Gynecology)", "Dermatology", "ENT (Ear, Nose, and Throat)", "Ophthalmology", "Orthopedics", "Cardiology", "Neurology", "Psychiatry", "Pulmonology", "Gastroenterology", "Nephrology", "Urology", "Endocrinology", "Rheumatology", "Infectious Disease", "Oncology", "Geriatrics"] },
-      { cat: 'Surgical Specializations', names: ["General Surgery", "Cardiothoracic Surgery", "Neurosurgery", "Orthopedic Surgery", "Plastic Surgery", "Vascular Surgery", "Pediatric Surgery", "Urologic Surgery", "Surgical Oncology"] },
-      { cat: 'Dental & Oral', names: ["Dentistry", "Orthodontics", "Oral Surgery", "Pediatric Dentistry", "Prosthodontics"] },
-      { cat: 'Women & Child Care', names: ["Maternal Care", "Fertility Specialist", "Neonatology", "Pediatric Cardiology", "Pediatric Neurology"] },
-      { cat: 'Diagnostic & Imaging', names: ["Radiology", "Ultrasound Specialist", "Pathology", "Laboratory Medicine"] },
-      { cat: 'Emergency & Critical Care', names: ["Emergency Medicine", "Trauma Care", "Critical Care Medicine", "Intensive Care Unit (ICU)"] },
-      { cat: 'Therapy & Rehabilitation', names: ["Physical Therapy", "Occupational Therapy", "Speech Therapy", "Rehabilitation Medicine"] },
-      { cat: 'Mental Health', names: ["Psychology", "Psychiatry", "Behavioral Therapy"] },
-      { cat: 'Clinic Support Roles', names: ["Nurse", "Nurse Assistant", "Midwife", "Pharmacist", "Medical Technologist", "Receptionist", "Laboratory Technician", "Radiologic Technologist"] }
+      { cat: 'Doctor Specializations', names: [
+        "General Practitioner (GP)",
+        "Family Medicine Physician",
+        "Internal Medicine Physician",
+        "Pediatrician",
+        "Obstetrician-Gynecologist (OB-GYN)",
+        "Cardiologist",
+        "Dermatologist",
+        "ENT Specialist (Otolaryngologist)",
+        "Pulmonologist",
+        "Gastroenterologist",
+        "Neurologist",
+        "Neurosurgeon",
+        "Nephrologist",
+        "Endocrinologist",
+        "Rheumatologist",
+        "Infectious Disease Specialist",
+        "Oncologist",
+        "Hematologist",
+        "Allergist / Immunologist",
+        "Psychiatrist",
+        "Ophthalmologist",
+        "Orthopedic Surgeon",
+        "General Surgeon",
+        "Urologist",
+        "Rehabilitation Medicine Specialist",
+        "Anesthesiologist",
+        "Emergency Medicine Physician",
+        "Pathologist",
+        "Radiologist",
+        "Nuclear Medicine Specialist",
+        "Geriatrician",
+        "Sports Medicine Physician",
+        "Occupational Medicine Physician",
+        "Preventive Medicine Physician",
+        "Pain Management Specialist",
+        "Sleep Medicine Specialist",
+        "Plastic and Reconstructive Surgeon",
+        "Vascular Surgeon",
+        "Thoracic Surgeon",
+        "Cardiothoracic Surgeon",
+        "Colorectal Surgeon",
+        "Hepatobiliary Surgeon",
+        "Transplant Surgeon",
+        "Clinical Geneticist"
+      ]},
+      { cat: 'Dental Specializations', names: [
+        "General Dentist",
+        "Orthodontist",
+        "Oral and Maxillofacial Surgeon",
+        "Endodontist",
+        "Prosthodontist",
+        "Periodontist",
+        "Pediatric Dentist (Pedodontist)",
+        "Cosmetic Dentist",
+        "Oral Pathologist",
+        "Oral Radiologist",
+        "Oral Medicine Specialist",
+        "Dental Public Health Specialist"
+      ]}
     ];
 
     const all = [];
@@ -121,20 +171,23 @@ export default function AdminServices() {
     e.preventDefault();
     setSaving(true); setFormErrors({});
     try {
-      const currentSpecIds = [];
-      
-      // Separate existing IDs from temporary NEW entries
-      for (const entry of formData.specialization_ids) {
-        if (typeof entry === 'string' && entry.startsWith('NEW:')) {
-          const name = entry.replace('NEW:', '');
-          const res = await adminApi.createSpecialization({ name });
-          currentSpecIds.push(res.specialization.specialization_id);
-        } else {
-          currentSpecIds.push(entry);
+      // Resolve each selected entry to a backend-compatible format.
+      // Mock IDs (>=999000) are converted to 'NEW:name' so the backend does firstOrCreate.
+      // Real DB IDs are passed as-is. NEW: strings are passed as-is.
+      const resolvedIds = formData.specialization_ids.map(entry => {
+        // Mock ID from the client registry — convert to name string
+        if (typeof entry === 'number' && entry >= 999000) {
+          const foundSpec = displaySpecs.find(x => x.specialization_id === entry);
+          return foundSpec ? 'NEW:' + foundSpec.name : null;
         }
-      }
+        // Real DB ID — pass through as number
+        if (typeof entry === 'number') return entry;
+        // Already a NEW: string
+        if (typeof entry === 'string') return entry;
+        return null;
+      }).filter(Boolean);
 
-      if (currentSpecIds.length === 0) {
+      if (resolvedIds.length === 0) {
         setFormErrors({ specialization_ids: 'At least one specialization is required.' });
         setSaving(false);
         return;
@@ -142,7 +195,7 @@ export default function AdminServices() {
 
       const payload = { 
         ...formData, 
-        specialization_ids: currentSpecIds 
+        specialization_ids: resolvedIds 
       };
 
       if (modal === 'add') {
@@ -155,6 +208,8 @@ export default function AdminServices() {
       setModal(null);
       setShowNewSpec(false);
       setNewSpecName('');
+      // Refresh specializations list so newly created ones appear with real IDs
+      adminApi.getSpecializations().then(res => { if (res?.length > 0) setSpecs(res); }).catch(() => {});
       fetch();
     } catch(err) {
       if (err.response?.data?.errors) {
@@ -162,7 +217,7 @@ export default function AdminServices() {
         Object.entries(err.response.data.errors).forEach(([k,v]) => e[k] = v[0]);
         setFormErrors(e);
       } else {
-        setFormErrors({ general: err.response?.data?.message || 'Failed to save.' });
+        setFormErrors({ general: err.response?.data?.message || 'Failed to save. Please try again.' });
       }
     }
     setSaving(false);

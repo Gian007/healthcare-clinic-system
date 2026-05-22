@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
-import { FaHeartbeat, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { useAuth } from "../state/auth";
+import { useBranding } from "../state/branding";
+import Logo from "../components/Logo";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -12,6 +14,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
+  const { branding } = useBranding();
   const nav = useNavigate();
   const [sp] = useSearchParams();
 
@@ -49,11 +52,11 @@ export default function Login() {
   return (
     <div className="bg-neutralbg dark:bg-slate-950 min-h-[calc(100vh-72px)] flex items-start justify-center pt-16 pb-20 px-6 transition-colors">
       <div className="w-full max-w-md text-center">
-        <div className="mx-auto w-20 h-20 rounded-3xl bg-primary/20 flex items-center justify-center shadow-lg shadow-primary/10 rotate-3 transition-transform hover:rotate-0 duration-500 text-primary">
-          <FaHeartbeat className="text-4xl" />
+        <div className="mx-auto w-20 h-20 flex items-center justify-center rotate-3 transition-transform hover:rotate-0 duration-500">
+          <Logo size="lg" />
         </div>
 
-        <h1 className="mt-6 text-5xl font-black text-gray-900 dark:text-white tracking-tighter uppercase font-comfortaa leading-none font-fat">SHQMS</h1>
+        <h1 className="mt-6 text-5xl font-black text-gray-900 dark:text-white tracking-tighter uppercase font-comfortaa leading-none font-fat">{branding.name}</h1>
         <p className="text-xs font-bold text-primary uppercase tracking-[0.2em] mt-1 font-poppins">Smart Healthcare Availability</p>
         <p className="text-sm italic font-medium text-gray-600 dark:text-gray-400 mt-4 font-playfair">"Skip the Wait, Get the Care."</p>
 

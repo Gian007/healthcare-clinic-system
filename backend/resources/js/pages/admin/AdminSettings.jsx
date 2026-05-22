@@ -1,13 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../state/auth";
+import { useBranding } from "../../state/branding";
 import { PageHeader, TextInput } from "../../components/admin/AdminUI";
 import * as adminApi from "../../api/adminApi";
 import ImageCropper from "../../components/ImageCropper";
-import { FaCamera, FaCheckCircle, FaSpinner } from "react-icons/fa";
+import { FaCamera, FaCheckCircle, FaSpinner, FaHeartbeat, FaStethoscope, FaHospital, FaHeart, FaBandAid, FaDna, FaLungs, FaMedkit, FaUndo } from "react-icons/fa";
 
 export default function AdminSettings() {
   const { user, fetchUser } = useAuth();
   const fileInputRef = useRef(null);
+
+  const { branding, updateBranding, resetBranding } = useBranding();
+  const [brandName, setBrandName] = useState(branding.name);
+  const [brandLogoIcon, setBrandLogoIcon] = useState(branding.logoIcon);
+  const [brandColor, setBrandColor] = useState(branding.primaryColor);
+  const [savingBranding, setSavingBranding] = useState(false);
+
+  useEffect(() => {
+    setBrandName(branding.name);
+    setBrandLogoIcon(branding.logoIcon);
+    setBrandColor(branding.primaryColor);
+  }, [branding]);
 
   const [profile, setProfile] = useState({
     first_name: '', last_name: '', email: '', contact_number: ''
@@ -38,6 +51,31 @@ export default function AdminSettings() {
   const showSuccess = (msg) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(""), 3000);
+  };
+
+  const handleBrandingSave = (e) => {
+    e.preventDefault();
+    setSavingBranding(true);
+    try {
+      updateBranding({
+        name: brandName,
+        logoText: brandName,
+        logoIcon: brandLogoIcon,
+        primaryColor: brandColor
+      });
+      showSuccess("Branding settings applied successfully!");
+    } catch (err) {
+      alert("Failed to update branding settings.");
+    } finally {
+      setSavingBranding(false);
+    }
+  };
+
+  const handleBrandingReset = () => {
+    if (window.confirm("Are you sure you want to reset branding to the original defaults?")) {
+      resetBranding();
+      showSuccess("Branding settings restored to original default!");
+    }
   };
 
   const handleProfileSave = async (e) => {
@@ -117,6 +155,115 @@ export default function AdminSettings() {
         
         {/* Profile Details */}
         <div className="xl:col-span-2 space-y-6">
+          
+          {/* Clinic Branding Settings */}
+          <form onSubmit={handleBrandingSave} className="rounded-2xl bg-white dark:bg-slate-900 p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div>
+                <h2 className="font-bold text-lg text-gray-900 dark:text-white">Clinic Branding & Customization</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Customize the logo, website title, and primary color system.</p>
+              </div>
+              <button 
+                type="button" 
+                onClick={handleBrandingReset}
+                className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-500 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 transition"
+              >
+                <FaUndo className="text-[10px]" />
+                Reset Defaults
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Brand Name Input */}
+              <TextInput 
+                label="Clinic / System Name" 
+                value={brandName} 
+                onChange={v => setBrandName(v)} 
+                placeholder="E.g. HealthCare Pro"
+              />
+
+              {/* Logo Icon Select */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2">Clinic Logo Icon</label>
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+                  {[
+                    { key: "heartbeat", label: "Heartbeat", icon: FaHeartbeat },
+                    { key: "stethoscope", label: "Stethoscope", icon: FaStethoscope },
+                    { key: "hospital", label: "Hospital", icon: FaHospital },
+                    { key: "heart", label: "Heart", icon: FaHeart },
+                    { key: "bandage", label: "Bandage", icon: FaBandAid },
+                    { key: "dna", label: "DNA", icon: FaDna },
+                    { key: "lungs", label: "Lungs", icon: FaLungs },
+                    { key: "medkit", label: "Medkit", icon: FaMedkit }
+                  ].map(ico => {
+                    const Icon = ico.icon;
+                    const selected = brandLogoIcon === ico.key;
+                    return (
+                      <button
+                        key={ico.key}
+                        type="button"
+                        onClick={() => setBrandLogoIcon(ico.key)}
+                        title={ico.label}
+                        className={`flex flex-col items-center justify-center p-3 rounded-xl border transition ${
+                          selected 
+                            ? "border-primary bg-primary/10 text-primary font-bold scale-105" 
+                            : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-gray-500 dark:text-gray-400"
+                        }`}
+                      >
+                        <Icon className="text-lg" />
+                        <span className="text-[9px] mt-1 truncate max-w-full">{ico.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Color Combination Selection */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2">Primary Color Combination</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { name: "Teal (Original)", hex: "#1FA4A9", bg: "bg-[#1FA4A9]" },
+                    { name: "Sky Blue", hex: "#0EA5E9", bg: "bg-[#0EA5E9]" },
+                    { name: "Emerald Green", hex: "#10B981", bg: "bg-[#10B981]" },
+                    { name: "Indigo Purple", hex: "#6366F1", bg: "bg-[#6366F1]" },
+                    { name: "Deep Violet", hex: "#8B5CF6", bg: "bg-[#8B5CF6]" },
+                    { name: "Crimson Rose", hex: "#F43F5E", bg: "bg-[#F43F5E]" },
+                    { name: "Amber Gold", hex: "#F59E0B", bg: "bg-[#F59E0B]" },
+                    { name: "Dark Slate", hex: "#475569", bg: "bg-[#475569]" }
+                  ].map(color => {
+                    const selected = brandColor === color.hex;
+                    return (
+                      <button
+                        key={color.hex}
+                        type="button"
+                        onClick={() => setBrandColor(color.hex)}
+                        className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition text-left ${
+                          selected 
+                            ? "border-primary bg-primary/5 text-primary font-semibold" 
+                            : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-300"
+                        }`}
+                      >
+                        <span className={`w-5 h-5 rounded-full ${color.bg} border border-white/20 shadow-sm shrink-0`} />
+                        <span className="text-xs truncate">{color.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button 
+                type="submit" 
+                disabled={savingBranding} 
+                className="bg-primary hover:opacity-95 text-white px-6 py-2.5 rounded-xl font-semibold transition disabled:opacity-50 flex items-center gap-2"
+              >
+                Save Branding Settings
+              </button>
+            </div>
+          </form>
+
           <form onSubmit={handleProfileSave} className="rounded-2xl bg-white dark:bg-slate-900 p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
             <h2 className="font-bold text-lg mb-5 text-gray-900 dark:text-white">Personal Information</h2>
             {errors.profile && <div className="mb-4 text-sm text-red-600 bg-red-50 p-3 rounded-lg">{errors.profile}</div>}
@@ -141,7 +288,7 @@ export default function AdminSettings() {
             </div>
             
             <div className="mt-6 flex justify-end">
-              <button type="submit" disabled={savingProfile} className="bg-primary hover:bg-teal-700 text-white px-6 py-2.5 rounded-xl font-semibold transition disabled:opacity-50">
+              <button type="submit" disabled={savingProfile} className="bg-primary hover:opacity-95 text-white px-6 py-2.5 rounded-xl font-semibold transition disabled:opacity-50">
                 {savingProfile ? 'Saving...' : 'Save Changes'}
               </button>
             </div>

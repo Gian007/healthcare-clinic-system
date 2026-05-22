@@ -12,18 +12,23 @@ export default function StaffDashboard() {
   });
   const [loading, setLoading] = useState(true);
 
+  const loadData = async () => {
+    try {
+      const res = await staffApi.getDashboardData();
+      setData(res);
+    } catch (error) {
+      console.error("Failed to load staff dashboard:", error);
+    }
+  };
+
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const res = await staffApi.getDashboardData();
-        setData(res);
-      } catch (error) {
-        console.error("Failed to load staff dashboard:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
+    loadData().finally(() => setLoading(false));
+
+    const interval = setInterval(() => {
+      loadData();
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const card = dark

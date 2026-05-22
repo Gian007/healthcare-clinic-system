@@ -19,7 +19,7 @@ export function AuthProvider({ children }) {
           else if (data.abilities?.includes('doctor')) role = 'doctor';
           else if (data.abilities?.includes('staff')) role = 'staff';
 
-          setUser({ ...data.user, role });
+          setUser({ ...data.user, role, db_role: data.user.role });
         } catch (error) {
           console.error("Auth init error:", error);
           localStorage.removeItem("token");
@@ -38,13 +38,13 @@ export function AuthProvider({ children }) {
       login: async (credentials) => {
         const data = await authApi.login(credentials);
         localStorage.setItem("token", data.token);
-        setUser({ ...data.user, role: data.role });
+        setUser({ ...data.user, role: data.role, db_role: data.user.role });
         return data;
       },
       register: async (patientData) => {
         const data = await authApi.registerPatient(patientData);
         localStorage.setItem("token", data.token);
-        setUser({ ...data.user, role: data.role });
+        setUser({ ...data.user, role: data.role, db_role: data.user.role });
         return data;
       },
       fetchUser: async () => {
@@ -54,7 +54,7 @@ export function AuthProvider({ children }) {
           if (data.abilities?.includes('admin')) role = 'admin';
           else if (data.abilities?.includes('doctor')) role = 'doctor';
           else if (data.abilities?.includes('staff')) role = 'staff';
-          setUser({ ...data.user, role });
+          setUser({ ...data.user, role, db_role: data.user.role });
         } catch (error) {
           console.error("fetchUser error:", error);
         }

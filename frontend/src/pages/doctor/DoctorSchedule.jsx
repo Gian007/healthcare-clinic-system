@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Clock, CalendarDays, MapPin, Hash } from 'lucide-react';
+import { FaClock as Clock, FaCalendarAlt as CalendarDays, FaMapMarkerAlt as MapPin, FaHashtag as Hash } from 'react-icons/fa';
 import { Card, Badge, PageHeader } from '../../components/doctor/DoctorUI';
 import * as doctorApi from '../../api/doctorApi';
 
@@ -86,21 +86,14 @@ export default function DoctorSchedule() {
                   )}
                 </div>
 
-                <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
-                   <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Slot Duration</span>
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.slot_minutes} mins / patient</span>
-                   </div>
-                </div>
               </Card>
             ))}
           </div>
 
           <Card className="p-8 mt-8 bg-gradient-to-br from-primary/5 to-transparent border-primary/10 shadow-lg shadow-primary/5">
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="mx-auto grid max-w-3xl gap-8 text-center sm:grid-cols-2">
               <Stat label="Active Days" value={`${workDays} days / week`} color="text-emerald-500" />
               <Stat label="Total Weekly Capacity" value={`${totalSlots} Patients`} color="text-primary" />
-              <Stat label="System Status" value="Synced" color="text-blue-500" />
             </div>
           </Card>
         </>
@@ -111,7 +104,7 @@ export default function DoctorSchedule() {
 
 function Stat({ label, value, color }) {
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col items-center">
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{label}</p>
       <p className={`text-2xl font-black ${color} tracking-tighter`}>{value}</p>
     </div>

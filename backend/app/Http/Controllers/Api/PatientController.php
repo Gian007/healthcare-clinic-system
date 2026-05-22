@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
 
 class PatientController extends Controller
 {
@@ -131,45 +132,100 @@ class PatientController extends Controller
 
     public function uploadVerificationId(Request $request)
     {
-        $request->validate([
-            'id_front'  => 'required|image|max:5120',
-            'id_back'   => 'required|image|max:5120',
-            'id_selfie' => 'required|image|max:5120',
-        ]);
+        $isBase64 = is_string($request->input('id_front')) && str_starts_with($request->input('id_front'), 'data:image/');
 
-        $patient = $request->user();
-        
-        $frontPath  = $request->file('id_front')->store('verification-ids', 'public');
-        $backPath   = $request->file('id_back')->store('verification-ids', 'public');
-        $selfiePath = $request->file('id_selfie')->store('verification-ids', 'public');
+        if ($isBase64) {
+            $request->validate([
+                'id_front'  => 'required|string',
+                'id_back'   => 'required|string',
+                'id_selfie' => 'required|string',
+            ]);
+        } else {
+            $request->validate([
+                'id_front'  => 'required|image|max:10240',
+                'id_back'   => 'required|image|max:10240',
+                'id_selfie' => 'required|image|max:10240',
+            ]);
+        }
 
-        // Create or update patient_verifications record
-        $patient->patientVerification()->updateOrCreate(
-            ['patient_id' => $patient->patient_id],
-            [
-                'id_type'       => $request->id_type ?? 'Valid ID',
-                'id_image'      => $frontPath,
-                'id_back_image' => $backPath,
-                'selfie_image'  => $selfiePath,
-                'status'        => 'Under Review',
-                'submitted_at'  => now(),
-                'rejection_reason' => null, // Reset reason on resubmit
-            ]
-        );
+        try {
+            $patient = $request->user();
+            
+            if ($isBase64) {
+                $frontPath  = $this->saveBase64Image($request->input('id_front'), 'verification-ids');
+                $backPath   = $this->saveBase64Image($request->input('id_back'), 'verification-ids');
+                $selfiePath = $this->saveBase64Image($request->input('id_selfie'), 'verification-ids');
+            } else {
+                $frontPath  = $request->file('id_front')->store('verification-ids', 'public');
+                $backPath   = $request->file('id_back')->store('verification-ids', 'public');
+                $selfiePath = $request->file('id_selfie')->store('verification-ids', 'public');
+            }
 
-        $patient->verification_status = 'Under Review';
-        $patient->save();
+            // Create or update patient_verifications record
+            $patient->patientVerification()->updateOrCreate(
+                ['patient_id' => $patient->patient_id],
+                [
+                    'id_type'       => $request->id_type ?? 'Valid ID',
+                    'id_image'      => $frontPath,
+                    'id_back_image' => $backPath,
+                    'selfie_image'  => $selfiePath,
+                    'status'        => 'Under Review',
+                    'submitted_at'  => now(),
+                    'rejection_reason' => null, // Reset reason on resubmit
+                ]
+            );
 
-        // Notify staff
-        SystemNotification::create([
-            'notifiable_type' => 'staff',
-            'notifiable_id'   => 0,
-            'title'           => 'New ID Verification Request',
-            'body'            => "Patient {$patient->first_name} {$patient->last_name} (#{$patient->patient_number}) submitted documents for verification.",
-            'type'            => 'info',
-        ]);
+            $patient->verification_status = 'Under Review';
+            $patient->save();
 
-        return response()->json(['message' => 'Documents submitted for review. Your account will be updated shortly.']);
+            // Notify staff
+            SystemNotification::create([
+                'notifiable_type' => 'staff',
+                'notifiable_id'   => 0,
+                'title'           => 'New ID Verification Request',
+                'body'            => "Patient {$patient->first_name} {$patient->last_name} (#{$patient->patient_number}) submitted documents for verification.",
+                'type'            => 'info',
+                'link'            => "/staff/patients?review={$patient->patient_id}",
+            ]);
+
+            return response()->json(['message' => 'Documents submitted for review. Your account will be updated shortly.']);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('ID Upload Verification failed: ' . $e->getMessage(), [
+                'exception' => $e
+            ]);
+            return response()->json([
+                'message' => 'Failed to upload and save verification documents. ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    private function saveBase64Image($base64String, $folder)
+    {
+        if (preg_match('/^data:image\/(\w+);base64,/', $base64String, $type)) {
+            $data = substr($base64String, strpos($base64String, ',') + 1);
+            $type = strtolower($type[1]); // jpg, png, etc.
+
+            if (!in_array($type, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                throw new \Exception('Invalid image type. Only JPG, JPEG, PNG, GIF, and WEBP are allowed.');
+            }
+
+            $data = base64_decode($data);
+
+            if ($data === false) {
+                throw new \Exception('Base64 decode failed.');
+            }
+
+            if (strlen($data) > 10485760) {
+                throw new \Exception('Decoded image size exceeds 10MB.');
+            }
+
+            $fileName = $folder . '/' . bin2hex(random_bytes(20)) . '.' . $type;
+            Storage::disk('public')->put($fileName, $data);
+
+            return $fileName;
+        } else {
+            throw new \Exception('Invalid image format. Must be a base64 encoded image string.');
+        }
     }
 
     public function store(Request $request)
@@ -178,11 +234,38 @@ class PatientController extends Controller
             'doctor_id'        => 'required|exists:doctors,doctor_id',
             'service_id'       => 'required|exists:services,service_id',
             'schedule_id'      => 'required|exists:doctor_schedules,schedule_id',
-            'appointment_date' => 'required|date|after_or_equal:today',
+            'appointment_date' => 'required|date',
             'start_time'       => 'required',
             'end_time'         => 'required',
             'reason_for_visit' => 'required|string',
         ]);
+
+        $nowInManila = Carbon::now('Asia/Manila');
+        $appointmentDate = Carbon::parse($request->appointment_date);
+        
+        // Ensure date is not in the past (date-wise) in Asia/Manila
+        if ($appointmentDate->format('Y-m-d') < $nowInManila->format('Y-m-d')) {
+            return response()->json(['message' => 'The appointment date cannot be in the past.'], 422);
+        }
+
+        // If today, ensure the time slot is not in the past
+        if ($appointmentDate->format('Y-m-d') === $nowInManila->format('Y-m-d')) {
+            $slotDateTime = Carbon::parse($appointmentDate->format('Y-m-d') . ' ' . $request->start_time, 'Asia/Manila');
+            if ($slotDateTime->lt($nowInManila)) {
+                return response()->json(['message' => 'This time slot has already passed.'], 422);
+            }
+        }
+
+        // Double-booking/capacity check (ensure slot is not already booked, excluding Cancelled or Rejected ones)
+        $count = Appointment::where('doctor_id', $request->doctor_id)
+            ->where('appointment_date', $request->appointment_date)
+            ->where('start_time', $request->start_time)
+            ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+            ->count();
+        
+        if ($count >= 1) {
+            return response()->json(['message' => 'This time slot is already fully booked.'], 422);
+        }
 
         $patient = $request->user();
 
