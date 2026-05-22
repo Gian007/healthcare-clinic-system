@@ -164,9 +164,6 @@ export default function Schedule() {
         
         {/* Header banner */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center p-3 bg-teal-50 dark:bg-teal-950/20 text-teal-600 dark:text-teal-400 rounded-2xl mb-3 border border-teal-100 dark:border-teal-900/30">
-            <FaCalendarAlt className="text-2xl" />
-          </div>
           <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Clinic Schedule & Availability</h1>
           <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">Check scheduled doctor shifts and available time slots in real-time before booking.</p>
         </div>
@@ -365,18 +362,16 @@ export default function Schedule() {
                             <FaClock size={10} /> {shift.start_time.slice(0,5)} - {shift.end_time.slice(0,5)}
                           </span>
                           <span className="bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-lg font-bold text-[10px] text-slate-600 dark:text-slate-400">
-                            📍 {shift.room}
+                            {shift.room}
                           </span>
                         </div>
 
                         {/* Doctor info */}
                         <div className="text-xs space-y-1">
-                          <p className="font-extrabold text-gray-900 dark:text-white flex items-center gap-1.5">
-                            <FaUser className="text-teal-600 shrink-0" size={10} />
+                          <p className="font-extrabold text-gray-900 dark:text-white">
                             {shift.doctorName}
                           </p>
-                          <p className="text-gray-500 dark:text-slate-400 flex items-center gap-1.5">
-                            <FaClipboardList className="shrink-0" size={10} />
+                          <p className="text-gray-500 dark:text-slate-400">
                             {shift.specialization}
                           </p>
                         </div>
@@ -386,10 +381,10 @@ export default function Schedule() {
                           <div className="flex justify-between items-center text-[10px] font-bold">
                             <span className="text-slate-400 uppercase tracking-widest">Shift Occupancy</span>
                             {isFull ? (
-                              <span className="text-rose-600 font-extrabold uppercase">🚨 Fully Booked</span>
+                              <span className="text-rose-600 font-extrabold uppercase">Fully Booked</span>
                             ) : (
                               <span className="text-emerald-600 font-extrabold uppercase">
-                                ✅ {shift.available_slots} of {shift.slot_limit} slots free
+                                {shift.available_slots} of {shift.slot_limit} slots free
                               </span>
                             )}
                           </div>

@@ -265,13 +265,13 @@ export default function Home() {
             <div className="space-y-6">
               <h4 className="font-black text-xs uppercase tracking-[0.2em] text-slate-400">Connect With Us</h4>
               <div className="flex flex-col gap-4">
-                <a href="https://imgs.search.brave.com/K6P0AEBGlnzkaHI_RgWnVhabSmflD3sRLiCAIeTPrtQ/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMubWVtZS1hcnNl/bmFsLmNvbS8zOTMz/MjY5MjdmNzU3ZTA3/ZDc4NjkzNmFkNWQx/ZjM1ZS5qcGc" target="_blank" rel="noreferrer" className="flex items-center gap-3 group">
+                <a href="https://www.facebook.com/profile.php?id=100076509421523" target="_blank" rel="noreferrer" className="flex items-center gap-3 group">
                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
                       <FaFacebook/>
                    </div>
                    <span className="text-xs font-bold text-slate-500 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Smart Healthcare Availability and Queue Management</span>
                 </a>
-                <a href="https://imgs.search.brave.com/K6P0AEBGlnzkaHI_RgWnVhabSmflD3sRLiCAIeTPrtQ/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMubWVtZS1hcnNl/bmFsLmNvbS8zOTMz/MjY5MjdmNzU3ZTA3/ZDc4NjkzNmFkNWQx/ZjM1ZS5qcGc" target="_blank" rel="noreferrer" className="flex items-center gap-3 group">
+                <a href="https://www.instagram.com/smart_healthcaresys?igsh=bDJrbDFseGxrNTly" target="_blank" rel="noreferrer" className="flex items-center gap-3 group">
                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 group-hover:bg-pink-500 group-hover:text-white transition-all shadow-sm">
                       <FaInstagram/>
                    </div>

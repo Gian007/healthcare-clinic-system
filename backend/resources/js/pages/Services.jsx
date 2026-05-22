@@ -40,7 +40,6 @@ export default function Services() {
           </div>
         ) : services.length === 0 ? (
           <div className="mt-10 text-center text-gray-500 dark:text-gray-400">
-            <p className="text-4xl mb-3">🩺</p>
             <p>No services listed currently.</p>
           </div>
         ) : (

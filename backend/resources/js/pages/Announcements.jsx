@@ -29,7 +29,6 @@ export default function Announcements() {
           </div>
         ) : announcements.length === 0 ? (
           <div className="mt-10 max-w-4xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-12 text-center text-gray-500 dark:text-gray-400 shadow-sm">
-            <p className="text-4xl mb-3">📢</p>
             <p>No announcements at this time.</p>
           </div>
         ) : (

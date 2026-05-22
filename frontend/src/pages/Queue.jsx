@@ -85,7 +85,6 @@ export default function Queue() {
           </div>
         ) : activeQueues.length === 0 ? (
           <div className="text-center text-gray-500 dark:text-slate-400 py-16 max-w-md mx-auto">
-            <p className="text-5xl mb-4">🪑</p>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">No Doctor Schedules Today</h3>
             <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">There are no active doctor schedules set up for today.</p>
           </div>
@@ -100,10 +99,10 @@ export default function Queue() {
                 <div className="bg-gradient-to-br from-teal-600 to-teal-500 p-5 text-white flex flex-col justify-between min-h-[110px]">
                   <div className="flex justify-between items-start">
                     <span className="text-[10px] bg-white/20 uppercase tracking-widest font-black px-2.5 py-1 rounded-lg">
-                      📍 Que Doctor {group.doctorName.replace("Dr. ", "")} Room {group.room}
+                      Que Doctor {group.doctorName.replace("Dr. ", "")} Room {group.room}
                     </span>
                     <span className="text-[9px] bg-teal-700/50 uppercase tracking-wider font-extrabold px-2 py-0.5 rounded text-teal-100">
-                      ⏱️ {group.shiftText}
+                      {group.shiftText}
                     </span>
                   </div>
                   <div className="mt-3">

@@ -44,7 +44,6 @@ export default function Queue() {
             </div>
           ) : queue.length === 0 ? (
             <div className="text-center text-gray-500 py-10">
-              <p className="text-4xl mb-3">🪑</p>
               <p>No active queue at the moment.</p>
             </div>
           ) : (

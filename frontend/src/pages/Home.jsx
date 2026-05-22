@@ -214,7 +214,7 @@ export default function Home() {
 
       <footer className="bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 pt-16 pb-12 transition-colors">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
             <div className="space-y-4">
               <Logo size="sm" src={logoUrl} />
               <p className="text-sm text-slate-500 font-medium leading-relaxed">
@@ -262,7 +262,24 @@ export default function Home() {
               </div>
             </div>
 
-
+            {/* Social Media */}
+            <div className="space-y-6">
+              <h4 className="font-black text-xs uppercase tracking-[0.2em] text-slate-400">Connect With Us</h4>
+              <div className="flex flex-col gap-4">
+                <a href="https://www.facebook.com/profile.php?id=100076509421523" target="_blank" rel="noreferrer" className="flex items-center gap-3 group">
+                   <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
+                      <FaFacebook/>
+                   </div>
+                   <span className="text-xs font-bold text-slate-500 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Smart Healthcare Availability and Queue Management</span>
+                </a>
+                <a href="https://www.instagram.com/smart_healthcaresys?igsh=bDJrbDFseGxrNTly" target="_blank" rel="noreferrer" className="flex items-center gap-3 group">
+                   <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 group-hover:bg-pink-500 group-hover:text-white transition-all shadow-sm">
+                      <FaInstagram/>
+                   </div>
+                   <span className="text-xs font-bold text-slate-500 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">@smart_healthcaresys</span>
+                </a>
+              </div>
+            </div>
           </div>
 
           <div className="border-t border-slate-50 dark:border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">

@@ -20,9 +20,7 @@ export default function Doctors() {
           specialty: d.specialization?.name || "General Medicine",
           status: d.status,
           isAvailableToday: d.is_available_today,
-          image: d.profile_picture 
-            ? (d.profile_picture.startsWith('http') ? d.profile_picture : `${import.meta.env.VITE_BACKEND_URL}/storage/${d.profile_picture}`)
-            : `https://ui-avatars.com/api/?name=${d.first_name}+${d.last_name}&background=0D8BFF&color=fff`,
+          image: `https://ui-avatars.com/api/?name=${d.first_name}+${d.last_name}&background=0D8BFF&color=fff`,
         }));
         setDoctors(mapped);
       })
@@ -51,7 +49,6 @@ export default function Doctors() {
           </div>
         ) : doctors.length === 0 ? (
           <div className="mt-10 text-center text-gray-500 dark:text-gray-400">
-            <p className="text-4xl mb-3">👨‍⚕️</p>
             <p>No active doctors available at the moment.</p>
           </div>
         ) : (
