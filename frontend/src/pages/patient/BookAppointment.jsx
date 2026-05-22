@@ -18,9 +18,8 @@ export default function BookAppointment() {
   const [announcements, setAnnouncements] = useState([]);
   const [patientAppointments, setPatientAppointments] = useState([]);
 
-  // Doctor filter states
+  // Doctor name search state
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterSpecializationId, setFilterSpecializationId] = useState("");
 
   const [currentMonth, setCurrentMonth] = useState(() => {
     const today = new Date();
@@ -84,37 +83,21 @@ export default function BookAppointment() {
     }
   }, [doctors]);
 
-  // Auto-set specialization filter when a service is selected
+  // Reset search when service changes
   useEffect(() => {
-    if (selectedService?.specialization_id) {
-      setFilterSpecializationId(String(selectedService.specialization_id));
-    } else {
-      setFilterSpecializationId("");
-    }
     setSearchTerm("");
   }, [selectedService]);
 
-  // Extract unique specializations from all doctors for the filter dropdown
-  const uniqueSpecializations = useMemo(() => {
-    const map = new Map();
-    doctors.forEach(d => {
-      if (d.specialization?.specialization_id) {
-        map.set(d.specialization.specialization_id, d.specialization.name || d.specialization.specialization_name || "Unknown");
-      }
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [doctors]);
-
-  // Filtered doctors for Step 2
+  // Filtered doctors: only show doctors matching the selected service's specialization + name search
   const filteredDoctors = useMemo(() => {
     return doctors.filter(d => {
+      const matchesSpec = !selectedService?.specialization_id ||
+        d.specialization?.specialization_id === selectedService.specialization_id;
       const matchesSearch = searchTerm.trim() === "" ||
         `${d.first_name} ${d.last_name}`.toLowerCase().includes(searchTerm.trim().toLowerCase());
-      const matchesSpec = filterSpecializationId === "" ||
-        String(d.specialization?.specialization_id) === filterSpecializationId;
-      return matchesSearch && matchesSpec;
+      return matchesSpec && matchesSearch;
     });
-  }, [doctors, searchTerm, filterSpecializationId]);
+  }, [doctors, selectedService, searchTerm]);
 
 
   const next = () => {
@@ -461,36 +444,21 @@ export default function BookAppointment() {
             <>
               <h2 className="font-semibold text-lg mb-4 text-gray-900 dark:text-white">Choose a Doctor</h2>
 
-              {/* Filter controls */}
-              <div className="flex flex-col sm:flex-row gap-3 mb-5">
-                <div className="flex-1">
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Search by Name</label>
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    placeholder="Type a doctor's name..."
-                    className="w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 transition"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Specialization</label>
-                  <select
-                    value={filterSpecializationId}
-                    onChange={e => setFilterSpecializationId(e.target.value)}
-                    className="w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 transition"
-                  >
-                    <option value="">All Specializations</option>
-                    {uniqueSpecializations.map(spec => (
-                      <option key={spec.id} value={String(spec.id)}>{spec.name}</option>
-                    ))}
-                  </select>
-                </div>
+              {/* Name search */}
+              <div className="mb-5">
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Search by Name</label>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Type a doctor's name..."
+                  className="w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 transition"
+                />
               </div>
 
               {filteredDoctors.length === 0 ? (
                 <div className="p-6 text-center border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-xl text-gray-500 dark:text-gray-400">
-                  No doctors found matching your search.
+                  No doctors are available for the selected service.
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 gap-4">
