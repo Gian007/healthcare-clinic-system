@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaCheck, FaArrowRight, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { useAuth } from "../../state/auth";
@@ -17,6 +17,11 @@ export default function BookAppointment() {
   const [doctors, setDoctors] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [patientAppointments, setPatientAppointments] = useState([]);
+
+  // Doctor filter states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterSpecializationId, setFilterSpecializationId] = useState("");
+
   const [currentMonth, setCurrentMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -65,6 +70,38 @@ export default function BookAppointment() {
       .catch(console.error)
       .finally(() => setDataLoading(false));
   }, []);
+
+  // Auto-set specialization filter when a service is selected
+  useEffect(() => {
+    if (selectedService?.specialization_id) {
+      setFilterSpecializationId(String(selectedService.specialization_id));
+    } else {
+      setFilterSpecializationId("");
+    }
+    setSearchTerm("");
+  }, [selectedService]);
+
+  // Extract unique specializations from all doctors for the filter dropdown
+  const uniqueSpecializations = useMemo(() => {
+    const map = new Map();
+    doctors.forEach(d => {
+      if (d.specialization?.specialization_id) {
+        map.set(d.specialization.specialization_id, d.specialization.name || d.specialization.specialization_name || "Unknown");
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [doctors]);
+
+  // Filtered doctors for Step 2
+  const filteredDoctors = useMemo(() => {
+    return doctors.filter(d => {
+      const matchesSearch = searchTerm.trim() === "" ||
+        `${d.first_name} ${d.last_name}`.toLowerCase().includes(searchTerm.trim().toLowerCase());
+      const matchesSpec = filterSpecializationId === "" ||
+        String(d.specialization?.specialization_id) === filterSpecializationId;
+      return matchesSearch && matchesSpec;
+    });
+  }, [doctors, searchTerm, filterSpecializationId]);
 
   const next = () => {
     setStep(step + 1);
@@ -408,23 +445,59 @@ export default function BookAppointment() {
           {step === 2 && (
             <>
               <h2 className="font-semibold text-lg mb-4 text-gray-900 dark:text-white">Choose a Doctor</h2>
-              <div className="grid md:grid-cols-2 gap-4">
-                {doctors.filter(d => d.specialization?.specialization_id === selectedService?.specialization_id || !selectedService?.specialization_id).map((d) => (
-                  <div
-                    key={d.doctor_id}
-                    onClick={() => handleSelectDoctor(d)}
-                    className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${
-                      selectedDoctor?.doctor_id === d.doctor_id
-                        ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-sm"
-                        : "border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600"
-                    }`}
+
+              {/* Filter controls */}
+              <div className="flex flex-col sm:flex-row gap-3 mb-5">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Search by Name</label>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    placeholder="Type a doctor's name..."
+                    className="w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 transition"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Specialization</label>
+                  <select
+                    value={filterSpecializationId}
+                    onChange={e => setFilterSpecializationId(e.target.value)}
+                    className="w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 transition"
                   >
-                    <h3 className="font-semibold text-gray-900 dark:text-white">Dr. {d.first_name} {d.last_name}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{d.specialization?.name || 'General'}</p>
-                  </div>
-                ))}
-                {doctors.length === 0 && <p className="text-gray-500">No doctors available for this service.</p>}
+                    <option value="">All Specializations</option>
+                    {uniqueSpecializations.map(spec => (
+                      <option key={spec.id} value={String(spec.id)}>{spec.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
+              {filteredDoctors.length === 0 ? (
+                <div className="p-6 text-center border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-xl text-gray-500 dark:text-gray-400">
+                  No doctors found matching your search.
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {filteredDoctors.map((d) => (
+                    <div
+                      key={d.doctor_id}
+                      onClick={() => handleSelectDoctor(d)}
+                      className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${
+                        selectedDoctor?.doctor_id === d.doctor_id
+                          ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-sm"
+                          : "border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600"
+                      }`}
+                    >
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Dr. {d.first_name} {d.last_name}</h3>
+                      <span className="inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary dark:bg-primary/20">
+                        {d.specialization?.name || d.specialization?.specialization_name || 'General'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="mt-8 flex justify-between">
                 <button onClick={back} className="inline-flex items-center gap-2 px-5 py-3 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition">
                   <FaArrowLeft /> Back
