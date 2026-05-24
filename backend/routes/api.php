@@ -8,9 +8,11 @@ use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Api\StaffController;
+use App\Http\Controllers\ChatController;
 use Illuminate\Support\Facades\Route;
 
 /* ─────────────── Public Routes ─────────────── */
+Route::post('/chat', [ChatController::class, 'chat']);
 Route::post('/register',        [AuthController::class, 'register']);
 Route::post('/send-otp',        [AuthController::class, 'sendOTP']);
 Route::post('/login',           [AuthController::class, 'login']);

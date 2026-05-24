@@ -9,6 +9,7 @@ import Services from "./pages/Services";
 import Queue from "./pages/Queue";
 import Announcements from "./pages/Announcements";
 import Schedule from "./pages/Schedule";
+import ChatWidget from "./components/ChatWidget";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -84,6 +85,12 @@ export default function App() {
     ["/staff", "/admin", "/doctor", "/patient"].includes(location.pathname);
 
   const isHome = location.pathname === "/";
+
+  const hideChatWidget =
+  location.pathname.startsWith("/staff/") ||
+  location.pathname.startsWith("/admin/") ||
+  location.pathname.startsWith("/doctor/") ||
+  ["/staff", "/admin", "/doctor"].includes(location.pathname);
 
   return (
     <div className="min-h-screen bg-neutralbg dark:bg-slate-950 transition-colors duration-200">
@@ -191,7 +198,10 @@ export default function App() {
           {/* ================= FALLBACK ================= */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+       
       </div>
+      {/* ================= AI ================= */}
+      {!hideChatWidget && <ChatWidget />}
     </div>
   );
 }
