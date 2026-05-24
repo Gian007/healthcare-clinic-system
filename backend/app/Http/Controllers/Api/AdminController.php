@@ -294,9 +294,7 @@ class AdminController extends Controller
         $request->validate([
             'first_name'       => 'required|string|max:255',
             'last_name'        => 'required|string|max:255',
-            'specialization_ids'=> 'required|array',
-            'license_number'   => 'required|string|unique:doctors,license_number',
-            'contact_number'   => 'required|string|regex:/^[0-9]+$/|max:20',
+            'specialization_ids'=> 'nullable|array',
             'email'            => 'required|email|unique:doctors,email',
         ]);
 
@@ -321,8 +319,8 @@ class AdminController extends Controller
             'first_name'        => $request->first_name,
             'last_name'         => $request->last_name,
             'specialization_id' => $finalIds[0] ?? null,
-            'license_number'    => $request->license_number,
-            'contact_number'    => $request->contact_number,
+            'license_number'    => $request->license_number ?? 'PENDING-'.time(),
+            'contact_number'    => $request->contact_number ?? 'N/A',
             'email'             => $request->email,
             'password'          => Hash::make($tempPassword),
             'status'            => 'Active',
@@ -462,7 +460,6 @@ class AdminController extends Controller
             'first_name'     => 'required|string|max:255',
             'last_name'      => 'required|string|max:255',
             'role'           => 'required|in:Admin,Receptionist,Nurse,Verifier,Queue Manager,Cashier',
-            'contact_number' => 'required|string|regex:/^[0-9]+$/|max:20',
             'email'          => 'required|email|unique:staff,email',
         ]);
 
@@ -472,7 +469,7 @@ class AdminController extends Controller
             'first_name'     => $request->first_name,
             'last_name'      => $request->last_name,
             'role'           => $request->role,
-            'contact_number' => $request->contact_number,
+            'contact_number' => $request->contact_number ?? 'N/A',
             'email'          => $request->email,
             'password'       => Hash::make($tempPassword),
             'account_status' => 'Active',

@@ -10,7 +10,7 @@ class Doctor extends Authenticatable
     use HasApiTokens;
     protected $primaryKey = 'doctor_id';
     protected $fillable = [
-        'first_name', 'last_name', 'specialization_id', 'license_number', 'contact_number', 'email', 'password', 'status', 'daily_booking_limit', 'profile_picture'
+        'first_name', 'last_name', 'specialization_id', 'license_number', 'contact_number', 'email', 'password', 'status', 'daily_booking_limit', 'profile_picture', 'years_of_experience', 'consultation_fee'
     ];
     
     protected $hidden = ['password'];

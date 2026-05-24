@@ -10,7 +10,6 @@ const publicLinks = [
   { to: "/doctors", label: "Doctors", key: "doctors" },
   { to: "/services", label: "Services", key: "services" },
   { to: "/schedule", label: "Schedules", key: "schedules" },
-  { to: "/queue", label: "Queue", key: "queue" },
   { to: "/announcements", label: "Announcements", key: "announcements" },
 ];
 
@@ -61,19 +60,24 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
           <Logo src={logoUrl} />
-          <span className="font-black text-xl tracking-tighter text-gray-900 dark:text-white uppercase font-comfortaa leading-none font-fat">{settings.branding.clinicName}</span>
+          <span className="font-black text-2xl tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-emerald-500 dark:from-teal-400 dark:to-emerald-400 leading-none">
+            {settings.branding.clinicName || 'MediQueue'}
+          </span>
         </Link>
 
         {/* Public nav Desktop */}
         <nav className="hidden md:flex items-center gap-6">
-          <button onClick={() => setDark(!dark)} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-            {dark ? <FiSun className="text-lg" /> : <FiMoon className="text-lg" />}
-          </button>
           {visiblePublicLinks.map((item) => (
             <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? activeClass : linkClass)}>
               {item.label}
             </NavLink>
           ))}
+
+          <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2" />
+
+          <button onClick={() => setDark(!dark)} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors bg-slate-100 dark:bg-slate-800 p-2 rounded-full">
+            {dark ? <FiSun className="text-lg" /> : <FiMoon className="text-lg" />}
+          </button>
 
           {!user ? (
             <button

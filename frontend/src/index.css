@@ -6,6 +6,28 @@
   --color-primary: #1FA4A9;
 }
 
+html {
+  font-size: 15.5px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 1024px) {
+  html {
+    font-size: 14.3px; /* Zoomed in 10% from previous 13px */
+  }
+}
+
+@media (min-width: 1440px) {
+  html {
+    font-size: 14.8px; /* Zoomed in proportionally for desktops */
+  }
+}
+
 @layer base {
   body {
     @apply bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200;
@@ -32,4 +54,27 @@
   .font-fat {
     text-shadow: 0.8px 0 currentColor, -0.8px 0 currentColor, 0 0.8px currentColor, 0 -0.8px currentColor;
   }
+  
+  /* Hide scrollbar utility for Webkit (Chrome/Safari/Opera) */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Hide scrollbar utility for IE, Edge and Firefox */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+}
+
+/* Global premium scrollbar - hidden */
+::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }

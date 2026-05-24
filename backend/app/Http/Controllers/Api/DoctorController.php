@@ -444,13 +444,42 @@ class DoctorController extends Controller
     public function updateProfile(Request $request)
     {
         $doctor = $this->doctor($request);
+        $inputIds = $request->specialization_ids ?? [];
+        $existingIds = array_filter($inputIds, fn($id) => is_numeric($id));
+        $manualNames = array_map(fn($id) => str_replace('NEW:', '', $id), array_filter($inputIds, fn($id) => is_string($id) && Str::startsWith($id, 'NEW:')));
+
         $request->validate([
-            'contact_number' => 'sometimes|string|regex:/^[0-9]+$/|max:20',
-            'email'          => 'sometimes|email|unique:doctors,email,' . $doctor->doctor_id . ',doctor_id',
+            'contact_number'      => 'sometimes|string|regex:/^[0-9]+$/|max:20',
+            'email'               => 'sometimes|email|unique:doctors,email,' . $doctor->doctor_id . ',doctor_id',
+            'years_of_experience' => 'sometimes|nullable|integer|min:0',
+            'consultation_fee'    => 'sometimes|nullable|numeric|min:0',
+            'specialization_ids'  => 'sometimes|array',
         ]);
-        $doctor->fill($request->only(['first_name', 'last_name', 'contact_number', 'email']));
+
+        if (!empty($existingIds)) {
+            $validator = \Validator::make(['ids' => $existingIds], [
+                'ids.*' => 'exists:specializations,specialization_id'
+            ]);
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+        }
+
+        $finalIds = $existingIds;
+        foreach ($manualNames as $name) {
+            $spec = Specialization::firstOrCreate(['specialization_name' => $name], ['description' => 'Custom Entry']);
+            $finalIds[] = $spec->specialization_id;
+        }
+
+        $doctor->fill($request->only(['first_name', 'last_name', 'contact_number', 'email', 'years_of_experience', 'consultation_fee']));
+
+        if ($request->has('specialization_ids')) {
+            $doctor->specialization_id = $finalIds[0] ?? null;
+            $doctor->specializations()->sync($finalIds);
+        }
+
         $doctor->save();
-        return response()->json(['message' => 'Profile updated.', 'user' => $doctor->fresh()]);
+        return response()->json(['message' => 'Profile updated.', 'user' => $doctor->fresh()->load(['specialization', 'specializations'])]);
     }
 
     public function updatePassword(Request $request)

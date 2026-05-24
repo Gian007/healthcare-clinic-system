@@ -65,3 +65,7 @@ export const getAvailableSlots       = (params)=> api.get('/booking/available-sl
 export const getSettings = () => api.get('/admin/settings').then(r => r.data);
 export const updateSettings = (data) => api.put('/admin/settings', data).then(r => r.data);
 export const uploadBrandLogo = (fd) => api.post('/admin/settings/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' }}).then(r => r.data);
+
+export const getLandingPageSettings = () => api.get('/public/landing-page').then(r => r.data);
+export const updateLandingPageSetting = (key, data) => api.put(`/admin/landing-page/${key}`, data).then(r => r.data);
+export const uploadLandingPageImage = (fd) => api.post('/admin/landing-page/upload-image', fd, { headers: { 'Content-Type': 'multipart/form-data' }}).then(r => r.data);

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { FaUser as User, FaFileAlt as FileText, FaPhone as Phone, FaEnvelope as Mail, FaCamera as Camera, FaSpinner as Loader2, FaCheckCircle as CheckCircle2, FaLock as Lock } from 'react-icons/fa';
 import { Button, Card, PageHeader } from '../../components/doctor/DoctorUI';
 import { useAuth } from '../../state/auth';
@@ -15,7 +15,14 @@ export default function DoctorProfile(){
     license_number: '',
     contact_number: '',
     email: '',
+    years_of_experience: '',
+    consultation_fee: '',
+    specialization_ids: [],
   });
+
+  const [specializations, setSpecs] = useState([]);
+  const [showNewSpec, setShowNewSpec] = useState(false);
+  const [newSpecName, setNewSpecName] = useState('');
 
   const [passwords, setPasswords] = useState({
     current_password: '',
@@ -31,6 +38,10 @@ export default function DoctorProfile(){
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
+    doctorApi.getSpecializations().then(setSpecs).catch(console.error);
+  }, []);
+
+  useEffect(() => {
     if (user) {
       setForm({
         first_name: user.first_name || '',
@@ -38,9 +49,101 @@ export default function DoctorProfile(){
         license_number: user.license_number || '',
         contact_number: user.contact_number || '',
         email: user.email || '',
+        years_of_experience: user.years_of_experience || '',
+        consultation_fee: user.consultation_fee || '',
+        specialization_ids: user.specializations?.map(s => s.specialization_id) || (user.specialization_id ? [user.specialization_id] : []),
       });
     }
   }, [user]);
+
+  // Medical Specialization Registry — same list as AdminServices
+  const displaySpecs = useMemo(() => {
+    const registry = [
+      { cat: 'Doctor Specializations', names: [
+        "General Practitioner (GP)",
+        "Family Medicine Physician",
+        "Internal Medicine Physician",
+        "Pediatrician",
+        "Obstetrician-Gynecologist (OB-GYN)",
+        "Cardiologist",
+        "Dermatologist",
+        "ENT Specialist (Otolaryngologist)",
+        "Pulmonologist",
+        "Gastroenterologist",
+        "Neurologist",
+        "Neurosurgeon",
+        "Nephrologist",
+        "Endocrinologist",
+        "Rheumatologist",
+        "Infectious Disease Specialist",
+        "Oncologist",
+        "Hematologist",
+        "Allergist / Immunologist",
+        "Psychiatrist",
+        "Ophthalmologist",
+        "Orthopedic Surgeon",
+        "General Surgeon",
+        "Urologist",
+        "Rehabilitation Medicine Specialist",
+        "Anesthesiologist",
+        "Emergency Medicine Physician",
+        "Pathologist",
+        "Radiologist",
+        "Nuclear Medicine Specialist",
+        "Geriatrician",
+        "Sports Medicine Physician",
+        "Occupational Medicine Physician",
+        "Preventive Medicine Physician",
+        "Pain Management Specialist",
+        "Sleep Medicine Specialist",
+        "Plastic and Reconstructive Surgeon",
+        "Vascular Surgeon",
+        "Thoracic Surgeon",
+        "Cardiothoracic Surgeon",
+        "Colorectal Surgeon",
+        "Hepatobiliary Surgeon",
+        "Transplant Surgeon",
+        "Clinical Geneticist"
+      ]},
+      { cat: 'Dental Specializations', names: [
+        "General Dentist",
+        "Orthodontist",
+        "Oral and Maxillofacial Surgeon",
+        "Endodontist",
+        "Prosthodontist",
+        "Periodontist",
+        "Pediatric Dentist (Pedodontist)",
+        "Cosmetic Dentist",
+        "Oral Pathologist",
+        "Oral Radiologist",
+        "Oral Medicine Specialist",
+        "Dental Public Health Specialist"
+      ]}
+    ];
+
+    const all = [];
+    let idCounter = 999000;
+    registry.forEach(r => {
+      r.names.forEach(name => {
+        if (!all.find(x => x.name === name)) {
+          all.push({ specialization_id: idCounter++, name, description: r.cat });
+        }
+      });
+    });
+
+    if (specializations.length > 0) {
+      specializations.forEach(s => {
+        const found = all.find(x => x.name === s.specialization_name || x.name === s.name);
+        if (found) {
+          found.specialization_id = s.specialization_id;
+          found.description = s.description || found.description;
+        } else {
+          all.push({ specialization_id: s.specialization_id, name: s.specialization_name || s.name, description: s.description });
+        }
+      });
+    }
+    return all;
+  }, [specializations]);
 
   const update = (key, val) => setForm({ ...form, [key]: val });
   
@@ -150,6 +253,130 @@ export default function DoctorProfile(){
               <div className="md:col-span-2">
                 <Input label="Email Address" value={form.email} onChange={v => update('email', v)} />
                 {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
+              </div>
+              <div>
+                <Input type="number" label="Years of Experience" value={form.years_of_experience} onChange={v => update('years_of_experience', v)} />
+                {errors.years_of_experience && <p className="text-xs text-red-500 mt-1">{errors.years_of_experience}</p>}
+              </div>
+              <div>
+                <Input type="number" label="Consultation Fee ($)" value={form.consultation_fee} onChange={v => update('consultation_fee', v)} />
+                {errors.consultation_fee && <p className="text-xs text-red-500 mt-1">{errors.consultation_fee}</p>}
+              </div>
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-bold text-xs text-slate-500 uppercase tracking-wide">Specializations</p>
+                  {!showNewSpec && (
+                    <button type="button" onClick={() => setShowNewSpec(true)} className="text-[10px] bg-teal-500/10 text-teal-600 dark:text-teal-400 px-3 py-1.5 rounded-lg font-bold hover:bg-teal-500/20 transition-all border border-teal-500/20 shadow-sm">
+                      + Other Specialization
+                    </button>
+                  )}
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2 mb-2 p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/30 dark:bg-slate-800/30">
+                    {(form.specialization_ids || []).length === 0 && <span className="text-slate-400 text-xs italic">No specializations linked yet.</span>}
+                    {(form.specialization_ids || []).map(id => {
+                      const sp = displaySpecs.find(x => x.specialization_id === id);
+                      const isNew = typeof id === 'string' && id.startsWith('NEW:');
+                      const label = isNew ? id.replace('NEW:', '') : (sp?.name || 'Unknown');
+                      return (
+                        <span key={id} className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shadow-sm transition-all animate-in zoom-in-95">
+                          {label}
+                          <button type="button" onClick={() => setForm(p => ({ ...p, specialization_ids: (p.specialization_ids || []).filter(x => x !== id) }))} className="ml-1 hover:text-red-500 font-bold">×</button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  
+                  {!showNewSpec ? (
+                    <div className="space-y-3 relative group">
+                      <div className="relative flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 focus-within:ring-2 focus-within:ring-teal-500/20 transition-all">
+                        <select value="" onChange={e => {
+                          const val = parseInt(e.target.value);
+                          if (val && !(form.specialization_ids || []).includes(val)) {
+                            update('specialization_ids', [...(form.specialization_ids || []), val]);
+                          }
+                        }}
+                          className="w-full bg-transparent py-3 outline-none text-sm font-medium text-slate-900 dark:text-white border-none focus:ring-0">
+                          <option value="" className="dark:bg-slate-800">— Browse All Specializations —</option>
+                          {Object.entries(
+                            displaySpecs
+                              .filter(s => !(form.specialization_ids || []).includes(s.specialization_id))
+                              .reduce((acc, sp) => {
+                                const cat = sp.description || 'General Medicine & Primary Care';
+                                if (!acc[cat]) acc[cat] = [];
+                                acc[cat].push(sp);
+                                return acc;
+                              }, {})
+                          ).map(([cat, items]) => (
+                            <optgroup key={cat} label={cat.toUpperCase()} className="dark:bg-slate-800">
+                              {items.map(s => (
+                                <option key={s.specialization_id} value={s.specialization_id} className="dark:bg-slate-800">{s.name}</option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-teal-500/5 dark:bg-teal-500/10 p-5 rounded-2xl border border-teal-500/20 space-y-3 shadow-xl">
+                      <p className="text-[10px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                         <span className="w-2 h-2 bg-teal-500 rounded-full animate-ping"/>
+                         Register Custom Field
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                        <div className="flex-1 relative">
+                          <input 
+                            autoFocus 
+                            placeholder="Type specialization name here..." 
+                            value={newSpecName} 
+                            onChange={e => setNewSpecName(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (newSpecName.trim()) {
+                                  const newId = `NEW:${newSpecName.trim()}`;
+                                  if (!(form.specialization_ids || []).includes(newId)) {
+                                    update('specialization_ids', [...(form.specialization_ids || []), newId]);
+                                  }
+                                  setNewSpecName('');
+                                  setShowNewSpec(false);
+                                }
+                              }
+                            }}
+                            className="w-full border border-teal-500/30 dark:border-teal-500/50 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-teal-500/20 dark:bg-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500" 
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              if (!newSpecName.trim()) return;
+                              const newId = `NEW:${newSpecName.trim()}`;
+                              if (!(form.specialization_ids || []).includes(newId)) {
+                                update('specialization_ids', [...(form.specialization_ids || []), newId]);
+                              }
+                              setNewSpecName('');
+                              setShowNewSpec(false);
+                            }} 
+                            className="flex-1 sm:flex-none bg-teal-600 text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest hover:opacity-90 shadow-lg"
+                          >
+                            Confirm
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => { setShowNewSpec(false); setNewSpecName(''); }} 
+                            className="flex-1 sm:flex-none px-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                      {!newSpecName.trim() && <p className="text-[10px] text-red-500 dark:text-red-400 font-bold italic px-1">⚠️ Please enter a name or click cancel</p>}
+                    </div>
+                  )}
+                  {errors.specialization_ids && <p className="text-xs text-red-500 mt-2 font-bold flex items-center gap-1 px-1">⚠️ {errors.specialization_ids}</p>}
+                </div>
               </div>
             </div>
             

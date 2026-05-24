@@ -3,8 +3,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const BrandingContext = createContext(null);
 
 const DEFAULT_BRANDING = {
-  name: "SHQMS",
-  logoText: "SHQMS",
+  name: "MediQueue",
+  logoText: "MediQueue",
   logoIcon: "heartbeat",
   primaryColor: "#1FA4A9"
 };

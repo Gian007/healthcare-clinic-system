@@ -5,7 +5,20 @@ import { useAuth } from "../../state/auth";
 import * as publicApi from "../../api/publicApi";
 import * as patientApi from "../../api/patientApi";
 
-const steps = ["Service", "Doctor", "Date & Time", "Reason", "Confirm"];
+const steps = ["Type of Concern", "Doctor", "Date & Time", "Reason", "Confirm"];
+
+const CONCERN_MAPPING = {
+  "General Consultation": "General Illness / Wellness Checkup",
+  "Cardiology Diagnostic": "Heart or Chest Pain / Cardiovascular Check",
+  "Pediatric Checkup": "Child Health / Pediatric Care",
+  "Dental Cleaning & Exam": "Teeth & Gum / Dental Care",
+  "Standard Eye Assessment": "Eye Health / Vision Check",
+  "Comprehensive Blood Panel": "Lab Tests / Blood Work Screening",
+  "Physical Therapy Rehab": "Physical Recovery / Therapy & Muscle Care",
+  "Dermatology Consult": "Skin or Allergy Concern",
+  "Nutritional Guidance": "Diet, Nutrition & Weight Management",
+  "Flu Immunization Shot": "Vaccination & Flu Shots"
+};
 
 export default function BookAppointment() {
   const navigate = useNavigate();
@@ -30,9 +43,9 @@ export default function BookAppointment() {
     const saved = sessionStorage.getItem("booking_step");
     return saved ? parseInt(saved, 10) : 1;
   });
-  const [selectedService, setSelectedService] = useState(() => {
-    const saved = sessionStorage.getItem("booking_service");
-    return saved ? JSON.parse(saved) : null;
+  const [selectedServices, setSelectedServices] = useState(() => {
+    const saved = sessionStorage.getItem("booking_services");
+    return saved ? JSON.parse(saved) : [];
   });
   const [selectedDoctor, setSelectedDoctor] = useState(() => {
     const saved = sessionStorage.getItem("booking_doctor");
@@ -86,18 +99,16 @@ export default function BookAppointment() {
   // Reset search when service changes
   useEffect(() => {
     setSearchTerm("");
-  }, [selectedService]);
+  }, [selectedServices]);
 
-  // Filtered doctors: only show doctors matching the selected service's specialization + name search
+  // Filtered doctors: only show doctors matching the selected concerns (if any have specialization mapping)
   const filteredDoctors = useMemo(() => {
     return doctors.filter(d => {
-      const matchesSpec = !selectedService?.specialization_id ||
-        d.specialization?.specialization_id === selectedService.specialization_id;
       const matchesSearch = searchTerm.trim() === "" ||
         `${d.first_name} ${d.last_name}`.toLowerCase().includes(searchTerm.trim().toLowerCase());
-      return matchesSpec && matchesSearch;
+      return matchesSearch;
     });
-  }, [doctors, selectedService, searchTerm]);
+  }, [doctors, selectedServices, searchTerm]);
 
 
   const next = () => {
@@ -109,11 +120,18 @@ export default function BookAppointment() {
     sessionStorage.setItem("booking_step", step - 1);
   };
 
-  const handleSelectService = (s) => {
-    setSelectedService(s);
+  const handleToggleService = (s) => {
+    const exists = selectedServices.find(srv => srv.service_id === s.service_id);
+    let newServices;
+    if (exists) {
+      newServices = selectedServices.filter(srv => srv.service_id !== s.service_id);
+    } else {
+      newServices = [...selectedServices, s];
+    }
+    setSelectedServices(newServices);
     setSelectedDoctor(null); 
     setSelectedSchedule(null);
-    sessionStorage.setItem("booking_service", JSON.stringify(s));
+    sessionStorage.setItem("booking_services", JSON.stringify(newServices));
     sessionStorage.removeItem("booking_doctor");
     sessionStorage.removeItem("booking_schedule");
   };
@@ -143,10 +161,11 @@ export default function BookAppointment() {
   };
 
   useEffect(() => {
-    if (selectedDoctor && selectedDate && selectedService) {
+    if (selectedDoctor && selectedDate && selectedServices.length > 0) {
       setSlotsLoading(true);
       setSlotMessage("");
-      publicApi.getAvailableSlots(selectedDoctor.doctor_id, selectedDate, selectedService.service_id)
+      // Just pass the first service ID to get standard slots
+      publicApi.getAvailableSlots(selectedDoctor.doctor_id, selectedDate, selectedServices[0].service_id)
         .then(res => {
           setSlots(res.slots || []);
           if (res.message) setSlotMessage(res.message);
@@ -159,7 +178,7 @@ export default function BookAppointment() {
     } else {
       setSlots([]);
     }
-  }, [selectedDoctor, selectedDate, selectedService]);
+  }, [selectedDoctor, selectedDate, selectedServices]);
 
   const submitBooking = async () => {
     if (user?.verification_status === "Pending" || user?.verification_status === "Rejected") {
@@ -170,18 +189,20 @@ export default function BookAppointment() {
     
     setLoading(true);
     try {
+       const concernsText = selectedServices.map(s => s.name || s.service_name).join(', ');
+       const finalReason = `Concerns: ${concernsText}. ${reason}`;
        await patientApi.bookAppointment({
          doctor_id: selectedDoctor.doctor_id,
-         service_id: selectedService.service_id,
+         service_id: selectedServices[0].service_id, // Primary service ID for DB constraint
          schedule_id: selectedSchedule.schedule_id,
          appointment_date: selectedDate,
          start_time: selectedSchedule.start_time,
          end_time: selectedSchedule.end_time,
-         reason_for_visit: reason
+         reason_for_visit: finalReason
        });
        
        sessionStorage.removeItem("booking_step");
-       sessionStorage.removeItem("booking_service");
+       sessionStorage.removeItem("booking_services");
        sessionStorage.removeItem("booking_doctor");
        sessionStorage.removeItem("booking_date");
        sessionStorage.removeItem("booking_schedule");
@@ -202,6 +223,74 @@ export default function BookAppointment() {
     const d = new Date(year, month - 1, day);
     return days[d.getDay()];
   };
+
+  const checkDateBookability = (dateStr) => {
+    const hasPatientAppt = patientAppointments.some(a => a.appointment_date === dateStr && a.booking_status !== 'Cancelled');
+    if (hasPatientAppt) return { disabled: false, reason: "You have an appointment on this day", status: "yellow", isFull: false };
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (dateStr < todayStr) return { disabled: true, reason: "Past date", status: "unavailable", isFull: false };
+
+    const holiday = announcements.find(a => 
+      a.date === dateStr && 
+      a.applies_to_type === "Whole Clinic" && 
+      (a.type === "Clinic Closed" || a.type === "Holiday" || a.type === "Emergency")
+    );
+    if (holiday) return { disabled: true, reason: `Clinic Holiday: ${holiday.title}`, status: "unavailable", isFull: false };
+
+    let isFull = false;
+    if (selectedDoctor) {
+      const dOff = selectedDoctor.dayOffs?.find(d => d.dayoff_date === dateStr && d.status === "Approved");
+      if (dOff) return { disabled: true, reason: `Doctor Leave: ${dOff.reason || "Day off"}`, status: "unavailable", isFull: false };
+
+      const dayOfWeek = getDayOfWeek(dateStr);
+      const hasSchedule = selectedDoctor.schedules?.some(sch => sch.day_of_week === dayOfWeek && sch.schedule_status === "Active");
+      if (!hasSchedule) return { disabled: true, reason: "Doctor not scheduled on this weekday", status: "unavailable", isFull: false };
+
+      const specialDoc = announcements.find(a => 
+        a.date === dateStr && 
+        a.applies_to_type === "Specific Doctor" && 
+        parseInt(a.applies_to_id, 10) === selectedDoctor.doctor_id &&
+        (a.type === "Clinic Closed" || a.type === "Emergency")
+      );
+      if (specialDoc) return { disabled: true, reason: `Doctor Unavailable: ${specialDoc.title}`, status: "unavailable", isFull: false };
+
+      const bookedCount = selectedDoctor.appointments?.filter(a => a.appointment_date === dateStr && a.booking_status !== 'Cancelled').length || 0;
+      const sch = selectedDoctor.schedules?.find(s => s.day_of_week === dayOfWeek && s.schedule_status === "Active");
+      let totalSlots = 8;
+      if (sch) {
+        const [sh, sm] = sch.start_time.split(':').map(Number);
+        const [eh, em] = sch.end_time.split(':').map(Number);
+        const totalMinutes = (eh * 60 + em) - (sh * 60 + sm);
+        const duration = selectedServices.length > 0 && selectedServices[0].estimated_duration ? selectedServices[0].estimated_duration : 30;
+        totalSlots = Math.floor(totalMinutes / duration) || 8;
+      }
+
+      if (bookedCount >= totalSlots) {
+        return { disabled: true, reason: "Doctor is fully booked for this day", status: "full", isFull: true };
+      }
+    }
+
+    return { disabled: false, reason: "Available", status: "green", isFull: false };
+  };
+  useEffect(() => {
+    if (step === 3 && selectedDoctor && !dataLoading) {
+      const currentAvail = checkDateBookability(selectedDate || new Date().toISOString().split("T")[0]);
+      if (currentAvail.disabled && currentAvail.status !== "yellow") {
+        let checkDate = new Date();
+        for (let i = 0; i < 60; i++) {
+          const dStr = checkDate.toISOString().split("T")[0];
+          const avail = checkDateBookability(dStr);
+          if (!avail.disabled || avail.status === "yellow") {
+            handleSetDate(dStr);
+            setCurrentMonth(new Date(checkDate.getFullYear(), checkDate.getMonth(), 1));
+            break;
+          }
+          checkDate.setDate(checkDate.getDate() + 1);
+        }
+      }
+    }
+  }, [step, selectedDoctor, selectedServices, dataLoading]);
 
   const prevMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
@@ -243,94 +332,7 @@ export default function BookAppointment() {
     for (let dayNum = 1; dayNum <= lastDay; dayNum++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
       
-      let disabled = false;
-      let reason = "";
-      let isFull = false;
-
-      // 1. Past dates
-      if (dateStr < todayStr) {
-        disabled = true;
-        reason = "Past date";
-      }
-
-      // 2. Holiday / Clinic Closed Announcement
-      const holiday = announcements.find(a => 
-        a.date === dateStr && 
-        a.applies_to_type === "Whole Clinic" && 
-        (a.type === "Clinic Closed" || a.type === "Holiday" || a.type === "Emergency")
-      );
-      if (holiday) {
-        disabled = true;
-        reason = `Clinic Holiday: ${holiday.title}`;
-      }
-
-      // 3. Doctor Approved Day Off
-      if (selectedDoctor && !disabled) {
-        const dOff = selectedDoctor.dayOffs?.find(d => d.dayoff_date === dateStr && d.status === "Approved");
-        if (dOff) {
-          disabled = true;
-          reason = `Doctor Leave: ${dOff.reason || "Day off"}`;
-        }
-      }
-
-      // 4. Doctor Weekly Schedule Day check
-      if (selectedDoctor && !disabled) {
-        const dayOfWeek = getDayOfWeek(dateStr);
-        const hasSchedule = selectedDoctor.schedules?.some(sch => sch.day_of_week === dayOfWeek && sch.schedule_status === "Active");
-        if (!hasSchedule) {
-          disabled = true;
-          reason = "Doctor not scheduled on this weekday";
-        }
-      }
-
-      // 5. Specific doctor special closure
-      if (selectedDoctor && !disabled) {
-        const specialDoc = announcements.find(a => 
-          a.date === dateStr && 
-          a.applies_to_type === "Specific Doctor" && 
-          parseInt(a.applies_to_id, 10) === selectedDoctor.doctor_id &&
-          (a.type === "Clinic Closed" || a.type === "Emergency")
-        );
-        if (specialDoc) {
-          disabled = true;
-          reason = `Doctor Unavailable: ${specialDoc.title}`;
-        }
-      }
-
-      // 6. Check if doctor is fully booked based on schedule slot capacity
-      if (selectedDoctor && !disabled) {
-        const bookedCount = selectedDoctor.appointments?.filter(a => a.appointment_date === dateStr && a.booking_status !== 'Cancelled').length || 0;
-        
-        const dayOfWeek = getDayOfWeek(dateStr);
-        const sch = selectedDoctor.schedules?.find(s => s.day_of_week === dayOfWeek && s.schedule_status === "Active");
-        let totalSlots = 8;
-        if (sch) {
-          const [sh, sm] = sch.start_time.split(':').map(Number);
-          const [eh, em] = sch.end_time.split(':').map(Number);
-          const totalMinutes = (eh * 60 + em) - (sh * 60 + sm);
-          const duration = selectedService?.estimated_duration || 30;
-          totalSlots = Math.floor(totalMinutes / duration) || 8;
-        }
-
-        if (bookedCount >= totalSlots) {
-          disabled = true;
-          isFull = true;
-          reason = "Doctor is fully booked for this day";
-        }
-      }
-
-      // Priority color coding:
-      // 1. Yellow if patient has already booked appointment on that day
-      // 2. Red if fully booked / holiday / day-off / past
-      // 3. Green if there are free slots available
-      const hasPatientAppt = patientAppointments.some(a => a.appointment_date === dateStr && a.booking_status !== 'Cancelled');
-      
-      let status = "green"; // Available by default
-      if (disabled) {
-        status = isFull ? "full" : "unavailable";
-      } else if (hasPatientAppt) {
-        status = "yellow";
-      }
+      const { disabled, reason, status } = checkDateBookability(dateStr);
 
       cells.push({
         dayNum,
@@ -365,6 +367,10 @@ export default function BookAppointment() {
     ? selectedDoctor.dayOffs?.some(dOff => dOff.dayoff_date === selectedDate && dOff.status === "Approved")
     : false;
 
+  const existingAppt = selectedDate 
+    ? patientAppointments.find(a => a.appointment_date === selectedDate && a.booking_status !== 'Cancelled')
+    : null;
+
   if (dataLoading) return <div className="text-center p-10 text-gray-500">Loading booking form...</div>;
 
   return (
@@ -372,6 +378,10 @@ export default function BookAppointment() {
       <div className="max-w-3xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Book Appointment</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Follow the steps below to schedule your visit</p>
+
+        <div className="mb-6 p-4 bg-teal-500/10 dark:bg-teal-500/5 text-teal-850 dark:text-teal-300 rounded-xl border border-teal-500/20 dark:border-teal-800/30 text-xs flex items-center gap-2 shadow-sm font-semibold">
+          🛡️ <span className="font-bold text-teal-950 dark:text-teal-200">Anti-Spam Policy:</span> To ensure genuine patient bookings, an appointment fee is required. The fee is applied to your consultation visit.
+        </div>
 
         {user?.verification_status === "Under Review" && (
           <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 rounded-xl border border-yellow-200 dark:border-yellow-800">
@@ -404,38 +414,47 @@ export default function BookAppointment() {
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-800 p-6 sm:p-8">
-          {/* STEP 1: Service */}
+          {/* STEP 1: Type of Concern */}
           {step === 1 && (
             <>
-              <h2 className="font-semibold text-lg mb-4 text-gray-900 dark:text-white">Choose a Service</h2>
-              {services.length === 0 ? <p className="text-gray-500">No services available.</p> : (
+              <h2 className="font-semibold text-lg mb-4 text-gray-900 dark:text-white">Type of Concern</h2>
+              <p className="text-sm text-gray-500 mb-6">Select one or more concerns. A doctor will provide a complete diagnostic during your visit.</p>
+              {services.length === 0 ? <p className="text-gray-500">No concerns available.</p> : (
                 <div className="grid md:grid-cols-2 gap-4">
-                  {services.map((s) => (
-                    <div
-                      key={s.service_id}
-                      onClick={() => handleSelectService(s)}
-                      className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${
-                        selectedService?.service_id === s.service_id
-                          ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-sm"
-                          : "border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600"
-                      }`}
-                    >
-                      <h3 className="font-semibold text-gray-900 dark:text-white">{s.service_name}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{s.estimated_duration} mins</p>
-                      <p className="text-primary font-bold mt-2">₱{s.base_fee}</p>
-                    </div>
-                  ))}
+                  {services.map((s) => {
+                    const isSelected = selectedServices.some(srv => srv.service_id === s.service_id);
+                    return (
+                      <div
+                        key={s.service_id}
+                        onClick={() => handleToggleService(s)}
+                        className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-sm scale-[1.01]"
+                            : "border-gray-200 dark:border-slate-800 hover:border-primary/50 bg-white dark:bg-slate-800"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-2 gap-4">
+                          <div>
+                            <h3 className={`font-bold text-base ${isSelected ? "text-primary" : "text-gray-900 dark:text-white"}`}>
+                              {CONCERN_MAPPING[s.service_name] || s.service_name}
+                            </h3>
+                            <span className="inline-block mt-2 text-[10px] font-bold bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 px-2.5 py-1 rounded-lg border border-teal-100 dark:border-teal-900/30">
+                              Booking Fee: ₱{Number(s.base_fee).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 mt-0.5 ${
+                            isSelected ? "bg-primary border-primary text-white" : "border-gray-300 dark:border-gray-600"
+                          }`}>
+                            {isSelected && <FaCheck className="text-xs" />}
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">{s.description || "Consultation for this concern"}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
-              <div className="mt-8 text-right">
-                <button
-                  disabled={!selectedService}
-                  onClick={next}
-                  className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-medium disabled:opacity-40 hover:opacity-90 transition"
-                >
-                  Next <FaArrowRight />
-                </button>
-              </div>
+
             </>
           )}
 
@@ -480,19 +499,6 @@ export default function BookAppointment() {
                   ))}
                 </div>
               )}
-
-              <div className="mt-8 flex justify-between">
-                <button onClick={back} className="inline-flex items-center gap-2 px-5 py-3 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition">
-                  <FaArrowLeft /> Back
-                </button>
-                <button
-                  disabled={!selectedDoctor}
-                  onClick={next}
-                  className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-medium disabled:opacity-40 hover:opacity-90 transition"
-                >
-                  Next <FaArrowRight />
-                </button>
-              </div>
             </>
           )}
 
@@ -549,11 +555,11 @@ export default function BookAppointment() {
                         // Yellow - you have an appointment
                         cellClasses = "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/50 hover:bg-amber-200 dark:hover:bg-amber-900/40 ring-2 ring-amber-400 dark:ring-amber-500/50 font-black";
                       } else if (cell.status === "full") {
-                        // Red - fully booked
-                        cellClasses = "bg-rose-100 dark:bg-rose-950/20 text-rose-800 dark:text-rose-400 border-rose-300 dark:border-rose-900/30 cursor-not-allowed line-through opacity-70";
+                        // Gray - fully booked
+                        cellClasses = "bg-slate-100 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700/60 cursor-not-allowed opacity-60";
                       } else if (cell.status === "unavailable") {
-                        // Red - closed / past / holiday / day-off
-                        cellClasses = "bg-rose-50/50 dark:bg-rose-950/10 text-rose-300 dark:text-rose-700 border-rose-100 dark:border-rose-950/20 cursor-not-allowed opacity-40 line-through";
+                        // Gray - closed / past / holiday / day-off
+                        cellClasses = "bg-slate-100/30 dark:bg-slate-800/10 text-slate-300 dark:text-slate-700 border-slate-100 dark:border-slate-800/30 cursor-not-allowed opacity-40 line-through";
                       } else {
                         // Green - free slot available
                         cellClasses = "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/30 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-100 dark:hover:bg-emerald-900/30";
@@ -569,9 +575,12 @@ export default function BookAppointment() {
                         disabled={cell.disabled}
                         onClick={() => handleSetDate(cell.dateStr)}
                         title={cell.reason || `${cell.dateStr}`}
-                        className={`aspect-square w-full rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center transition-all border ${cellClasses}`}
+                        className={`aspect-square w-full rounded-xl text-xs sm:text-sm font-bold flex flex-col items-center justify-center transition-all border ${cellClasses}`}
                       >
-                        {cell.dayNum}
+                        <span>{cell.dayNum}</span>
+                        {cell.status === "full" && (
+                          <span className="text-[7px] sm:text-[8px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-tighter mt-0.5 leading-none">Full</span>
+                        )}
                       </button>
                     );
                   })}
@@ -589,6 +598,15 @@ export default function BookAppointment() {
                       <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">Doctor Leave</span>
                     )}
                   </div>
+                  
+                  {existingAppt && (
+                    <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 rounded-xl border border-amber-200 dark:border-amber-800">
+                      <p className="font-bold mb-1">You already have an appointment on this date:</p>
+                      <p className="text-sm">Time: {existingAppt.start_time}</p>
+                      <p className="text-sm">Status: {existingAppt.booking_status}</p>
+                      <p className="text-sm mt-2">You can view full details in your Patient Dashboard.</p>
+                    </div>
+                  )}
                   
                   {isDayOff ? (
                     <div className="p-4 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-xl border border-orange-200 dark:border-orange-800">
@@ -640,19 +658,6 @@ export default function BookAppointment() {
                   )}
                 </div>
               )}
-              
-              <div className="mt-8 flex justify-between">
-                <button onClick={back} className="inline-flex items-center gap-2 px-5 py-3 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition">
-                  <FaArrowLeft /> Back
-                </button>
-                <button
-                  disabled={!selectedSchedule || !selectedDate}
-                  onClick={next}
-                  className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-medium disabled:opacity-40 hover:opacity-90 transition"
-                >
-                  Next <FaArrowRight />
-                </button>
-              </div>
             </>
           )}
 
@@ -666,18 +671,6 @@ export default function BookAppointment() {
                 placeholder="Describe your symptoms or reason for visit..."
                 className="w-full border border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl p-4 h-36 outline-none focus:ring-2 focus:ring-primary/30 resize-none"
               />
-              <div className="mt-8 flex justify-between">
-                <button onClick={back} className="inline-flex items-center gap-2 px-5 py-3 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition">
-                  <FaArrowLeft /> Back
-                </button>
-                <button
-                  disabled={!reason.trim()}
-                  onClick={next}
-                  className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-medium disabled:opacity-40 hover:opacity-90 transition"
-                >
-                  Next <FaArrowRight />
-                </button>
-              </div>
             </>
           )}
 
@@ -687,8 +680,8 @@ export default function BookAppointment() {
               <h2 className="font-semibold text-lg mb-4 text-gray-900 dark:text-white">Booking Summary</h2>
               <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl p-6 space-y-3 text-sm sm:text-base">
                 <div className="flex justify-between gap-4">
-                  <span className="text-gray-600 dark:text-gray-400 shrink-0">Service</span>
-                  <span className="font-semibold text-gray-900 dark:text-white text-right">{selectedService?.service_name}</span>
+                  <span className="text-gray-600 dark:text-gray-400 shrink-0">Concerns</span>
+                  <span className="font-semibold text-gray-900 dark:text-white text-right">{selectedServices.map(s => CONCERN_MAPPING[s.service_name] || s.name || s.service_name).join(', ')}</span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-gray-600 dark:text-gray-400 shrink-0">Doctor</span>
@@ -706,10 +699,13 @@ export default function BookAppointment() {
                   <span className="text-gray-600 dark:text-gray-400 shrink-0">Reason</span>
                   <span className="font-semibold text-gray-900 dark:text-white text-right break-words">{reason}</span>
                 </div>
-                <div className="border-t dark:border-slate-700 pt-3 flex justify-between gap-4 mt-2">
-                  <span className="text-gray-600 dark:text-gray-400 font-medium shrink-0">Total Fee</span>
-                  <span className="font-bold text-primary text-lg">₱{selectedService?.base_fee}</span>
+                <div className="border-t border-primary/20 pt-3 mt-3 flex justify-between gap-4 items-center">
+                  <span className="font-bold text-gray-800 dark:text-gray-200">Appointment Fee</span>
+                  <span className="font-black text-lg text-primary">₱{selectedServices.length > 0 ? selectedServices[0].base_fee : 0}</span>
                 </div>
+                <p className="text-xs text-primary/80 mt-2 font-medium">
+                  * Note: An appointment fee is required to prevent spam bookings. You will be redirected to the payment gateway after confirmation.
+                </p>
               </div>
               <div className="mt-8 flex justify-between">
                 <button onClick={back} className="inline-flex items-center gap-2 px-5 py-3 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition">
@@ -726,6 +722,30 @@ export default function BookAppointment() {
             </>
           )}
         </div>
+
+        {/* Floating Action Bar */}
+        <div className="fixed bottom-6 right-6 md:bottom-10 md:right-10 z-50 flex items-center gap-3 animate-in slide-in-from-bottom-8">
+          {step > 1 && step < 5 && (
+            <button onClick={back} className="shadow-[0_8px_30px_rgb(0,0,0,0.12)] bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 w-14 h-14 rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all border border-gray-100 dark:border-slate-700">
+              <FaArrowLeft />
+            </button>
+          )}
+          {step < 5 && (
+            <button
+              onClick={next}
+              disabled={
+                (step === 1 && selectedServices.length === 0) ||
+                (step === 2 && !selectedDoctor) ||
+                (step === 3 && (!selectedDate || !selectedSchedule)) ||
+                (step === 4 && !reason.trim())
+              }
+              className="shadow-[0_8px_30px_rgb(0,0,0,0.2)] bg-primary text-white px-8 h-14 rounded-full flex items-center gap-3 font-black tracking-wide hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
+            >
+              NEXT <FaArrowRight />
+            </button>
+          )}
+        </div>
+
       </div>
     </div>
   );

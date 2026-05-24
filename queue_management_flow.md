@@ -1,6 +1,6 @@
-# Smart Healthcare Availability & Queue Management System
+# MediQueue - Smart Healthcare Availability & Queue Management System
 
-This document outlines the clarified, real-time room-based queue management flow of the **Smart Healthcare Availability & Queue Management System (SHQMS)**. It describes how actor roles, room configurations, queue assignment, and active statuses synchronize dynamically to optimize the doctor's consultation workflow.
+This document outlines the clarified, real-time room-based queue management flow of **MediQueue**. It describes how actor roles, room configurations, queue assignment, and active statuses synchronize dynamically to optimize the doctor's consultation workflow.
 
 ---
 
@@ -18,7 +18,7 @@ The system operates with strict segregation of duties between three main roles:
 
 ## 2. Queue Lifecycle Workflow
 
-SHQMS coordinates online appointments and walk-in flows dynamically, prioritizing physically checked-in waiting patients per room:
+MediQueue coordinates online appointments and walk-in flows dynamically, prioritizing physically checked-in waiting patients per room:
 
 ```mermaid
 graph TD

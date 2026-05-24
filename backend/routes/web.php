@@ -38,7 +38,7 @@ Route::get('/appointments/{id}/confirm-attendance-signed', function (Request $re
 
     $settings = SystemSetting::getAdminPortalSettings();
     $branding = $settings['branding'] ?? [];
-    $clinicName = $branding['clinicName'] ?? 'SHQMS';
+    $clinicName = $branding['clinicName'] ?? 'MediQueue';
     $logoPath = $branding['logoPath'] ?? '';
     
     return view('emails.attendance_response', [
@@ -85,7 +85,7 @@ Route::get('/appointments/{id}/decline-attendance-signed', function (Request $re
 
     $settings = SystemSetting::getAdminPortalSettings();
     $branding = $settings['branding'] ?? [];
-    $clinicName = $branding['clinicName'] ?? 'SHQMS';
+    $clinicName = $branding['clinicName'] ?? 'MediQueue';
     $logoPath = $branding['logoPath'] ?? '';
 
     return view('emails.attendance_response', [

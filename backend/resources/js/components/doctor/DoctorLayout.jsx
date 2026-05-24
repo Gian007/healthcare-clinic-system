@@ -73,7 +73,7 @@ export default function DoctorLayout() {
           <div className={`flex items-center gap-3 overflow-hidden ${collapsed && !open ? "lg:hidden" : ""}`}>
             <Logo />
             <div>
-              <h1 className="text-xl font-black leading-none tracking-tighter font-comfortaa font-fat">SHQMS</h1>
+              <h1 className="text-xl font-black leading-none tracking-tighter font-comfortaa font-fat">MediQueue</h1>
               <p className="text-[9px] text-white/70 uppercase font-bold tracking-widest mt-1 font-poppins">Doctor Portal</p>
             </div>
           </div>

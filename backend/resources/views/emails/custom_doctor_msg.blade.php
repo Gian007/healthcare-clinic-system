@@ -5,8 +5,8 @@
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
     <div style="text-align: center; margin-bottom: 20px;">
-        <img src="{{ $message->embed(public_path('logo2.png')) }}" alt="SHQMS Logo" style="max-height: 80px; margin-bottom: 10px;">
-        <h1 style="color: #0d9488; font-size: 20px; margin: 0;">SHQMS - Clinic Management</h1>
+        <img src="{{ $message->embed(public_path('logo2.png')) }}" alt="MediQueue Logo" style="max-height: 80px; margin-bottom: 10px;">
+        <h1 style="color: #0d9488; font-size: 20px; margin: 0;">MediQueue - Clinic Management</h1>
     </div>
     <p>Dear Dr. {{ $doctor->last_name }},</p>
     

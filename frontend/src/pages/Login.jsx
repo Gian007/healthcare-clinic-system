@@ -56,7 +56,7 @@ export default function Login() {
           <Logo size="lg" />
         </div>
 
-        <h1 className="mt-6 text-5xl font-black text-gray-900 dark:text-white tracking-tighter uppercase font-comfortaa leading-none font-fat">{branding.name}</h1>
+        <h1 className="mt-6 text-5xl font-black text-gray-900 dark:text-white tracking-tighter font-comfortaa leading-none font-fat">{branding.name}</h1>
         <p className="text-xs font-bold text-primary uppercase tracking-[0.2em] mt-1 font-poppins">Smart Healthcare Availability</p>
         <p className="text-sm italic font-medium text-gray-600 dark:text-gray-400 mt-4 font-playfair">"Skip the Wait, Get the Care."</p>
 

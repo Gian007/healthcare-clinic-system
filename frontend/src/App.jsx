@@ -46,7 +46,7 @@ import AdminPatients from "./pages/admin/AdminPatients";
 import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminReports from "./pages/admin/AdminReports";
 import AdminSettings from "./pages/admin/AdminSettings";
-
+import AdminLandingPage from "./pages/admin/AdminLandingPage";
 
 // DOCTOR IMPORTS
 import DoctorLayout from "./components/doctor/DoctorLayout";
@@ -83,17 +83,18 @@ export default function App() {
     location.pathname.startsWith("/patient/") ||
     ["/staff", "/admin", "/doctor", "/patient"].includes(location.pathname);
 
+  const isHome = location.pathname === "/";
+
   return (
     <div className="min-h-screen bg-neutralbg dark:bg-slate-950 transition-colors duration-200">
       {!hideNavbar && <Navbar />}
 
-      <div className={!hideNavbar ? "pt-[72px]" : ""}>
+      <div className={!hideNavbar && !isHome ? "pt-[72px]" : ""}>
         <Routes>
           {/* ================= PUBLIC ================= */}
           <Route path="/" element={<Home />} />
           <Route path="/doctors" element={<Doctors />} />
           <Route path="/services" element={<Services />} />
-          <Route path="/queue" element={<Queue />} />
           <Route path="/announcements" element={<Announcements />} />
           <Route path="/schedule" element={<Schedule />} />
 
@@ -160,7 +161,9 @@ export default function App() {
             <Route path="calendar" element={<ClinicCalendar />} />
             <Route path="notifications" element={<AdminNotifications />} />
             <Route path="reports" element={<AdminReports />} />
+            <Route path="landing-page" element={<AdminLandingPage />} />
             <Route path="settings" element={<AdminSettings />} />
+            <Route path="queue" element={<StaffQueue />} />
           </Route>
 
 

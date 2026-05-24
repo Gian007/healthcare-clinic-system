@@ -26,7 +26,7 @@ class VerificationCodeMail extends Mailable
         $settings = SystemSetting::getAdminPortalSettings();
         $branding = $settings['branding'] ?? [];
         
-        $this->clinicName = $branding['clinicName'] ?? 'SHQMS';
+        $this->clinicName = $branding['clinicName'] ?? 'MediQueue';
         $this->tagline = $branding['tagline'] ?? 'Smart Healthcare Availability and Queue Management System';
         $this->logoPath = $branding['logoPath'] ?? '';
     }

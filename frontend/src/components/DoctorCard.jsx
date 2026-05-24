@@ -1,4 +1,4 @@
-import { FaCalendarAlt, FaExclamationTriangle } from "react-icons/fa";
+import { FaCalendarAlt, FaExclamationTriangle, FaUser } from "react-icons/fa";
 
 export default function DoctorCard({ doctor, onViewAvailability }) {
   const isDocActive = doctor.status === "Available" || doctor.status === "Active";
@@ -39,8 +39,8 @@ export default function DoctorCard({ doctor, onViewAvailability }) {
               onClick={() => onViewAvailability && onViewAvailability(doctor)}
               className="w-full bg-primary text-white py-2.5 rounded-lg text-sm font-bold inline-flex items-center justify-center gap-2 hover:opacity-90 transition shadow-lg shadow-primary/20"
             >
-              <FaCalendarAlt className="text-sm" />
-              Book Appointment
+              <FaUser className="text-sm" />
+              View Doctor Info
             </button>
           ) : (
             <div className="w-full bg-slate-100 dark:bg-slate-800 text-slate-400 py-2.5 rounded-lg text-sm font-bold text-center">

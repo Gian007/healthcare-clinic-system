@@ -126,7 +126,7 @@ export default function Home() {
             <Logo size="lg" />
           </div>
           <h1 className="text-4xl md:text-7xl font-black text-gray-900 dark:text-white tracking-tighter font-comfortaa leading-none font-fat">
-            SHQMS
+            MediQueue
           </h1>
           <p className="mt-2 text-base font-bold text-primary uppercase tracking-[0.2em] font-poppins">Smart Healthcare Availability and Queue Management System</p>
           <div className="w-20 h-1 bg-primary/30 mx-auto my-6 rounded-full"></div>
@@ -282,7 +282,7 @@ export default function Home() {
           </div>
 
           <div className="border-t border-slate-50 dark:border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">© 2026 SHQMS. All Rights Reserved.</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">© 2026 MediQueue. All Rights Reserved.</p>
             <div className="flex gap-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                <a href="#" className="hover:text-primary transition-colors">Privacy Policy</a>
                <a href="#" className="hover:text-primary transition-colors">Terms of Service</a>

@@ -51,6 +51,7 @@ class AuthController extends Controller
             $doctor = Doctor::where('email', $email)->first();
             if ($doctor) {
                 $user = $doctor;
+                $user->load(['specialization', 'specializations']);
                 $role = 'doctor';
             } else {
                 $staff = Staff::where('email', $email)->first();
@@ -196,8 +197,12 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
+        $user = $request->user();
+        if ($user instanceof \App\Models\Doctor) {
+            $user->load(['specialization', 'specializations']);
+        }
         return response()->json([
-            'user'      => $request->user(),
+            'user'      => $user,
             'abilities' => $request->user()->currentAccessToken()->abilities,
         ]);
     }

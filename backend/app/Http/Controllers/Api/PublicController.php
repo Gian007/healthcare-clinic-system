@@ -41,7 +41,7 @@ class PublicController extends Controller
         $date = now()->format('Y-m-d');
         $day = now()->format('l');
 
-        $doctors = Doctor::with(['specialization', 'schedules', 'dayOffs', 'appointments'])
+        $doctors = Doctor::with(['specialization', 'schedules', 'dayOffs', 'appointments', 'services'])
             ->where('status', 'Active')
             ->get()
             ->map(function($doc) use ($date, $day) {
@@ -62,6 +62,17 @@ class PublicController extends Controller
                 if ($special && ($special->type === 'Clinic Closed' || $special->type === 'Emergency')) {
                     $doc->is_available_today = false;
                 }
+
+                $todaySchedule = $doc->schedules->where('day_of_week', $day)->first();
+                $doc->today_schedule = $todaySchedule ? ($todaySchedule->start_time . ' - ' . $todaySchedule->end_time) : 'No Schedule Today';
+                
+                $queueCount = \App\Models\Queue::where('doctor_id', $doc->doctor_id)
+                    ->where('queue_date', $date)
+                    ->whereIn('queue_status', ['Waiting', 'Active'])
+                    ->count();
+                    
+                $doc->current_queue_count = $queueCount;
+                $doc->estimated_wait_time = $queueCount * 15; // 15 mins per patient
                 
                 return $doc;
             });

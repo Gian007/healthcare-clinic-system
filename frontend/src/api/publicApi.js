@@ -13,3 +13,4 @@ export const getAvailableSlots = (doctorId, date, serviceId) =>
     }).then(r => r.data);
 
 export const getSettings = () => api.get('/public/settings').then(r => r.data);
+export const getLandingPageSettings = () => api.get('/public/landing-page').then(r => r.data);

@@ -246,7 +246,7 @@ export default function Register() {
                 <button type="button" className="text-primary underline font-medium hover:opacity-80" onClick={() => setShowTerms(true)}>Terms and Conditions</button>
                 {' '}and{' '}
                 <button type="button" className="text-primary underline font-medium hover:opacity-80" onClick={() => setShowPrivacy(true)}>Privacy Policy</button>
-                {' '}of SHQMS.
+                {' '}of MediQueue.
               </span>
             </label>
             {errors.terms && <p className="text-xs text-red-500 mt-1">{errors.terms}</p>}
@@ -268,14 +268,14 @@ export default function Register() {
                   <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">Terms and Conditions</h2>
                   <div className="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300 space-y-4">
                     <p className="font-semibold text-gray-900 dark:text-white">Last Updated: May 2026</p>
-                    <p>Welcome to the Smart Healthcare Availability & Queue Management System ("SHQMS"). By creating an account, accessing, or using the platform, users agree to comply with the following Terms and Conditions.</p>
+                    <p>Welcome to the MediQueue System. By creating an account, accessing, or using the platform, users agree to comply with the following Terms and Conditions.</p>
 
                     <h3 className="font-bold text-gray-900 dark:text-white mt-4">1. Acceptance of Terms</h3>
-                    <p>By accessing or using the Smart Healthcare Availability & Queue Management System, users acknowledge that they have read, understood, and agreed to be bound by these Terms and Conditions, Privacy Policy, and applicable laws and regulations.</p>
+                    <p>By accessing or using the MediQueue System, users acknowledge that they have read, understood, and agreed to be bound by these Terms and Conditions, Privacy Policy, and applicable laws and regulations.</p>
                     <p>If a user does not agree with these terms, access to the platform should be discontinued immediately.</p>
 
                     <h3 className="font-bold text-gray-900 dark:text-white mt-4">2. Purpose of the Platform</h3>
-                    <p>The Smart Healthcare Availability & Queue Management System is designed to provide:</p>
+                    <p>The MediQueue System is designed to provide:</p>
                     <ul className="list-disc pl-5 space-y-1">
                       <li>Real-time doctor availability monitoring</li>
                       <li>Appointment scheduling</li>
@@ -317,7 +317,7 @@ export default function Register() {
                   <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">Privacy Policy</h2>
                   <div className="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300 space-y-4">
                     <p className="font-semibold text-gray-900 dark:text-white">Last Updated: May 2026</p>
-                    <p>The Smart Healthcare Availability & Queue Management System ("SHQMS") is committed to protecting the privacy and security of our users' personal and health-related information.</p>
+                    <p>The MediQueue System ("MediQueue") is committed to protecting the privacy and security of our users' personal and health-related information.</p>
 
                     <h3 className="font-bold text-gray-900 dark:text-white mt-4">Information Collection</h3>
                     <p>We collect information necessary for the operation of the healthcare scheduling and queue management platform, including:</p>
@@ -345,7 +345,7 @@ export default function Register() {
                     <p>We will not sell, rent, or trade your personal information to unassociated third parties.</p>
 
                     <h3 className="font-bold text-gray-900 dark:text-white mt-4">Changes to This Privacy Policy</h3>
-                    <p>The Smart Healthcare Availability & Queue Management System reserves the right to update this Privacy Policy when necessary. Users will be notified of significant changes through system notifications, email announcements, or platform updates.</p>
+                    <p>The MediQueue System reserves the right to update this Privacy Policy when necessary. Users will be notified of significant changes through system notifications, email announcements, or platform updates.</p>
 
                     <h3 className="font-bold text-gray-900 dark:text-white mt-4">Contact Information</h3>
                     <p>For questions, concerns, or privacy-related requests, users may contact:</p>

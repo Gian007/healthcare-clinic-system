@@ -23,6 +23,7 @@ Route::get('/public/services',      [\App\Http\Controllers\Api\PublicController:
 Route::get('/public/queue',         [\App\Http\Controllers\Api\PublicController::class, 'getQueue']);
 Route::get('/public/announcements', [\App\Http\Controllers\Api\PublicController::class, 'getAnnouncements']);
 Route::get('/public/settings',      [\App\Http\Controllers\Api\PublicController::class, 'getSettings']);
+Route::get('/public/landing-page',  [\App\Http\Controllers\Api\LandingPageSettingController::class, 'index']);
 
 /* ─────────────── Authenticated Routes ─────────────── */
 Route::middleware('auth:sanctum')->group(function () {
@@ -53,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /* ── Doctor Routes ── */
     Route::prefix('doctor')->middleware('role:doctor')->group(function () {
+        Route::get('/specializations',              [\App\Http\Controllers\Api\AdminController::class, 'getSpecializations']);
         Route::get('/dashboard',                    [DoctorController::class, 'dashboard']);
         Route::get('/appointments',                 [DoctorController::class, 'getAppointments']);
         Route::put('/appointments/{id}/status',     [DoctorController::class, 'updateAppointmentStatus']);
@@ -104,6 +106,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/settings',                     [AdminController::class, 'getSettings']);
         Route::put('/settings',                     [AdminController::class, 'updateSettings']);
         Route::post('/settings/logo',               [AdminController::class, 'uploadBrandLogo']);
+
+        Route::put('/landing-page/{section_key}',   [\App\Http\Controllers\Api\LandingPageSettingController::class, 'update']);
+        Route::post('/landing-page/upload-image',   [\App\Http\Controllers\Api\LandingPageSettingController::class, 'uploadImage']);
 
         Route::get('/patients',                     [AdminController::class, 'getPatients']);
         Route::post('/patients',                    [AdminController::class, 'createPatient']);

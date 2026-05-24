@@ -6,7 +6,7 @@ import { resolveLogoUrl } from "../../config/adminSettings";
 import {
   Menu, X, Moon, Sun, LayoutDashboard, Stethoscope, CalendarDays,
   BriefcaseMedical, Users, UserRound, Bell, BarChart3, Settings,
-  ChevronLeft, ChevronRight, LogOut, HeartPulse, Hospital
+  ChevronLeft, ChevronRight, LogOut, HeartPulse, Hospital, Monitor
 } from "lucide-react";
 import Logo from "../Logo";
 
@@ -21,6 +21,7 @@ const links = [
   { to: "/admin/calendar", label: "Clinic Calendar", icon: CalendarDays, key: "calendar" },
   { to: "/admin/notifications", label: "Notifications", icon: Bell, key: "notifications" },
   { to: "/admin/reports", label: "Reports", icon: BarChart3, key: "reports" },
+  { to: "/admin/landing-page", label: "Landing Page", icon: Monitor, key: "landing_page" },
   { to: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

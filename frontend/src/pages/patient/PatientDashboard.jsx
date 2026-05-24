@@ -3,6 +3,7 @@ import { FaCalendarAlt, FaBell, FaUserCircle, FaArrowRight, FaClipboardList } fr
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../state/auth";
 import * as patientApi from "../../api/patientApi";
+import * as publicApi from "../../api/publicApi";
 
 const STATUS_COLORS = {
   Confirmed:   { bg: 'bg-green-100 dark:bg-green-900/30',  text: 'text-green-700 dark:text-green-400'  },
@@ -44,6 +45,9 @@ export default function PatientDashboard() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [pendingConfirmAppt, setPendingConfirmAppt] = useState(null);
 
+  const [queueCount, setQueueCount] = useState(0);
+  const [avgWaitTime, setAvgWaitTime] = useState(0);
+
   const fetchDashboardData = () => {
     patientApi.getDashboard()
       .then(d => {
@@ -52,6 +56,13 @@ export default function PatientDashboard() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+      
+    publicApi.getQueue()
+      .then(res => {
+        setQueueCount(res.total_waiting || 0);
+        setAvgWaitTime(res.estimated_wait_time || 0);
+      })
+      .catch(() => {});
   };
 
   useEffect(() => {
@@ -86,6 +97,55 @@ export default function PatientDashboard() {
 
   const upcoming = appts.filter(a => a.booking_status !== 'Completed' && a.booking_status !== 'Cancelled');
   const completed = appts.filter(a => a.booking_status === 'Completed').length;
+
+  const getQueueInfo = () => {
+    if (queueCount === 0) {
+      return {
+        message: "No waiting patients. You will be seen immediately!",
+        colorClass: "text-emerald-600 dark:text-emerald-400",
+        titleColor: "text-emerald-900 dark:text-emerald-100",
+        pColor: "text-emerald-700 dark:text-emerald-300",
+        bgClass: "from-emerald-50/70 dark:from-emerald-950/20 to-teal-50/70 dark:to-teal-950/20",
+        borderClass: "border-emerald-100 dark:border-emerald-800/50",
+        badgeBg: "bg-emerald-500",
+        statusText: "Smooth / No Wait"
+      };
+    } else if (queueCount <= 3) {
+      return {
+        message: "Short queue. Quick turnaround time.",
+        colorClass: "text-teal-600 dark:text-teal-400",
+        titleColor: "text-teal-900 dark:text-teal-100",
+        pColor: "text-teal-700 dark:text-teal-300",
+        bgClass: "from-teal-50/70 dark:from-teal-950/20 to-cyan-50/70 dark:to-cyan-950/20",
+        borderClass: "border-teal-100 dark:border-teal-800/50",
+        badgeBg: "bg-teal-500",
+        statusText: "Low Wait"
+      };
+    } else if (queueCount <= 7) {
+      return {
+        message: "Moderate clinic volume. Expected wait time is around half an hour.",
+        colorClass: "text-amber-600 dark:text-amber-400",
+        titleColor: "text-amber-900 dark:text-amber-100",
+        pColor: "text-amber-750 dark:text-amber-350",
+        bgClass: "from-amber-50/75 dark:from-amber-950/20 to-yellow-50/75 dark:to-yellow-950/20",
+        borderClass: "border-amber-100 dark:border-amber-800/50",
+        badgeBg: "bg-amber-500",
+        statusText: "Moderate Wait"
+      };
+    } else {
+      return {
+        message: "High clinic volume. Expect longer waiting times than usual.",
+        colorClass: "text-rose-600 dark:text-rose-400",
+        titleColor: "text-rose-900 dark:text-rose-100",
+        pColor: "text-rose-700 dark:text-rose-450",
+        bgClass: "from-rose-50/70 dark:from-rose-950/20 to-orange-50/70 dark:to-orange-950/20",
+        borderClass: "border-rose-100 dark:border-rose-900/50",
+        badgeBg: "bg-rose-500",
+        statusText: "Busy / High Wait"
+      };
+    }
+  };
+  const qInfo = getQueueInfo();
 
   return (
     <div className="space-y-6">
@@ -176,6 +236,37 @@ export default function PatientDashboard() {
         ))}
       </div>
 
+      {/* Live Queue Status Widget */}
+      <div className={`bg-gradient-to-r ${qInfo.bgClass} rounded-2xl border ${qInfo.borderClass} p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm transition-all duration-300`}>
+         <div className="flex items-center gap-4">
+            <div className="relative">
+               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${qInfo.colorClass.replace('text', 'bg')} opacity-75`} />
+               <div className={`relative w-14 h-14 ${qInfo.badgeBg} rounded-full flex items-center justify-center text-white shadow-lg transition-colors duration-300`}>
+                  <FaBell className="text-2xl" />
+               </div>
+            </div>
+            <div>
+               <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className={`text-xl font-bold ${qInfo.titleColor} mb-0.5`}>Live Queue Status</h3>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${qInfo.colorClass.replace('text', 'bg')}/10 ${qInfo.colorClass}`}>
+                     {qInfo.statusText}
+                  </span>
+               </div>
+               <p className={`text-sm ${qInfo.pColor} font-medium mt-1`}>{qInfo.message}</p>
+            </div>
+         </div>
+         <div className="flex gap-4">
+            <div className="bg-white dark:bg-slate-900 rounded-xl px-6 py-4 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center min-w-[120px] transition-colors">
+               <span className={`text-3xl font-black ${qInfo.colorClass}`}>{queueCount}</span>
+               <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">Waiting</span>
+            </div>
+            <div className="bg-white dark:bg-slate-900 rounded-xl px-6 py-4 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center min-w-[120px] transition-colors">
+               <span className={`text-3xl font-black ${queueCount > 7 ? 'text-rose-500 dark:text-rose-400' : queueCount > 3 ? 'text-amber-500 dark:text-amber-400' : 'text-emerald-500 dark:text-emerald-400'}`}>~{avgWaitTime}</span>
+               <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">Mins Wait</span>
+            </div>
+         </div>
+      </div>
+
       {/* ID Verification alert */}
       {user?.verification_status === 'Pending' && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-center justify-between gap-4">
@@ -212,10 +303,6 @@ export default function PatientDashboard() {
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 p-10 text-center">
               <FaCalendarAlt className="text-4xl text-gray-300 dark:text-slate-600 mx-auto mb-3" />
               <p className="text-gray-500 dark:text-gray-400">You have no appointments yet.</p>
-              <button onClick={() => nav('/patient/book')}
-                className="mt-4 text-primary font-medium hover:underline">
-                Book your first appointment →
-              </button>
             </div>
           ) : (
             appts.map(a => (

@@ -1,6 +1,6 @@
 export const DEFAULT_ADMIN_SETTINGS = {
   branding: {
-    clinicName: "SHQMS",
+    clinicName: "MediQueue",
     tagline: "Admin Portal",
     logoPath: "",
   },
@@ -78,7 +78,7 @@ export const DEFAULT_ADMIN_SETTINGS = {
       caption: "National Emergency Hotline",
     },
     contact: {
-      description: "Smart Healthcare Availability and Queue Management System. Streamlining patient care with modern technology.",
+      description: "MediQueue - Smart Healthcare Availability and Queue Management System. Streamlining patient care with modern technology.",
       locationTitle: "Location",
       address: "Regalado Road, Quezon City",
       sectionTitle: "Contact Information",
@@ -97,7 +97,7 @@ export const DEFAULT_ADMIN_SETTINGS = {
       instagramUrl: "https://imgs.search.brave.com/K6P0AEBGlnzkaHI_RgWnVhabSmflD3sRLiCAIeTPrtQ/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMubWVtZS1hcnNl/bmFsLmNvbS8zOTMz/MjY5MjdmNzU3ZTA3/ZDc4NjkzNmFkNWQx/ZjM1ZS5qcGc",
     },
     footer: {
-      copyright: "Copyright 2026 SHQMS. All Rights Reserved.",
+      copyright: "Copyright 2026 MediQueue. All Rights Reserved.",
       privacyLabel: "Privacy Policy",
       privacyUrl: "#",
       termsLabel: "Terms of Service",

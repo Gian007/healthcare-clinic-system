@@ -4,19 +4,13 @@ import * as adminApi from "../../api/adminApi";
 import { FaCopy, FaCheckCircle } from "react-icons/fa";
 
 function SuccessCredentials({ staff, tempPassword, onClose }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(`Email: ${staff.email}\nTemporary Password: ${tempPassword}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
   return (
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-6 w-full max-w-md animate-in zoom-in-95">
         <div className="text-center mb-4">
           <FaCheckCircle className="text-emerald-500 text-5xl mx-auto mb-3" />
           <h3 className="text-xl font-bold text-gray-900 dark:text-white">Staff Account Created!</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Temporary credentials for the new member.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Credentials have been sent securely via email.</p>
         </div>
         <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-4 space-y-2 text-sm">
           <div className="flex justify-between">
@@ -27,17 +21,9 @@ function SuccessCredentials({ staff, tempPassword, onClose }) {
             <span className="text-gray-500 dark:text-gray-400">Email</span>
             <span className="font-medium">{staff.email}</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500 dark:text-gray-400">Temp Password</span>
-            <span className="font-bold text-teal-600 font-mono">{tempPassword}</span>
-          </div>
         </div>
-        <div className="flex gap-3 mt-5">
-          <button onClick={copy} className="flex-1 flex items-center justify-center gap-2 border border-teal-600 text-teal-600 py-2.5 rounded-xl font-medium hover:bg-teal-50 transition">
-            {copied ? <FaCheckCircle size={16} /> : <FaCopy size={16} />}
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
-          <button onClick={onClose} className="flex-1 bg-teal-600 text-white py-2.5 rounded-xl font-medium hover:opacity-90 transition shadow-lg shadow-teal-600/20">Done</button>
+        <div className="flex mt-6">
+          <button onClick={onClose} className="w-full bg-teal-600 text-white py-2.5 rounded-xl font-medium hover:opacity-90 transition shadow-lg shadow-teal-600/20">Done</button>
         </div>
       </div>
     </div>
@@ -246,9 +232,14 @@ export default function AdminStaff() {
             <TextInput label="First Name" value={modal.data.first_name} onChange={v => setModal({ ...modal, data: { ...modal.data, first_name: v } })} />
             <TextInput label="Last Name" value={modal.data.last_name} onChange={v => setModal({ ...modal, data: { ...modal.data, last_name: v } })} />
             <SelectInput label="Role" value={modal.data.role} onChange={v => setModal({ ...modal, data: { ...modal.data, role: v } })} options={["Admin", "Receptionist", "Nurse", "Verifier"]} />
-            <SelectInput label="Status" value={modal.data.account_status} onChange={v => setModal({ ...modal, data: { ...modal.data, account_status: v } })} options={["Active", "Inactive", "Resigned"]} />
-            <TextInput label="Contact" value={modal.data.contact_number} onChange={v => setModal({ ...modal, data: { ...modal.data, contact_number: v } })} />
             <TextInput label="Email" value={modal.data.email} onChange={v => setModal({ ...modal, data: { ...modal.data, email: v } })} />
+            
+            {modal.mode === 'edit' && (
+              <>
+                <SelectInput label="Status" value={modal.data.account_status} onChange={v => setModal({ ...modal, data: { ...modal.data, account_status: v } })} options={["Active", "Inactive", "Resigned"]} />
+                <TextInput label="Contact" value={modal.data.contact_number} onChange={v => setModal({ ...modal, data: { ...modal.data, contact_number: v } })} />
+              </>
+            )}
             
             {modal.mode === 'edit' && (
               <div className="md:col-span-2">

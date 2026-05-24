@@ -6,19 +6,13 @@ import { FaCopy, FaCheckCircle } from "react-icons/fa";
 const BLANK = { first_name:'', last_name:'', specialization_ids:[], license_number:'', contact_number:'', email:'', photo: null, attachments: [] };
 
 function SuccessCredentials({ doctor, tempPassword, onClose }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(`Email: ${doctor.email}\nTemporary Password: ${tempPassword}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-6 w-full max-w-md">
         <div className="text-center mb-4">
           <FaCheckCircle className="text-green-500 text-5xl mx-auto mb-3" />
           <h3 className="text-xl font-bold text-gray-900 dark:text-white">Doctor Account Created!</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Share these credentials with the doctor.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Credentials have been sent securely via email.</p>
         </div>
         <div className="bg-gray-50 dark:bg-slate-800 rounded-xl p-4 space-y-2 text-sm">
           <div className="flex justify-between">
@@ -29,20 +23,9 @@ function SuccessCredentials({ doctor, tempPassword, onClose }) {
             <span className="text-gray-500 dark:text-gray-400">Email</span>
             <span className="font-medium">{doctor.email}</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-500 dark:text-gray-400">Temp Password</span>
-            <span className="font-bold text-primary font-mono">{tempPassword}</span>
-          </div>
         </div>
-        <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg mt-3">
-          ⚠️ This password won't be shown again. Instruct the doctor to change it after first login.
-        </p>
-        <div className="flex gap-3 mt-4">
-          <button onClick={copy} className="flex-1 flex items-center justify-center gap-2 border border-primary text-primary py-2.5 rounded-xl font-medium hover:bg-primary/5 transition">
-            {copied ? <FaCheckCircle className="text-green-500" /> : <FaCopy />}
-            {copied ? 'Copied!' : 'Copy Credentials'}
-          </button>
-          <button onClick={onClose} className="flex-1 bg-primary text-white py-2.5 rounded-xl font-medium hover:opacity-90 transition">Done</button>
+        <div className="flex mt-6">
+          <button onClick={onClose} className="w-full bg-primary text-white py-2.5 rounded-xl font-medium hover:opacity-90 transition">Done</button>
         </div>
       </div>
     </div>
@@ -261,7 +244,7 @@ export default function AdminDoctors() {
         }
       }
 
-      if (currentSpecIds.length === 0) {
+      if (modal === 'edit' && currentSpecIds.length === 0) {
         setFormErrors({ specialization_ids: 'At least one specialization is required.' });
         setSaving(false);
         return;
@@ -415,8 +398,10 @@ export default function AdminDoctors() {
               {[
                 { label:'First Name', name:'first_name', required:true },
                 { label:'Last Name',  name:'last_name',  required:true },
-                { label:'PRC License No.', name:'license_number', required:true },
-                { label:'Contact Number', name:'contact_number', required:true },
+                ...(modal === 'edit' ? [
+                  { label:'PRC License No.', name:'license_number', required:true },
+                  { label:'Contact Number', name:'contact_number', required:true },
+                ] : []),
                 { label:'Email Address', name:'email', type:'email', required:true },
               ].map(f => (
                 <div key={f.name}>
@@ -439,136 +424,137 @@ export default function AdminDoctors() {
                       className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20" />
                     <p className="text-[10px] text-slate-400 mt-1 italic">Certificates, IDs, or other docs.</p>
                   </div>
-                </>
-              )}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Specializations <span className="text-red-500">*</span></label>
-                  {!showNewSpec && (
-                    <button type="button" onClick={() => setShowNewSpec(true)} className="text-[10px] bg-primary/10 text-primary px-3 py-1.5 rounded-lg font-bold hover:bg-primary/20 transition-all border border-primary/20 shadow-sm">
-                      + Other Specialization
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-2 mb-2 p-3 border border-gray-100 dark:border-slate-800 rounded-xl bg-gray-50/30 dark:bg-slate-900/30">
-                    {formData.specialization_ids.length === 0 && <span className="text-gray-400 text-xs italic">No specializations linked yet.</span>}
-                    {formData.specialization_ids.map(id => {
-                      const sp = displaySpecs.find(x => x.specialization_id === id);
-                      const isNew = typeof id === 'string' && id.startsWith('NEW:');
-                      const label = isNew ? id.replace('NEW:', '') : (sp?.name || 'Unknown');
-                      const isLinkedToService = isSpecLinkedToService(id);
-                      return (
-                        <span key={id} className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border shadow-sm transition-all animate-in zoom-in-95 ${isLinkedToService ? 'bg-primary/10 text-primary border-primary/20' : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800'}`}>
-                          {!isLinkedToService && !isNew && <span title="Not linked to any service">⚠️</span>}
-                          {label}
-                          <button type="button" onClick={() => setFormData(p => ({ ...p, specialization_ids: p.specialization_ids.filter(x => x !== id) }))} className="ml-1 hover:text-red-500 font-bold">×</button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                  
-                  {!showNewSpec ? (
-                    <div className="space-y-3 relative group">
-                      <div className="relative">
-                        <select value="" onChange={e => {
-                          const val = parseInt(e.target.value);
-                          if (val && !formData.specialization_ids.includes(val)) {
-                            setFormData(p => ({ ...p, specialization_ids: [...p.specialization_ids, val] }));
-                          }
-                        }}
-                          className={`w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:border-slate-700 dark:text-white text-sm shadow-sm transition-all ${formErrors.specialization_ids ? 'border-red-400' : 'border-gray-300 dark:border-slate-700'}`}>
-                          <option value="">— Browse All Specializations —</option>
-                          {Object.entries(
-                            displaySpecs
-                              .filter(s => !formData.specialization_ids.includes(s.specialization_id))
-                              .reduce((acc, sp) => {
-                                const cat = sp.description || 'General Medicine & Primary Care';
-                                if (!acc[cat]) acc[cat] = [];
-                                acc[cat].push(sp);
-                                return acc;
-                              }, {})
-                          ).map(([cat, items]) => (
-                            <optgroup key={cat} label={cat.toUpperCase()}>
-                              {items.map(s => (
-                                <option key={s.specialization_id} value={s.specialization_id}>{s.name}</option>
-                              ))}
-                            </optgroup>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      {formData.specialization_ids.length > 0 && formData.specialization_ids.some(id => !isSpecLinkedToService(id) && !(typeof id === 'string' && id.startsWith('NEW:'))) && (
-                        <div className="text-[11px] text-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800 font-bold shadow-sm flex items-start gap-2 leading-relaxed">
-                          <span className="text-lg mt-[-2px]">⚠️</span>
-                          <span>
-                            One or more specializations are not yet linked to a service.
-                            <br/>
-                            <span className="text-amber-600/70 font-medium italic">Please ensure at least one service exists for these fields.</span>
-                          </span>
-                        </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Specializations <span className="text-red-500">*</span></label>
+                      {!showNewSpec && (
+                        <button type="button" onClick={() => setShowNewSpec(true)} className="text-[10px] bg-primary/10 text-primary px-3 py-1.5 rounded-lg font-bold hover:bg-primary/20 transition-all border border-primary/20 shadow-sm">
+                          + Other Specialization
+                        </button>
                       )}
                     </div>
-                  ) : (
-                    <div className="bg-primary/5 dark:bg-primary/10 p-5 rounded-2xl border border-primary/20 space-y-3 shadow-xl">
-                      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                         <span className="w-2 h-2 bg-primary rounded-full animate-ping"/>
-                         Register Custom Field
-                      </p>
-                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                      <div className="flex-1 relative">
-                        <input 
-                          autoFocus 
-                          placeholder="Type specialization name here..." 
-                          value={newSpecName} 
-                          onChange={e => setNewSpecName(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              if (newSpecName.trim()) {
-                                setFormData(p => ({ ...p, specialization_ids: [...p.specialization_ids, 'NEW:' + newSpecName.trim()] }));
-                                setNewSpecName('');
-                                setShowNewSpec(false);
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-2 mb-2 p-3 border border-gray-100 dark:border-slate-800 rounded-xl bg-gray-50/30 dark:bg-slate-900/30">
+                        {formData.specialization_ids.length === 0 && <span className="text-gray-400 text-xs italic">No specializations linked yet.</span>}
+                        {formData.specialization_ids.map(id => {
+                          const sp = displaySpecs.find(x => x.specialization_id === id);
+                          const isNew = typeof id === 'string' && id.startsWith('NEW:');
+                          const label = isNew ? id.replace('NEW:', '') : (sp?.name || 'Unknown');
+                          const isLinkedToService = isSpecLinkedToService(id);
+                          return (
+                            <span key={id} className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border shadow-sm transition-all animate-in zoom-in-95 ${isLinkedToService ? 'bg-primary/10 text-primary border-primary/20' : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800'}`}>
+                              {!isLinkedToService && !isNew && <span title="Not linked to any service">⚠️</span>}
+                              {label}
+                              <button type="button" onClick={() => setFormData(p => ({ ...p, specialization_ids: p.specialization_ids.filter(x => x !== id) }))} className="ml-1 hover:text-red-500 font-bold">×</button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                      
+                      {!showNewSpec ? (
+                        <div className="space-y-3 relative group">
+                          <div className="relative">
+                            <select value="" onChange={e => {
+                              const val = parseInt(e.target.value);
+                              if (val && !formData.specialization_ids.includes(val)) {
+                                setFormData(p => ({ ...p, specialization_ids: [...p.specialization_ids, val] }));
                               }
-                            }
-                          }}
-                          className="w-full border border-primary/30 dark:border-primary/50 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500" 
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button 
-                          type="button" 
-                          onClick={() => {
-                            if (!newSpecName.trim()) return;
-                            setFormData(p => ({ ...p, specialization_ids: [...p.specialization_ids, 'NEW:' + newSpecName.trim()] }));
-                            setNewSpecName('');
-                            setShowNewSpec(false);
-                          }} 
-                          className="flex-1 sm:flex-none bg-primary text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 shadow-lg shadow-primary/10 whitespace-nowrap"
-                        >
-                          Confirm
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => { setShowNewSpec(false); setNewSpecName(''); }} 
-                          className="flex-1 sm:flex-none px-3 text-[10px] font-black text-gray-500 dark:text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest bg-gray-100 dark:bg-slate-800 sm:bg-transparent sm:dark:bg-transparent rounded-xl sm:rounded-none"
-                        >
-                          Cancel
-                        </button>
-                      </div>
+                            }}
+                              className={`w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:border-slate-700 dark:text-white text-sm shadow-sm transition-all ${formErrors.specialization_ids ? 'border-red-400' : 'border-gray-300 dark:border-slate-700'}`}>
+                              <option value="">— Browse All Specializations —</option>
+                              {Object.entries(
+                                displaySpecs
+                                  .filter(s => !formData.specialization_ids.includes(s.specialization_id))
+                                  .reduce((acc, sp) => {
+                                    const cat = sp.description || 'General Medicine & Primary Care';
+                                    if (!acc[cat]) acc[cat] = [];
+                                    acc[cat].push(sp);
+                                    return acc;
+                                  }, {})
+                              ).map(([cat, items]) => (
+                                <optgroup key={cat} label={cat.toUpperCase()}>
+                                  {items.map(s => (
+                                    <option key={s.specialization_id} value={s.specialization_id}>{s.name}</option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          {formData.specialization_ids.length > 0 && formData.specialization_ids.some(id => !isSpecLinkedToService(id) && !(typeof id === 'string' && id.startsWith('NEW:'))) && (
+                            <div className="text-[11px] text-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-200 dark:border-amber-800 font-bold shadow-sm flex items-start gap-2 leading-relaxed">
+                              <span className="text-lg mt-[-2px]">⚠️</span>
+                              <span>
+                                One or more specializations are not yet linked to a service.
+                                <br/>
+                                <span className="text-amber-600/70 font-medium italic">Please ensure at least one service exists for these fields.</span>
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-primary/5 dark:bg-primary/10 p-5 rounded-2xl border border-primary/20 space-y-3 shadow-xl">
+                          <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                             <span className="w-2 h-2 bg-primary rounded-full animate-ping"/>
+                             Register Custom Field
+                          </p>
+                          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                            <div className="flex-1 relative">
+                              <input 
+                                autoFocus 
+                                placeholder="Type specialization name here..." 
+                                value={newSpecName} 
+                                onChange={e => setNewSpecName(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    if (newSpecName.trim()) {
+                                      const newId = `NEW:${newSpecName.trim()}`;
+                                      if (!formData.specialization_ids?.includes(newId)) {
+                                        setFormData(p => ({ ...p, specialization_ids: [...(p.specialization_ids||[]), newId] }));
+                                      }
+                                      setNewSpecName('');
+                                      setShowNewSpec(false);
+                                    }
+                                  }
+                                }}
+                                className="w-full border border-primary/30 dark:border-primary/50 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500" 
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <button 
+                                type="button" 
+                                onClick={() => {
+                                  if (!newSpecName.trim()) return;
+                                  const newId = `NEW:${newSpecName.trim()}`;
+                                  if (!formData.specialization_ids?.includes(newId)) {
+                                    setFormData(p => ({ ...p, specialization_ids: [...(p.specialization_ids||[]), newId] }));
+                                  }
+                                  setNewSpecName('');
+                                  setShowNewSpec(false);
+                                }} 
+                                className="flex-1 sm:flex-none bg-primary text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 shadow-lg shadow-primary/10 whitespace-nowrap"
+                              >
+                                Confirm
+                              </button>
+                              <button 
+                                type="button" 
+                                onClick={() => { setShowNewSpec(false); setNewSpecName(''); }} 
+                                className="flex-1 sm:flex-none px-3 text-[10px] font-black text-gray-500 dark:text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest bg-gray-100 dark:bg-slate-800 sm:bg-transparent sm:dark:bg-transparent rounded-xl sm:rounded-none"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                          {!newSpecName.trim() && <p className="text-[10px] text-red-500 dark:text-red-400 font-bold italic px-1 animate-bounce">⚠️ Please enter a name or click cancel</p>}
+                        </div>
+                      )}
+                      {formErrors.specialization_ids && <p className="text-xs text-red-500 mt-2 font-bold flex items-center gap-1 px-1 tracking-tight">⚠️ {formErrors.specialization_ids}</p>}
                     </div>
-                    {!newSpecName.trim() && <p className="text-[10px] text-red-500 dark:text-red-400 font-bold italic px-1 animate-bounce">⚠️ Please enter a name or click cancel</p>}
                   </div>
-                  )}
-                </div>
-                {formErrors.specialization_ids && <p className="text-xs text-red-500 mt-2 font-bold flex items-center gap-1 px-1 tracking-tight">⚠️ {formErrors.specialization_ids}</p>}
-              </div>
+                </>
+              )}
             </div>
-            {modal === 'add' && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 p-3 rounded-lg text-sm">
-                💡 A random 8-character temporary password will be generated. You'll be able to copy it after creation.
-              </div>
-            )}
             <button type="submit" disabled={saving} className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 shadow-lg shadow-primary/20">
               {saving ? 'Saving...' : modal === 'add' ? 'Create Doctor Account' : 'Save Changes'}
             </button>

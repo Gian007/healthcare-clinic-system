@@ -16,6 +16,7 @@ const menuOptions = [
   ["calendar", "Clinic Calendar"],
   ["notifications", "Notifications"],
   ["reports", "Reports"],
+  ["landing_page", "Landing Page"],
 ];
 
 const widgetOptions = [

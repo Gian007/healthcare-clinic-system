@@ -1,12 +1,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../state/auth";
 import * as publicApi from "../api/publicApi";
+import * as patientApi from "../api/patientApi";
 import {
   FaChevronLeft, FaChevronRight, FaCalendarAlt, FaClock, FaUser, FaInfoCircle, FaClipboardList, FaCheckCircle, FaExclamationCircle
 } from "react-icons/fa";
 
 export default function Schedule() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [currentMonth, setCurrentMonth] = useState(() => {
     const today = new Date();
@@ -15,6 +18,7 @@ export default function Schedule() {
 
   const [doctors, setDoctors] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
+  const [patientAppointments, setPatientAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(() => {
     return new Date().toISOString().split("T")[0];
@@ -22,17 +26,25 @@ export default function Schedule() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([
+    const promises = [
       publicApi.getDoctors().catch(() => []),
       publicApi.getAnnouncements().catch(() => [])
-    ])
-      .then(([docs, anns]) => {
+    ];
+    if (user && user.role === 'patient') {
+      promises.push(patientApi.getDashboard().then(d => d.appointments).catch(() => []));
+    } else {
+      promises.push(Promise.resolve([]));
+    }
+
+    Promise.all(promises)
+      .then(([docs, anns, appts]) => {
         setDoctors(docs || []);
         setAnnouncements(anns || []);
+        setPatientAppointments(appts || []);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   const prevMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
@@ -107,6 +119,74 @@ export default function Schedule() {
     return announcements.find(a => a.date === dateStr);
   };
 
+  const checkDateAvailability = (dateStr) => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const dateAnnouncement = getAnnouncementOnDate(dateStr);
+    const isHoliday = dateAnnouncement && (dateAnnouncement.type === "Clinic Closed" || dateAnnouncement.type === "Holiday" || dateAnnouncement.type === "Emergency");
+
+    let isAvailable = true;
+    if (dateStr < todayStr || isHoliday || !isClinicOpenOnDate(dateStr)) {
+      isAvailable = false;
+    } else {
+      const dayOfWeek = getDayOfWeek(dateStr);
+      const scheduledShifts = [];
+      doctors.forEach(doc => {
+        doc.schedules?.forEach(sch => {
+          if (sch.day_of_week === dayOfWeek && sch.schedule_status === "Active") {
+            const isOnLeave = doc.dayOffs?.some(off => off.dayoff_date === dateStr && off.status === "Approved");
+            if (!isOnLeave) {
+              const bookedCount = doc.appointments?.filter(appt => 
+                appt.appointment_date === dateStr && 
+                appt.booking_status !== "Cancelled" && 
+                appt.booking_status !== "Rejected"
+              ).length || 0;
+              scheduledShifts.push({ limit: sch.slot_limit || 8, booked: bookedCount });
+            }
+          }
+        });
+      });
+
+      if (scheduledShifts.length > 0) {
+        const totalLimit = scheduledShifts.reduce((acc, s) => acc + s.limit, 0);
+        const totalBooked = scheduledShifts.reduce((acc, s) => acc + s.booked, 0);
+        if (totalBooked >= totalLimit) {
+          isAvailable = false;
+        }
+      } else {
+        isAvailable = false;
+      }
+    }
+
+    const hasMyAppointment = user && patientAppointments.some(a => 
+      a.appointment_date === dateStr && 
+      a.booking_status !== "Cancelled" && 
+      a.booking_status !== "Rejected"
+    );
+
+    return { isAvailable, hasMyAppointment, isHoliday };
+  };
+
+  // Auto-forward to the next available date if current selectedDate is not clickable
+  useEffect(() => {
+    if (loading || doctors.length === 0) return;
+
+    const { isAvailable, hasMyAppointment } = checkDateAvailability(selectedDate);
+    if (!isAvailable && !hasMyAppointment) {
+      let checkDate = new Date();
+      // Start checking from today
+      for (let i = 0; i < 60; i++) {
+        const dStr = checkDate.toISOString().split("T")[0];
+        const { isAvailable: nextAvail, hasMyAppointment: nextAppt } = checkDateAvailability(dStr);
+        if (nextAvail || nextAppt) {
+          setSelectedDate(dStr);
+          setCurrentMonth(new Date(checkDate.getFullYear(), checkDate.getMonth(), 1));
+          break;
+        }
+        checkDate.setDate(checkDate.getDate() + 1);
+      }
+    }
+  }, [loading, doctors, announcements, patientAppointments]);
+
   // Compute shifts and slot availability for selected date
   const selectedDateShifts = useMemo(() => {
     const dayOfWeek = getDayOfWeek(selectedDate);
@@ -174,6 +254,12 @@ export default function Schedule() {
             <span className="w-3.5 h-3.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-900/50" />
             <span className="text-gray-600 dark:text-gray-400">Available Slots</span>
           </div>
+          {user && (
+            <div className="flex items-center gap-2">
+              <span className="w-3.5 h-3.5 rounded-lg bg-amber-100 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700/50" />
+              <span className="text-gray-600 dark:text-gray-400">My Appointment</span>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <span className="w-3.5 h-3.5 rounded-lg bg-rose-100 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-900/50" />
             <span className="text-gray-600 dark:text-gray-400">Fully Booked / Closed / Past</span>
@@ -219,53 +305,24 @@ export default function Schedule() {
             <div className="grid grid-cols-7 gap-2">
               {days.map((cell, idx) => {
                 const isSelected = selectedDate === cell.dateStr;
-                const todayStr = new Date().toISOString().split("T")[0];
-                const dateAnnouncement = getAnnouncementOnDate(cell.dateStr);
-                const isHoliday = dateAnnouncement && (dateAnnouncement.type === "Clinic Closed" || dateAnnouncement.type === "Holiday" || dateAnnouncement.type === "Emergency");
-
-                // Availability calculation
-                let isAvailable = true;
-                if (cell.dateStr < todayStr || isHoliday || !isClinicOpenOnDate(cell.dateStr)) {
-                  isAvailable = false;
-                } else {
-                  // Check if all doctors scheduled on this date are fully booked
-                  const dayOfWeek = getDayOfWeek(cell.dateStr);
-                  const scheduledShifts = [];
-                  doctors.forEach(doc => {
-                    doc.schedules?.forEach(sch => {
-                      if (sch.day_of_week === dayOfWeek && sch.schedule_status === "Active") {
-                        const isOnLeave = doc.dayOffs?.some(off => off.dayoff_date === cell.dateStr && off.status === "Approved");
-                        if (!isOnLeave) {
-                          const bookedCount = doc.appointments?.filter(appt => 
-                            appt.appointment_date === cell.dateStr && 
-                            appt.booking_status !== "Cancelled" && 
-                            appt.booking_status !== "Rejected"
-                          ).length || 0;
-                          scheduledShifts.push({ limit: sch.slot_limit || 8, booked: bookedCount });
-                        }
-                      }
-                    });
-                  });
-
-                  if (scheduledShifts.length > 0) {
-                    const totalLimit = scheduledShifts.reduce((acc, s) => acc + s.limit, 0);
-                    const totalBooked = scheduledShifts.reduce((acc, s) => acc + s.booked, 0);
-                    if (totalBooked >= totalLimit) {
-                      isAvailable = false;
-                    }
-                  } else {
-                    isAvailable = false; // No doctors working means closed
-                  }
-                }
+                const { isAvailable, hasMyAppointment, isHoliday } = checkDateAvailability(cell.dateStr);
+                const isClickable = isAvailable || hasMyAppointment;
 
                 let cellClasses = "";
+                let titleMsg = "";
                 if (!cell.isPadding) {
                   if (isSelected) {
                     cellClasses = "bg-teal-600 border-teal-600 text-white shadow-lg shadow-teal-600/20 scale-[1.03] z-10 font-bold";
+                    titleMsg = "Selected Date";
+                  } else if (hasMyAppointment) {
+                    cellClasses = "bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/50 hover:bg-amber-200 dark:hover:bg-amber-900/40 font-black";
+                    titleMsg = "You have an appointment on this day";
                   } else if (isAvailable) {
                     cellClasses = "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/30 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 font-semibold";
+                    titleMsg = "Available for booking";
                   } else {
-                    cellClasses = "bg-rose-50/50 dark:bg-rose-950/10 text-rose-300 dark:text-rose-700 border-rose-100 dark:border-rose-950/20 opacity-50 line-through cursor-not-allowed";
+                    cellClasses = "bg-rose-100 dark:bg-rose-950/20 text-rose-800 dark:text-rose-400 border-rose-300 dark:border-rose-900/30 opacity-70 line-through cursor-not-allowed";
+                    titleMsg = isHoliday ? "Clinic Closed / Holiday" : "Not available (Closed, Fully Booked, or Past)";
                   }
                 } else {
                   cellClasses = "text-gray-300 dark:text-slate-800 border-transparent bg-transparent cursor-default pointer-events-none opacity-20";
@@ -279,7 +336,8 @@ export default function Schedule() {
                 return (
                   <button
                     key={idx}
-                    disabled={cell.isPadding}
+                    title={titleMsg}
+                    disabled={cell.isPadding || !isClickable}
                     onClick={() => setSelectedDate(cell.dateStr)}
                     className={`aspect-square w-full rounded-2xl p-1 flex flex-col justify-between items-center relative transition-all border outline-none ${cellClasses}`}
                   >
@@ -409,7 +467,7 @@ export default function Schedule() {
                                 : 'bg-teal-600 text-white shadow-md hover:bg-teal-500'
                             }`}
                           >
-                            {isFull ? 'Shift Fully Booked' : 'Book This Shift'}
+                            {isFull ? 'Shift Fully Booked' : 'Booking'}
                           </button>
                         )}
                       </div>
