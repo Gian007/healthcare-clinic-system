@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { FaThLarge as LayoutDashboard, FaCalendarAlt as CalendarDays, FaCalendarTimes as CalendarX2, FaClipboardList as ClipboardList, FaUsers as Users, FaQrcode as QrCode, FaClock as Clock3, FaUser as User, FaBars as Menu, FaTimes as X, FaMoon as Moon, FaSun as Sun, FaSignOutAlt as LogOut, FaChevronLeft as ChevronLeft, FaChevronRight as ChevronRight, FaBell as Bell } from 'react-icons/fa';
+import { FaThLarge as LayoutDashboard, FaCalendarAlt as CalendarDays, FaCalendarTimes as CalendarX2, FaClipboardList as ClipboardList, FaUsers as Users, FaClock as Clock3, FaUser as User, FaBars as Menu, FaTimes as X, FaMoon as Moon, FaSun as Sun, FaSignOutAlt as LogOut, FaChevronLeft as ChevronLeft, FaChevronRight as ChevronRight, FaBell as Bell } from 'react-icons/fa';
 import Logo from "../Logo";
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../state/auth';
@@ -13,7 +13,6 @@ const links = [
   { to: '/doctor/dayoff', label: 'Day Off Request', icon: CalendarX2, key: 'dayOff' },
   { to: '/doctor/appointments', label: 'Appointments', icon: ClipboardList, key: 'appointments' },
   { to: '/doctor/queue', label: 'My Queue', icon: Users, key: 'queue' },
-  { to: '/doctor/qr', label: 'Doctor QR Code', icon: QrCode, key: 'qrCode' },
   { to: '/doctor/attendance', label: 'Attendance', icon: Clock3, key: 'attendance' },
   { to: '/doctor/calendar', label: 'Clinic Calendar', icon: CalendarDays, key: 'calendar' },
   { to: '/doctor/notifications', label: 'Notifications', icon: Bell, key: 'notifications' },

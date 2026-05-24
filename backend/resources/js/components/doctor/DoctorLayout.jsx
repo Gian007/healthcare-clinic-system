@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, CalendarDays, CalendarX2, ClipboardList, Users, QrCode, Clock3, User, Menu, X, Moon, Sun, LogOut, Stethoscope, ChevronLeft, ChevronRight, HeartPulse, Bell } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, CalendarX2, ClipboardList, Users, Clock3, User, Menu, X, Moon, Sun, LogOut, Stethoscope, ChevronLeft, ChevronRight, HeartPulse, Bell } from 'lucide-react';
 import Logo from "../Logo";
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../state/auth';
@@ -11,7 +11,6 @@ const links = [
   { to: '/doctor/dayoff', label: 'Day Off Request', icon: CalendarX2 },
   { to: '/doctor/appointments', label: 'Appointments', icon: ClipboardList },
   { to: '/doctor/queue', label: 'My Queue', icon: Users },
-  { to: '/doctor/qr', label: 'Doctor QR Code', icon: QrCode },
   { to: '/doctor/attendance', label: 'Attendance', icon: Clock3 },
   { to: '/doctor/calendar', label: 'Clinic Calendar', icon: CalendarDays },
   { to: '/doctor/notifications', label: 'Notifications', icon: Bell },

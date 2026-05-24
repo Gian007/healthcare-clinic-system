@@ -56,7 +56,6 @@ import DoctorSchedule from "./pages/doctor/DoctorSchedule";
 import DoctorDayOff from "./pages/doctor/DoctorDayOff";
 import DoctorAppointments from "./pages/doctor/DoctorAppointments";
 import DoctorQueue from "./pages/doctor/DoctorQueue";
-import DoctorQRCode from "./pages/doctor/DoctorQRCode";
 import DoctorAttendance from "./pages/doctor/DoctorAttendance";
 import DoctorProfile from "./pages/doctor/DoctorProfile";
 import DoctorNotifications from "./pages/doctor/DoctorNotifications";
@@ -187,7 +186,6 @@ export default function App() {
             <Route path="dayoff" element={<DoctorDayOff />} />
             <Route path="appointments" element={<DoctorAppointments />} />
             <Route path="queue" element={<DoctorQueue />} />
-            <Route path="qr" element={<DoctorQRCode />} />
             <Route path="attendance" element={<DoctorAttendance />} />
             <Route path="calendar" element={<ClinicCalendar />} />
             <Route path="notifications" element={<DoctorNotifications />} />
