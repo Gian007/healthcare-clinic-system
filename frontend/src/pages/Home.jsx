@@ -58,6 +58,7 @@ export default function Home() {
 
   const getSection = (key) => landingSettings.find(s => s.section_key === key);
   const isVisible = (key) => {
+    if (landingSettings.length === 0) return true; // show all sections when DB has no data
     const s = getSection(key);
     return s && s.is_visible;
   };
