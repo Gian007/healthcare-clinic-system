@@ -4,15 +4,50 @@ use Illuminate\Database\Eloquent\Model;
 
 class Service extends Model
 {
-    protected $primaryKey = 'service_id';
+    protected $primaryKey = 'id';
     protected $fillable = [
-        'service_name', 'description', 'base_fee',
-        'estimated_duration', 'service_status', 'specialization_id'
+        'name', 'description', 'price', 'estimated_duration',
+        'service_type', 'requires_doctor', 'is_publicly_bookable',
+        'required_specialization', 'requirements_notes', 'is_active'
     ];
+
+    protected $casts = [
+        'requires_doctor' => 'boolean',
+        'is_publicly_bookable' => 'boolean',
+        'is_active' => 'boolean',
+        'price' => 'float',
+    ];
+
+    protected $appends = ['service_id', 'service_name', 'base_fee', 'service_status', 'specialization_id'];
+
+    public function getServiceIdAttribute()
+    {
+        return $this->id;
+    }
+
+    public function getServiceNameAttribute()
+    {
+        return $this->name;
+    }
+
+    public function getBaseFeeAttribute()
+    {
+        return $this->price;
+    }
+
+    public function getServiceStatusAttribute()
+    {
+        return $this->is_active ? 'Available' : 'Unavailable';
+    }
+
+    public function getSpecializationIdAttribute()
+    {
+        return $this->required_specialization;
+    }
 
     public function specialization()
     {
-        return $this->belongsTo(Specialization::class, 'specialization_id');
+        return $this->belongsTo(Specialization::class, 'required_specialization', 'specialization_id');
     }
 
     public function specializations()

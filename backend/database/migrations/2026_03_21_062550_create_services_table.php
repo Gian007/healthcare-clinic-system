@@ -11,12 +11,18 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('services', function (Blueprint $table) {
-            $table->id('service_id');
-            $table->string('service_name');
-            $table->text('description');
-            $table->decimal('base_fee', 10, 2);
+            $table->id();
+            $table->string('name');
+            $table->text('description')->nullable();
+            $table->decimal('price', 10, 2);
             $table->integer('estimated_duration');
-            $table->enum('service_status', ['Available', 'Unavailable', 'Archived']);
+            $table->enum('service_type', ['consultation', 'direct_service', 'doctor_requested']);
+            $table->boolean('requires_doctor')->default(false);
+            $table->boolean('is_publicly_bookable')->default(true);
+            $table->unsignedBigInteger('required_specialization')->nullable();
+            $table->foreign('required_specialization')->references('specialization_id')->on('specializations')->onDelete('set null');
+            $table->text('requirements_notes')->nullable();
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }

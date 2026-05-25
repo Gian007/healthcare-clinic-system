@@ -230,15 +230,25 @@ class PatientController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'doctor_id'        => 'required|exists:doctors,doctor_id',
-            'service_id'       => 'required|exists:services,service_id',
-            'schedule_id'      => 'required|exists:doctor_schedules,schedule_id',
+        $service = \App\Models\Service::findOrFail($request->service_id);
+
+        $rules = [
+            'service_id'       => 'required|exists:services,id',
             'appointment_date' => 'required|date',
             'start_time'       => 'required',
             'end_time'         => 'required',
             'reason_for_visit' => 'required|string',
-        ]);
+        ];
+
+        if ($service->requires_doctor) {
+            $rules['doctor_id']   = 'required|exists:doctors,doctor_id';
+            $rules['schedule_id'] = 'required|exists:doctor_schedules,schedule_id';
+        } else {
+            $rules['doctor_id']   = 'nullable|exists:doctors,doctor_id';
+            $rules['schedule_id'] = 'nullable|exists:doctor_schedules,schedule_id';
+        }
+
+        $request->validate($rules);
 
         $nowInManila = Carbon::now('Asia/Manila');
         $appointmentDate = Carbon::parse($request->appointment_date);
@@ -257,23 +267,36 @@ class PatientController extends Controller
         }
 
         // Double-booking/capacity check (ensure slot is not already booked, excluding Cancelled or Rejected ones)
-        $count = Appointment::where('doctor_id', $request->doctor_id)
-            ->where('appointment_date', $request->appointment_date)
-            ->where('start_time', $request->start_time)
-            ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
-            ->count();
-        
-        if ($count >= 1) {
-            return response()->json(['message' => 'This time slot is already fully booked.'], 422);
+        if ($service->requires_doctor) {
+            $count = Appointment::where('doctor_id', $request->doctor_id)
+                ->where('appointment_date', $request->appointment_date)
+                ->where('start_time', $request->start_time)
+                ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+                ->count();
+            
+            if ($count >= 1) {
+                return response()->json(['message' => 'This time slot is already fully booked.'], 422);
+            }
+        } else {
+            // Direct service check (capacity: max 5 bookings per slot)
+            $count = Appointment::where('service_id', $request->service_id)
+                ->where('appointment_date', $request->appointment_date)
+                ->where('start_time', $request->start_time)
+                ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+                ->count();
+            
+            if ($count >= 5) {
+                return response()->json(['message' => 'This time slot is already fully booked.'], 422);
+            }
         }
 
         $patient = $request->user();
 
         $appointment = Appointment::create([
             'patient_id'       => $patient->patient_id,
-            'doctor_id'        => $request->doctor_id,
+            'doctor_id'        => $service->requires_doctor ? $request->doctor_id : null,
             'service_id'       => $request->service_id,
-            'schedule_id'      => $request->schedule_id,
+            'schedule_id'      => $service->requires_doctor ? $request->schedule_id : null,
             'appointment_date' => $request->appointment_date,
             'start_time'       => $request->start_time,
             'end_time'         => $request->end_time,
@@ -389,5 +412,91 @@ class PatientController extends Controller
         ]);
 
         return response()->json(['message' => 'Appointment cancelled successfully.', 'appointment' => $appointment]);
+    }
+
+    public function getServiceRequests(Request $request)
+    {
+        $patient = $request->user();
+        $requests = \App\Models\DoctorServiceRequest::with(['doctor', 'items.service'])
+            ->where('patient_id', $patient->patient_id)
+            ->where('status', 'pending')
+            ->orderBy('created_at', 'desc')
+            ->get();
+        return response()->json($requests);
+    }
+
+    public function acceptServiceRequest(Request $request, $id)
+    {
+        $patient = $request->user();
+        $serviceRequest = \App\Models\DoctorServiceRequest::with(['items.service', 'doctor'])
+            ->where('patient_id', $patient->patient_id)
+            ->where('status', 'pending')
+            ->findOrFail($id);
+
+        $request->validate([
+            'appointment_date' => 'required|date',
+            'start_time'       => 'required',
+            'end_time'         => 'required',
+        ]);
+
+        $serviceRequest->update(['status' => 'accepted']);
+
+        // Create appointments for each requested service item
+        foreach ($serviceRequest->items as $item) {
+            $appointment = Appointment::create([
+                'patient_id'       => $patient->patient_id,
+                'doctor_id'        => $serviceRequest->doctor_id,
+                'service_id'       => $item->service_id,
+                'schedule_id'      => null, // Recommended items don't strictly require regular schedule linking
+                'appointment_date' => $request->appointment_date,
+                'start_time'       => $request->start_time,
+                'end_time'         => $request->end_time,
+                'appointment_type' => 'Online',
+                'reason_for_visit' => "Recommended service request #" . $serviceRequest->id . ". Doctor remarks: " . ($serviceRequest->remarks ?? 'None'),
+                'booking_status'   => 'Confirmed', // Automatically confirmed when accepted
+                'checkin_deadline' => now()->addDays(1),
+            ]);
+
+            // Notify patient
+            SystemNotification::create([
+                'notifiable_type' => 'patient',
+                'notifiable_id'   => $patient->patient_id,
+                'title'           => 'Recommended Appointment Scheduled',
+                'body'            => "Recommended service {$item->service->name} has been scheduled for {$request->appointment_date} at {$request->start_time}.",
+                'type'            => 'success',
+            ]);
+        }
+
+        // Notify Staff
+        SystemNotification::create([
+            'notifiable_type' => 'staff',
+            'notifiable_id'   => 0,
+            'title'           => 'Recommended Service Request Accepted',
+            'body'            => "Patient {$patient->first_name} {$patient->last_name} accepted the recommended service request from Dr. {$serviceRequest->doctor->last_name}.",
+            'type'            => 'info',
+        ]);
+
+        return response()->json(['message' => 'Service request accepted and scheduled successfully.']);
+    }
+
+    public function declineServiceRequest(Request $request, $id)
+    {
+        $patient = $request->user();
+        $serviceRequest = \App\Models\DoctorServiceRequest::where('patient_id', $patient->patient_id)
+            ->where('status', 'pending')
+            ->findOrFail($id);
+
+        $serviceRequest->update(['status' => 'declined']);
+
+        // Notify Doctor
+        SystemNotification::create([
+            'notifiable_type' => 'doctor',
+            'notifiable_id'   => $serviceRequest->doctor_id,
+            'title'           => 'Recommended Service Declined',
+            'body'            => "Patient {$patient->first_name} {$patient->last_name} declined your recommended service request.",
+            'type'            => 'warning',
+        ]);
+
+        return response()->json(['message' => 'Service request declined.']);
     }
 }

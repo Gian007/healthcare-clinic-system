@@ -111,23 +111,47 @@ export default function BookAppointment() {
   }, [doctors, selectedServices, searchTerm]);
 
 
+  const primaryService = selectedServices[0];
+  const requiresDoctor = primaryService ? (Boolean(Number(primaryService.requires_doctor ?? 1))) : true;
+
+  const stepsList = useMemo(() => {
+    if (!requiresDoctor) {
+      return [
+        { label: "Type of Concern", stepNum: 1 },
+        { label: "Date & Time", stepNum: 3 },
+        { label: "Reason", stepNum: 4 },
+        { label: "Confirm", stepNum: 5 }
+      ];
+    }
+    return [
+      { label: "Type of Concern", stepNum: 1 },
+      { label: "Doctor", stepNum: 2 },
+      { label: "Date & Time", stepNum: 3 },
+      { label: "Reason", stepNum: 4 },
+      { label: "Confirm", stepNum: 5 }
+    ];
+  }, [requiresDoctor]);
+
   const next = () => {
-    setStep(step + 1);
-    sessionStorage.setItem("booking_step", step + 1);
+    let targetStep = step + 1;
+    if (step === 1 && !requiresDoctor) {
+      targetStep = 3;
+    }
+    setStep(targetStep);
+    sessionStorage.setItem("booking_step", targetStep);
   };
   const back = () => {
-    setStep(step - 1);
-    sessionStorage.setItem("booking_step", step - 1);
+    let targetStep = step - 1;
+    if (step === 3 && !requiresDoctor) {
+      targetStep = 1;
+    }
+    setStep(targetStep);
+    sessionStorage.setItem("booking_step", targetStep);
   };
 
   const handleToggleService = (s) => {
-    const exists = selectedServices.find(srv => srv.service_id === s.service_id);
-    let newServices;
-    if (exists) {
-      newServices = selectedServices.filter(srv => srv.service_id !== s.service_id);
-    } else {
-      newServices = [...selectedServices, s];
-    }
+    // Single select to prevent selecting mixed types (Consultation vs Direct Service)
+    const newServices = [s];
     setSelectedServices(newServices);
     setSelectedDoctor(null); 
     setSelectedSchedule(null);
@@ -161,11 +185,14 @@ export default function BookAppointment() {
   };
 
   useEffect(() => {
-    if (selectedDoctor && selectedDate && selectedServices.length > 0) {
+    if (selectedDate && selectedServices.length > 0) {
+      if (requiresDoctor && !selectedDoctor) {
+        setSlots([]);
+        return;
+      }
       setSlotsLoading(true);
       setSlotMessage("");
-      // Just pass the first service ID to get standard slots
-      publicApi.getAvailableSlots(selectedDoctor.doctor_id, selectedDate, selectedServices[0].service_id)
+      publicApi.getAvailableSlots(requiresDoctor ? selectedDoctor.doctor_id : null, selectedDate, selectedServices[0].id || selectedServices[0].service_id)
         .then(res => {
           setSlots(res.slots || []);
           if (res.message) setSlotMessage(res.message);
@@ -178,7 +205,7 @@ export default function BookAppointment() {
     } else {
       setSlots([]);
     }
-  }, [selectedDoctor, selectedDate, selectedServices]);
+  }, [selectedDoctor, selectedDate, selectedServices, requiresDoctor]);
 
   const submitBooking = async () => {
     if (user?.verification_status === "Pending" || user?.verification_status === "Rejected") {
@@ -192,9 +219,9 @@ export default function BookAppointment() {
        const concernsText = selectedServices.map(s => s.name || s.service_name).join(', ');
        const finalReason = `Concerns: ${concernsText}. ${reason}`;
        await patientApi.bookAppointment({
-         doctor_id: selectedDoctor.doctor_id,
-         service_id: selectedServices[0].service_id, // Primary service ID for DB constraint
-         schedule_id: selectedSchedule.schedule_id,
+         doctor_id: requiresDoctor ? selectedDoctor.doctor_id : null,
+         service_id: selectedServices[0].id || selectedServices[0].service_id,
+         schedule_id: requiresDoctor ? selectedSchedule.schedule_id : null,
          appointment_date: selectedDate,
          start_time: selectedSchedule.start_time,
          end_time: selectedSchedule.end_time,
@@ -274,7 +301,7 @@ export default function BookAppointment() {
     return { disabled: false, reason: "Available", status: "green", isFull: false };
   };
   useEffect(() => {
-    if (step === 3 && selectedDoctor && !dataLoading) {
+    if (step === 3 && !dataLoading) {
       const currentAvail = checkDateBookability(selectedDate || new Date().toISOString().split("T")[0]);
       if (currentAvail.disabled && currentAvail.status !== "yellow") {
         let checkDate = new Date();
@@ -290,7 +317,7 @@ export default function BookAppointment() {
         }
       }
     }
-  }, [step, selectedDoctor, selectedServices, dataLoading]);
+  }, [step, selectedDoctor, selectedServices, dataLoading, requiresDoctor]);
 
   const prevMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
@@ -398,17 +425,17 @@ export default function BookAppointment() {
 
         {/* Step Progress */}
         <div className="flex items-center justify-between mb-10 overflow-x-auto pb-2">
-          {steps.map((label, i) => (
-            <div key={label} className="flex items-center gap-2 shrink-0">
+          {stepsList.map((s, idx) => (
+            <div key={s.label} className="flex items-center gap-2 shrink-0">
               <div className={`w-8 h-8 rounded-full grid place-items-center text-sm font-bold transition-colors ${
-                i + 1 < step ? "bg-green-500 text-white" :
-                i + 1 === step ? "bg-primary text-white" :
+                s.stepNum < step ? "bg-green-500 text-white" :
+                s.stepNum === step ? "bg-primary text-white" :
                 "bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-gray-400"
               }`}>
-                {i + 1 < step ? <FaCheck className="text-xs" /> : i + 1}
+                {s.stepNum < step ? <FaCheck className="text-xs" /> : idx + 1}
               </div>
-              <span className={`hidden sm:inline text-xs font-medium ${i + 1 === step ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}>{label}</span>
-              {i < steps.length - 1 && <div className={`hidden sm:block w-8 h-0.5 mx-2 ${i + 1 < step ? "bg-green-500" : "bg-gray-200 dark:bg-slate-700"}`} />}
+              <span className={`hidden sm:inline text-xs font-medium ${s.stepNum === step ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}>{s.label}</span>
+              {idx < stepsList.length - 1 && <div className={`hidden sm:block w-8 h-0.5 mx-2 ${s.stepNum < step ? "bg-green-500" : "bg-gray-200 dark:bg-slate-700"}`} />}
             </div>
           ))}
         </div>
@@ -683,10 +710,12 @@ export default function BookAppointment() {
                   <span className="text-gray-600 dark:text-gray-400 shrink-0">Concerns</span>
                   <span className="font-semibold text-gray-900 dark:text-white text-right">{selectedServices.map(s => CONCERN_MAPPING[s.service_name] || s.name || s.service_name).join(', ')}</span>
                 </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-gray-600 dark:text-gray-400 shrink-0">Doctor</span>
-                  <span className="font-semibold text-gray-900 dark:text-white text-right">Dr. {selectedDoctor?.first_name} {selectedDoctor?.last_name}</span>
-                </div>
+                {requiresDoctor && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-gray-600 dark:text-gray-400 shrink-0">Doctor</span>
+                    <span className="font-semibold text-gray-900 dark:text-white text-right">Dr. {selectedDoctor?.first_name} {selectedDoctor?.last_name}</span>
+                  </div>
+                )}
                 <div className="flex justify-between gap-4">
                   <span className="text-gray-600 dark:text-gray-400 shrink-0">Date</span>
                   <span className="font-semibold text-gray-900 dark:text-white text-right">{selectedDate ? new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : ''}</span>

@@ -15,11 +15,11 @@ return new class extends Migration
         $table->id('appointment_id');
         $table->unsignedBigInteger('patient_id');
         $table->foreign('patient_id')->references('patient_id')->on('patients');
-        $table->unsignedBigInteger('doctor_id');
+        $table->unsignedBigInteger('doctor_id')->nullable();
         $table->foreign('doctor_id')->references('doctor_id')->on('doctors');
         $table->unsignedBigInteger('service_id');
-        $table->foreign('service_id')->references('service_id')->on('services');
-        $table->unsignedBigInteger('schedule_id');
+        $table->foreign('service_id')->references('id')->on('services');
+        $table->unsignedBigInteger('schedule_id')->nullable();
         $table->foreign('schedule_id')->references('schedule_id')->on('doctor_schedules');
         $table->date('appointment_date');
         $table->time('start_time');

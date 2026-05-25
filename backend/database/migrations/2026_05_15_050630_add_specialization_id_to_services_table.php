@@ -11,17 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('services', function (Blueprint $table) {
-            $table->unsignedBigInteger('specialization_id')->nullable()->after('service_id');
-            $table->foreign('specialization_id')->references('specialization_id')->on('specializations')->onDelete('set null');
-        });
+        // Handled in original create_services table migration
     }
 
     public function down(): void
     {
-        Schema::table('services', function (Blueprint $table) {
-            $table->dropForeign(['specialization_id']);
-            $table->dropColumn('specialization_id');
-        });
+        // Handled in original create_services table migration
     }
 };

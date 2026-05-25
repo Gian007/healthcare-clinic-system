@@ -12,8 +12,6 @@ export const bookAppointment     = (data) => api.post('/patient/appointments', d
 export const cancelAppointment    = (id, data) => api.put(`/patient/appointments/${id}/cancel`, data).then(r => r.data);
 export const confirmAttendance    = (id) => api.put(`/patient/appointments/${id}/confirm-attendance`).then(r => r.data);
 export const declineAttendance    = (id) => api.put(`/patient/appointments/${id}/decline-attendance`).then(r => r.data);
-
-// Public endpoints (no auth needed)
-export const getPublicDoctors      = ()   => api.get('/admin/doctors').then(r => r.data);
-export const getPublicServices     = ()   => api.get('/admin/services').then(r => r.data);
-export const getPublicSpecializations = ()=> api.get('/admin/specializations').then(r => r.data);
+export const getServiceRequests  = ()     => api.get('/patient/service-requests').then(r => r.data);
+export const acceptServiceRequest = (id, data) => api.post(`/patient/service-requests/${id}/accept`, data).then(r => r.data);
+export const declineServiceRequest = (id)  => api.post(`/patient/service-requests/${id}/decline`).then(r => r.data);

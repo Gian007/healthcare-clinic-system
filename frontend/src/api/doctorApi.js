@@ -15,3 +15,4 @@ export const updateProfile         = (data) => api.put('/doctor/profile', data).
 export const updatePassword        = (data) => api.post('/doctor/profile/password', data).then(r => r.data);
 export const uploadPhoto           = (fd)   => api.post('/doctor/profile/photo', fd, { headers: { 'Content-Type': 'multipart/form-data' }}).then(r => r.data);
 export const getSpecializations    = ()     => api.get('/doctor/specializations').then(r => r.data);
+export const createServiceRequest  = (data) => api.post('/doctor/service-requests', data).then(r => r.data);

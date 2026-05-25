@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 import ServiceCard from "../components/ServiceCard";
 import * as publicApi from "../api/publicApi";
+import { useAuth } from "../state/auth";
 
 export default function Services() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'Admin';
+
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,14 +16,16 @@ export default function Services() {
   useEffect(() => {
     publicApi.getServices()
       .then(res => {
-        // Map DB fields to ServiceCard expected format
         const mapped = res.map(s => ({
-          id: s.service_id,
-          name: s.service_name,
+          id: s.id || s.service_id,
+          name: s.name || s.service_name,
           desc: s.description || 'No description provided.',
-          status: s.service_status || 'Available',
+          status: s.is_active ? 'Available' : 'Unavailable',
           durationMin: s.estimated_duration || 30,
-          price: s.base_fee || 0
+          price: s.price || s.base_fee || 0,
+          service_type: s.service_type || 'consultation',
+          requires_doctor: s.requires_doctor ?? true,
+          requirements_notes: s.requirements_notes || ''
         }));
         setServices(mapped);
       })
@@ -30,11 +36,25 @@ export default function Services() {
   const filteredServices = services
     .filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.desc.toLowerCase().includes(searchTerm.toLowerCase()))
     .filter(s => {
-      if (category === 'All') return true;
-      const name = s.name.toLowerCase();
-      const isSpecialized = name.includes('cardiology') || name.includes('panel') || name.includes('therapy') || name.includes('dermatology') || name.includes('diagnostic');
-      if (category === 'Specialized') return isSpecialized;
-      if (category === 'General') return !isSpecialized;
+      // For non-admins, hide doctor requested services on public page
+      if (!isAdmin && s.service_type === 'doctor_requested') return false;
+
+      if (category === 'All') {
+        // Default patient view only shows Consultation and Direct Services
+        return s.service_type === 'consultation' || s.service_type === 'direct_service';
+      }
+      if (category === 'Consultation') return s.service_type === 'consultation';
+      if (category === 'Direct Services') return s.service_type === 'direct_service';
+      if (category === 'For Work / School Requirements') {
+        return s.service_type === 'direct_service' && (
+          s.name.toLowerCase().includes('employment') ||
+          s.name.toLowerCase().includes('school') ||
+          s.name.toLowerCase().includes('drug') ||
+          s.name.toLowerCase().includes('certificate') ||
+          s.name.toLowerCase().includes('exam')
+        );
+      }
+      if (category === 'Doctor Requested Only') return s.service_type === 'doctor_requested';
       return true;
     })
     .sort((a, b) => {
@@ -67,8 +87,10 @@ export default function Services() {
             className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-teal-500"
           >
             <option value="All">All Categories</option>
-            <option value="General">General</option>
-            <option value="Specialized">Specialized</option>
+            <option value="Consultation">Consultations</option>
+            <option value="Direct Services">Direct Services</option>
+            <option value="For Work / School Requirements">Work / School Requirements</option>
+            {isAdmin && <option value="Doctor Requested Only">Doctor Requested (Admin View)</option>}
           </select>
           <select 
             value={sortBy}

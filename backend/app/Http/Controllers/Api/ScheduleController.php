@@ -395,9 +395,9 @@ class ScheduleController extends Controller
     public function getAvailableSlots(Request $request)
     {
         $request->validate([
-            'doctor_id'  => 'required|exists:doctors,doctor_id',
+            'doctor_id'  => 'nullable|exists:doctors,doctor_id',
             'date'       => 'required|date',
-            'service_id' => 'required|exists:services,service_id',
+            'service_id' => 'required|exists:services,id',
         ]);
 
         $date = Carbon::parse($request->date);
@@ -416,6 +416,71 @@ class ScheduleController extends Controller
             ->where('is_active', true)
             ->first();
         if ($closure) return response()->json(['slots' => [], 'message' => 'Clinic is closed for: ' . $closure->title]);
+
+        // Direct Service Slot Generation (no doctor chosen)
+        if (!$request->doctor_id) {
+            $startTime = Carbon::parse($clinicHour->open_time);
+            $endTime = Carbon::parse($clinicHour->close_time);
+
+            // Shortened hours?
+            $shortened = SpecialSchedule::where('date', $request->date)
+                ->where('type', 'Shortened Hours')
+                ->where('applies_to_type', 'Whole Clinic')
+                ->where('is_active', true)
+                ->first();
+            
+            if ($shortened) {
+                $startTime = Carbon::parse($shortened->start_time)->max($startTime);
+                $endTime = Carbon::parse($shortened->end_time)->min($endTime);
+            }
+
+            $allSlots = [];
+            $current = clone $startTime;
+            while ($current->lt($endTime)) {
+                $slotEnd = (clone $current)->addMinutes($duration);
+                if ($slotEnd->gt($endTime)) break;
+
+                $timeStr = $current->format('H:i');
+                
+                // Skip typical lunch break 12:00 - 13:00
+                $isLunch = ($timeStr >= '12:00' && $timeStr < '13:00');
+                if ($isLunch) {
+                    $current->addMinutes($duration);
+                    continue;
+                }
+
+                // Check capacity: let's see how many appointments are booked for this service at this date/time
+                $count = Appointment::where('service_id', $service->id)
+                    ->where('appointment_date', $request->date)
+                    ->where('start_time', $timeStr)
+                    ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
+                    ->count();
+
+                // Capacity limit for direct services: say, maximum 5 patients per slot
+                $isFull = $count >= 5;
+
+                $slotDateTime = Carbon::parse($request->date . ' ' . $timeStr, 'Asia/Manila');
+                $nowInManila = Carbon::now('Asia/Manila');
+                $isPast = $slotDateTime->lt($nowInManila);
+
+                $isAvailable = !$isFull && !$isPast;
+
+                $allSlots[] = [
+                    'time' => $timeStr,
+                    'start_time' => $timeStr,
+                    'end_time' => $slotEnd->format('H:i'),
+                    'room' => 'Laboratory/Exam Room',
+                    'schedule_id' => null,
+                    'is_available' => $isAvailable,
+                    'is_full' => $isFull,
+                    'is_past' => $isPast
+                ];
+
+                $current->addMinutes($duration);
+            }
+
+            return response()->json(['slots' => $allSlots]);
+        }
 
         // 3. Check Doctor Day Off
         $dayOff = DoctorDayOff::where('doctor_id', $request->doctor_id)

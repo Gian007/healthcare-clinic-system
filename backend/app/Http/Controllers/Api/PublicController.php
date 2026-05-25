@@ -82,7 +82,7 @@ class PublicController extends Controller
 
     public function getServices()
     {
-        return response()->json(Service::all());
+        return response()->json(Service::where('is_active', true)->get());
     }
 
     public function getQueue()

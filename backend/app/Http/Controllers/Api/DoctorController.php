@@ -506,4 +506,53 @@ class DoctorController extends Controller
         $doctor->save();
         return response()->json(['message' => 'Photo updated.', 'profile_picture' => asset('storage/' . $path)]);
     }
+
+    public function createServiceRequest(Request $request)
+    {
+        $doctor = $this->doctor($request);
+
+        $request->validate([
+            'patient_id'             => 'required|exists:patients,patient_id',
+            'related_appointment_id' => 'nullable|exists:appointments,appointment_id',
+            'remarks'                => 'nullable|string',
+            'priority'               => 'required|in:normal,urgent',
+            'service_ids'            => 'required|array|min:1',
+            'service_ids.*'          => 'required|exists:services,id',
+        ]);
+
+        $services = \App\Models\Service::whereIn('id', $request->service_ids)->get();
+        $totalPrice = $services->sum('price');
+
+        $serviceRequest = \App\Models\DoctorServiceRequest::create([
+            'doctor_id'              => $doctor->doctor_id,
+            'patient_id'             => $request->patient_id,
+            'related_appointment_id' => $request->related_appointment_id,
+            'remarks'                => $request->remarks,
+            'priority'               => $request->priority,
+            'total_price'            => $totalPrice,
+            'status'                 => 'pending',
+        ]);
+
+        foreach ($services as $srv) {
+            \App\Models\DoctorServiceRequestItem::create([
+                'request_id' => $serviceRequest->id,
+                'service_id' => $srv->id,
+                'price'      => $srv->price,
+            ]);
+        }
+
+        // Notify patient
+        SystemNotification::create([
+            'notifiable_type' => 'patient',
+            'notifiable_id'   => $request->patient_id,
+            'title'           => 'New Doctor Recommendation',
+            'body'            => "Dr. {$doctor->first_name} {$doctor->last_name} recommended new service(s) for you. Please check 'Doctor Requests' in your dashboard.",
+            'type'            => 'info',
+        ]);
+
+        return response()->json([
+            'message' => 'Service recommendation request submitted successfully.',
+            'request' => $serviceRequest->load('items.service')
+        ]);
+    }
 }

@@ -538,26 +538,32 @@ class AdminController extends Controller
 
     public function getServices()
     {
-        return response()->json(Service::with(['specialization', 'specializations'])->orderBy('service_name')->get());
+        return response()->json(Service::with(['specialization', 'specializations'])->orderBy('name')->get());
     }
 
     public function createService(Request $request)
     {
         $inputIds = $request->specialization_ids ?? [];
+        if (empty($inputIds) && $request->required_specialization) {
+            $inputIds = [$request->required_specialization];
+        }
 
         $request->validate([
-            'service_name'  => 'required|string|max:255|unique:services,service_name',
-            'description'   => 'nullable|string',
-            'duration_mins' => 'required|integer|min:5',
-            'base_fee'      => 'required|numeric|min:0',
-            'specialization_ids' => 'required|array|min:1',
+            'name'                     => 'required|string|max:255|unique:services,name',
+            'description'              => 'nullable|string',
+            'duration_mins'            => 'required|integer|min:1',
+            'base_fee'                 => 'required|numeric|min:0',
+            'service_type'             => 'required|in:consultation,direct_service,doctor_requested',
+            'requires_doctor'          => 'required|boolean',
+            'is_publicly_bookable'     => 'required|boolean',
+            'requirements_notes'       => 'nullable|string',
+            'is_active'                => 'required|boolean',
         ]);
 
         // Resolve all IDs — numeric real IDs pass through, 'NEW:name' strings get firstOrCreate'd
         $finalIds = [];
         foreach ($inputIds as $entry) {
             if (is_numeric($entry)) {
-                // Real DB ID — verify it exists
                 $spec = Specialization::find($entry);
                 if ($spec) {
                     $finalIds[] = $spec->specialization_id;
@@ -572,7 +578,6 @@ class AdminController extends Controller
                     $finalIds[] = $spec->specialization_id;
                 }
             } elseif (is_string($entry)) {
-                // Plain name string — firstOrCreate
                 $spec = Specialization::firstOrCreate(
                     ['specialization_name' => $entry],
                     ['description' => 'Custom Entry']
@@ -581,20 +586,22 @@ class AdminController extends Controller
             }
         }
 
-        if (empty($finalIds)) {
-            return response()->json(['errors' => ['specialization_ids' => ['At least one valid specialization is required.']]], 422);
-        }
-
         $service = Service::create([
-            'service_name'       => $request->service_name,
-            'description'        => $request->description ?? '',
-            'estimated_duration' => $request->duration_mins,
-            'base_fee'           => $request->base_fee,
-            'specialization_id'  => $finalIds[0] ?? null,
-            'service_status'     => 'Available',
+            'name'                     => $request->name ?? $request->service_name,
+            'description'              => $request->description ?? '',
+            'estimated_duration'       => $request->duration_mins,
+            'price'                    => $request->base_fee,
+            'service_type'             => $request->service_type,
+            'requires_doctor'          => $request->requires_doctor,
+            'is_publicly_bookable'     => $request->is_publicly_bookable,
+            'required_specialization'  => $finalIds[0] ?? null,
+            'requirements_notes'       => $request->requirements_notes,
+            'is_active'                => $request->is_active,
         ]);
 
-        $service->specializations()->sync($finalIds);
+        if (!empty($finalIds)) {
+            $service->specializations()->sync($finalIds);
+        }
 
         return response()->json(['message' => 'Service created.', 'service' => $service->load('specializations')]);
     }
@@ -603,13 +610,20 @@ class AdminController extends Controller
     {
         $service = Service::findOrFail($id);
         $inputIds = $request->specialization_ids ?? [];
+        if (empty($inputIds) && $request->required_specialization) {
+            $inputIds = [$request->required_specialization];
+        }
 
         $request->validate([
-            'service_name'  => 'required|string|max:255|unique:services,service_name,'.$id.',service_id',
-            'description'   => 'nullable|string',
-            'duration_mins' => 'required|integer|min:5',
-            'base_fee'      => 'required|numeric|min:0',
-            'specialization_ids' => 'required|array|min:1',
+            'name'                     => 'required|string|max:255|unique:services,name,'.$id,
+            'description'              => 'nullable|string',
+            'duration_mins'            => 'required|integer|min:1',
+            'base_fee'                 => 'required|numeric|min:0',
+            'service_type'             => 'required|in:consultation,direct_service,doctor_requested',
+            'requires_doctor'          => 'required|boolean',
+            'is_publicly_bookable'     => 'required|boolean',
+            'requirements_notes'       => 'nullable|string',
+            'is_active'                => 'required|boolean',
         ]);
 
         // Resolve all IDs — numeric real IDs pass through, 'NEW:name' strings get firstOrCreate'd
@@ -638,19 +652,24 @@ class AdminController extends Controller
             }
         }
 
-        if (empty($finalIds)) {
-            return response()->json(['errors' => ['specialization_ids' => ['At least one valid specialization is required.']]], 422);
-        }
-
         $service->update([
-            'service_name'       => $request->service_name,
-            'description'        => $request->description ?? '',
-            'estimated_duration' => $request->duration_mins,
-            'base_fee'           => $request->base_fee,
-            'specialization_id'  => $finalIds[0] ?? null,
+            'name'                     => $request->name ?? $request->service_name,
+            'description'              => $request->description ?? '',
+            'estimated_duration'       => $request->duration_mins,
+            'price'                    => $request->base_fee,
+            'service_type'             => $request->service_type,
+            'requires_doctor'          => $request->requires_doctor,
+            'is_publicly_bookable'     => $request->is_publicly_bookable,
+            'required_specialization'  => $finalIds[0] ?? null,
+            'requirements_notes'       => $request->requirements_notes,
+            'is_active'                => $request->is_active,
         ]);
 
-        $service->specializations()->sync($finalIds);
+        if (!empty($finalIds)) {
+            $service->specializations()->sync($finalIds);
+        } else {
+            $service->specializations()->detach();
+        }
 
         return response()->json(['message' => 'Service updated.', 'service' => $service->load('specializations')]);
     }

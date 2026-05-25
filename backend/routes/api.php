@@ -52,6 +52,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/appointments/{id}/cancel', [PatientController::class, 'cancelAppointment']);
         Route::put('/appointments/{id}/confirm-attendance', [PatientController::class, 'confirmAttendance']);
         Route::put('/appointments/{id}/decline-attendance', [PatientController::class, 'declineAttendance']);
+        
+        // Doctor requested services for patients
+        Route::get('/service-requests', [PatientController::class, 'getServiceRequests']);
+        Route::post('/service-requests/{id}/accept', [PatientController::class, 'acceptServiceRequest']);
+        Route::post('/service-requests/{id}/decline', [PatientController::class, 'declineServiceRequest']);
     });
 
     /* ── Doctor Routes ── */
@@ -71,6 +76,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/profile',                      [DoctorController::class, 'updateProfile']);
         Route::post('/profile/password',            [DoctorController::class, 'updatePassword']);
         Route::post('/profile/photo',               [DoctorController::class, 'uploadProfilePicture']);
+        
+        // Doctor recommendations
+        Route::post('/service-requests', [DoctorController::class, 'createServiceRequest']);
     });
 
     /* ── Staff Routes ── */

@@ -15,7 +15,18 @@ function SuccessModal({ message, onClose }) {
   );
 }
 
-const BLANK = { service_name: '', description: '', duration_mins: 30, base_fee: 0, specialization_ids: [] };
+const BLANK = { 
+  service_name: '', 
+  description: '', 
+  duration_mins: 30, 
+  base_fee: 0, 
+  specialization_ids: [],
+  service_type: 'consultation',
+  requires_doctor: true,
+  is_publicly_bookable: true,
+  requirements_notes: '',
+  is_active: true
+};
 
 export default function AdminServices() {
   const [services, setServices]   = useState([]);
@@ -155,16 +166,30 @@ export default function AdminServices() {
   };
   const openEdit = (s) => { 
     setFormData({ 
-      service_name: s.service_name, 
+      service_name: s.name || s.service_name, 
       description: s.description||'', 
-      duration_mins: s.estimated_duration, 
-      base_fee: s.base_fee || 0, 
-      specialization_ids: s.specializations?.map(x => x.specialization_id) || (s.specialization_id ? [s.specialization_id] : [])
+      duration_mins: s.estimated_duration || 30, 
+      base_fee: s.price || s.base_fee || 0, 
+      specialization_ids: s.specializations?.map(x => x.specialization_id) || (s.required_specialization ? [s.required_specialization] : (s.specialization_id ? [s.specialization_id] : [])),
+      service_type: s.service_type || 'consultation',
+      requires_doctor: s.requires_doctor ?? true,
+      is_publicly_bookable: s.is_publicly_bookable ?? true,
+      requirements_notes: s.requirements_notes || '',
+      is_active: s.is_active ?? true
     }); 
     setFormErrors({}); 
     setShowNewSpec(false); 
     setNewSpecName(''); 
     setModal({ service: s }); 
+  };
+
+  const handleServiceTypeChange = (type) => {
+    setFormData(p => ({
+      ...p,
+      service_type: type,
+      requires_doctor: type === 'consultation' ? true : type === 'direct_service' ? false : p.requires_doctor,
+      is_publicly_bookable: type !== 'doctor_requested'
+    }));
   };
 
   const save = async (e) => {
@@ -187,14 +212,9 @@ export default function AdminServices() {
         return null;
       }).filter(Boolean);
 
-      if (resolvedIds.length === 0) {
-        setFormErrors({ specialization_ids: 'At least one specialization is required.' });
-        setSaving(false);
-        return;
-      }
-
       const payload = { 
         ...formData, 
+        name: formData.service_name,
         specialization_ids: resolvedIds 
       };
 
@@ -263,17 +283,29 @@ export default function AdminServices() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {list.map(s => (
-            <div key={s.service_id} className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 hover:shadow-md transition-shadow">
+            <div key={s.service_id || s.id} className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white">{s.service_name}</h3>
+                  <h3 className="font-bold text-gray-900 dark:text-white">{s.name || s.service_name}</h3>
                   <div className="flex flex-wrap gap-1.5 mt-1">
                     {s.specializations?.length > 0 ? s.specializations.map(sp => (
                       <span key={sp.specialization_id} className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded font-bold border border-slate-200 dark:border-slate-700">{sp.name}</span>
-                    )) : <p className="text-xs text-teal-600 font-bold uppercase tracking-wider">{s.specialization?.name || 'No Specialization'}</p>}
+                    )) : s.specialization ? (
+                      <span key={s.specialization.specialization_id} className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded font-bold border border-slate-200 dark:border-slate-700">{s.specialization.name || s.specialization.specialization_name}</span>
+                    ) : (
+                      <span className="text-[10px] bg-gray-100 dark:bg-slate-800 text-gray-500 px-1.5 py-0.5 rounded font-bold border border-gray-200 dark:border-slate-700">No Specialization Required</span>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{s.description || 'No description'}</p>
-                  <p className="text-xs text-teal-600 mt-2 font-medium">⏱️ {s.estimated_duration} mins • ₱{s.base_fee}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{s.description || 'No description'}</p>
+                  <p className="text-xs text-teal-650 mt-2 font-medium">⏱️ {s.estimated_duration} mins • ₱{s.price || s.base_fee}</p>
+                  
+                  <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-1 text-xs text-gray-500 dark:text-gray-450">
+                    <div><span className="font-medium text-slate-500 dark:text-slate-450">Type:</span> <span className="font-bold text-gray-700 dark:text-gray-300 capitalize">{s.service_type === 'direct_service' ? 'Direct Service' : s.service_type === 'doctor_requested' ? 'Doctor Requested Only' : 'Consultation'}</span></div>
+                    <div><span className="font-medium text-slate-500 dark:text-slate-450">Requires Doctor:</span> <span className="font-bold text-gray-750 dark:text-gray-300">{s.requires_doctor ? 'Yes' : 'No'}</span></div>
+                    <div><span className="font-medium text-slate-500 dark:text-slate-450">Publicly Bookable:</span> <span className="font-bold text-gray-750 dark:text-gray-300">{s.is_publicly_bookable ? 'Yes' : 'No'}</span></div>
+                    <div><span className="font-medium text-slate-500 dark:text-slate-450">Status:</span> <span className={`font-bold ${s.is_active ? 'text-green-600' : 'text-red-500'}`}>{s.is_active ? 'Active' : 'Inactive'}</span></div>
+                    {s.requirements_notes && <div><span className="font-medium text-slate-500 dark:text-slate-450">Requirements:</span> <span className="italic text-gray-650 dark:text-gray-400">{s.requirements_notes}</span></div>}
+                  </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <button onClick={() => openEdit(s)} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition">
@@ -294,166 +326,108 @@ export default function AdminServices() {
         <Modal title={modal === 'add' ? 'Add New Service' : 'Edit Service'} onClose={() => setModal(null)}>
           <form onSubmit={save} className="space-y-4">
             {formErrors.general && <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">{formErrors.general}</div>}
+            
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service Name <span className="text-red-500">*</span></label>
               <input required value={formData.service_name} onChange={e => setFormData(p => ({...p, service_name: e.target.value}))}
                 className={`w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:border-slate-700 dark:text-white ${formErrors.service_name ? 'border-red-400' : 'border-gray-300 dark:border-slate-700'}`} />
               {formErrors.service_name && <p className="text-xs text-red-500 mt-1">{formErrors.service_name}</p>}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Specializations <span className="text-red-500">*</span></label>
-              <div className="space-y-3">
-                <div className="flex flex-wrap gap-2 mb-2 p-3 border border-gray-200 dark:border-slate-700 rounded-xl min-h-[50px] bg-gray-50/50 dark:bg-slate-800/30">
-                  {formData.specialization_ids.length === 0 && <span className="text-gray-400 text-sm italic">No specializations selected.</span>}
-                  {formData.specialization_ids.map((id, index) => {
-                    const sp = displaySpecs.find(x => x.specialization_id === id);
-                    const isNew = typeof id === 'string' && id.startsWith('NEW:');
-                    const label = isNew ? id.replace('NEW:', '') : (sp?.name || 'Unknown');
-                    return (
-                      <span key={id + index} className="inline-flex items-center gap-1.5 bg-primary/10 text-primary text-xs font-bold px-2.5 py-1.5 rounded-lg border border-primary/20 shadow-sm transition-all hover:bg-primary/20 animate-in zoom-in-95 duration-150">
-                        {label}
-                        <button type="button" onClick={() => setFormData(p => ({ ...p, specialization_ids: p.specialization_ids.filter(x => x !== id) }))} className="hover:text-red-500 font-bold ml-1 transition-colors">×</button>
-                      </span>
-                    );
-                  })}
-                </div>
 
-                {!showNewSpec ? (
-                  <div className="space-y-2 relative group">
-                    <input 
-                      type="text" 
-                      placeholder="Search or browse all specializations..." 
-                      value={specSearch} 
-                      onChange={e => setSpecSearch(e.target.value)}
-                      onFocus={() => { if(!specSearch) setSpecSearch(' '); setTimeout(()=>setSpecSearch(''), 10); }}
-                      className="w-full border border-gray-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white"
-                    />
-                    <div className="absolute z-[60] w-full mt-1 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl shadow-2xl max-h-80 overflow-y-auto hidden group-focus-within:block transition-all border-t-4 border-t-primary">
-                      {displaySpecs.filter(sp => 
-                        sp.name.toLowerCase().includes(specSearch.toLowerCase()) && 
-                        !formData.specialization_ids.includes(sp.specialization_id)
-                      ).length === 0 ? (
-                        <div className="p-8 text-center bg-slate-50/50 dark:bg-slate-800/20">
-                          <p className="text-sm text-slate-500 font-bold mb-4 italic">"{specSearch || 'Type something'}" is not in our medical registry.</p>
-                          <button type="button" onClick={() => { setShowNewSpec(true); setNewSpecName(specSearch); setSpecSearch(''); }} className="bg-primary text-white text-xs font-black px-6 py-3 rounded-xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20 uppercase tracking-widest">
-                            + Register "{specSearch}" Now
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="divide-y divide-gray-100 dark:divide-slate-800">
-                          {Object.entries(
-                            displaySpecs.filter(sp => 
-                              sp.name.toLowerCase().includes(specSearch.toLowerCase()) && 
-                              !formData.specialization_ids.includes(sp.specialization_id)
-                            ).reduce((acc, sp) => {
-                              const cat = sp.description || 'Medical Registry';
-                              if (!acc[cat]) acc[cat] = [];
-                              acc[cat].push(sp);
-                              return acc;
-                            }, {})
-                          ).map(([cat, items]) => (
-                            <div key={cat} className="group/cat">
-                              <div className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800/80 text-[9px] font-black text-primary uppercase tracking-[0.25em] sticky top-0 z-10 border-b border-gray-200 dark:border-slate-700 backdrop-blur-sm shadow-sm">{cat}</div>
-                              <div className="py-1">
-                                {items.map(sp => (
-                                  <button
-                                    key={sp.specialization_id}
-                                    type="button"
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      setFormData(p => ({ ...p, specialization_ids: [...p.specialization_ids, sp.specialization_id] }));
-                                      setSpecSearch('');
-                                    }}
-                                    className="w-full text-left px-5 py-3.5 hover:bg-primary/10 text-sm dark:text-white transition-all flex items-center justify-between group/item"
-                                  >
-                                    <div className="flex flex-col">
-                                      <span className="font-bold text-slate-700 dark:text-slate-200">{sp.name}</span>
-                                      <span className="text-[10px] text-slate-400 group-hover/item:text-primary transition-colors">Click to add to service</span>
-                                    </div>
-                                    <span className="text-[10px] bg-primary text-white px-2 py-1 rounded-lg font-black opacity-0 group-hover/item:opacity-100 transition-all scale-75 group-hover/item:scale-100">ADD +</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex justify-between items-center px-1 pt-1">
-                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Registry: {specs.length} fields</p>
-                       <button type="button" onClick={() => setShowNewSpec(true)} className="text-[10px] text-primary font-black uppercase tracking-widest hover:underline">+ New Entry</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-primary/5 dark:bg-primary/10 p-5 rounded-2xl border border-primary/20 space-y-3 shadow-xl">
-                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                       <span className="w-2 h-2 bg-primary rounded-full animate-ping"/>
-                       Register Custom Field
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                      <div className="flex-1 relative">
-                        <input 
-                          autoFocus 
-                          placeholder="Type specialization name here..." 
-                          value={newSpecName} 
-                          onChange={e => setNewSpecName(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              if (newSpecName.trim()) {
-                                setFormData(p => ({ ...p, specialization_ids: [...p.specialization_ids, 'NEW:' + newSpecName.trim()] }));
-                                setNewSpecName('');
-                                setShowNewSpec(false);
-                              }
-                            }
-                          }}
-                          className="w-full border border-primary/30 dark:border-primary/50 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-500" 
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button 
-                          type="button" 
-                          onClick={() => {
-                            if (!newSpecName.trim()) return;
-                            setFormData(p => ({ ...p, specialization_ids: [...p.specialization_ids, 'NEW:' + newSpecName.trim()] }));
-                            setNewSpecName('');
-                            setShowNewSpec(false);
-                          }} 
-                          className="flex-1 sm:flex-none bg-primary text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 shadow-lg shadow-primary/10 whitespace-nowrap"
-                        >
-                          Confirm
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => { setShowNewSpec(false); setNewSpecName(''); }} 
-                          className="flex-1 sm:flex-none px-3 text-[10px] font-black text-gray-500 dark:text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest bg-gray-100 dark:bg-slate-800 sm:bg-transparent sm:dark:bg-transparent rounded-xl sm:rounded-none"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                    {!newSpecName.trim() && <p className="text-[10px] text-red-500 dark:text-red-400 font-bold italic px-1">⚠️ Please enter a name or click cancel</p>}
-                  </div>
-                )}
-              </div>
-              {formErrors.specialization_ids && <p className="text-xs text-red-500 mt-2 font-bold flex items-center gap-1">⚠️ {formErrors.specialization_ids}</p>}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service Type <span className="text-red-500">*</span></label>
+              <select 
+                value={formData.service_type} 
+                onChange={e => handleServiceTypeChange(e.target.value)}
+                className="w-full border border-gray-300 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white"
+              >
+                <option value="consultation">Consultation</option>
+                <option value="direct_service">Direct Service</option>
+                <option value="doctor_requested">Doctor Requested Only</option>
+              </select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Required Specialization</label>
+              <select
+                value={formData.specialization_ids[0] || ''}
+                onChange={e => {
+                  const val = e.target.value;
+                  setFormData(p => ({ 
+                    ...p, 
+                    specialization_ids: val ? [Number(val)] : [] 
+                  }));
+                }}
+                className="w-full border border-gray-300 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white"
+              >
+                <option value="">None / Not Applicable</option>
+                {displaySpecs.map(sp => (
+                  <option key={sp.specialization_id} value={sp.specialization_id}>
+                    {sp.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
-              <textarea value={formData.description} rows={3} onChange={e => setFormData(p => ({...p, description: e.target.value}))}
+              <textarea value={formData.description} rows={2} onChange={e => setFormData(p => ({...p, description: e.target.value}))}
                 className="w-full border border-gray-300 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white resize-none" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Duration (minutes) <span className="text-red-500">*</span></label>
-              <input required type="number" min="5" value={formData.duration_mins} onChange={e => setFormData(p => ({...p, duration_mins: Number(e.target.value)}))}
-                className="w-full border border-gray-300 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white" />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Duration (mins) <span className="text-red-500">*</span></label>
+                <input required type="number" min="5" value={formData.duration_mins} onChange={e => setFormData(p => ({...p, duration_mins: Number(e.target.value)}))}
+                  className="w-full border border-gray-300 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Base Fee (₱) <span className="text-red-500">*</span></label>
+                <input required type="number" min="0" value={formData.base_fee} onChange={e => setFormData(p => ({...p, base_fee: Number(e.target.value)}))}
+                  className="w-full border border-gray-300 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white" />
+              </div>
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Base Fee (₱) <span className="text-red-500">*</span></label>
-              <input required type="number" min="0" value={formData.base_fee} onChange={e => setFormData(p => ({...p, base_fee: Number(e.target.value)}))}
-                className="w-full border border-gray-300 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white" />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Requirements / Notes</label>
+              <textarea value={formData.requirements_notes} rows={2} onChange={e => setFormData(p => ({...p, requirements_notes: e.target.value}))}
+                placeholder="e.g. Bring school ID, fast for 12 hours before test"
+                className="w-full border border-gray-300 dark:border-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white resize-none" />
             </div>
-            <button type="submit" disabled={saving} className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50">
+
+            <div className="space-y-2 pt-2">
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={formData.requires_doctor} 
+                  onChange={e => setFormData(p => ({ ...p, requires_doctor: e.target.checked }))}
+                  className="w-4 h-4 rounded text-primary focus:ring-primary/30"
+                />
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Requires Doctor Consultation</span>
+              </label>
+
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={formData.is_publicly_bookable} 
+                  onChange={e => setFormData(p => ({ ...p, is_publicly_bookable: e.target.checked }))}
+                  className="w-4 h-4 rounded text-primary focus:ring-primary/30"
+                />
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Publicly Bookable by Patients</span>
+              </label>
+
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={formData.is_active} 
+                  onChange={e => setFormData(p => ({ ...p, is_active: e.target.checked }))}
+                  className="w-4 h-4 rounded text-primary focus:ring-primary/30"
+                />
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Service is Active / Available</span>
+              </label>
+            </div>
+
+            <button type="submit" disabled={saving} className="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 mt-4">
               {saving ? 'Saving...' : modal === 'add' ? 'Create Service' : 'Save Changes'}
             </button>
           </form>

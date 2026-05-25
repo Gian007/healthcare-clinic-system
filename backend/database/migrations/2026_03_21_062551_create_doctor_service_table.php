@@ -16,7 +16,7 @@ return new class extends Migration
         $table->unsignedBigInteger('doctor_id');
         $table->foreign('doctor_id')->references('doctor_id')->on('doctors');
         $table->unsignedBigInteger('service_id');
-        $table->foreign('service_id')->references('service_id')->on('services');
+        $table->foreign('service_id')->references('id')->on('services');
         $table->enum('status', ['Active', 'Inactive']);
         $table->timestamps();
     });

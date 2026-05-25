@@ -48,6 +48,16 @@ export default function PatientDashboard() {
   const [queueCount, setQueueCount] = useState(0);
   const [avgWaitTime, setAvgWaitTime] = useState(0);
 
+  // Service recommendations states
+  const [requests, setRequests] = useState([]);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [bookingDate, setBookingDate] = useState('');
+  const [bookingSchedule, setBookingSchedule] = useState(null);
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [bookingSlotsLoading, setBookingSlotsLoading] = useState(false);
+  const [bookingMessage, setBookingMessage] = useState('');
+  const [submitBookingLoading, setSubmitBookingLoading] = useState(false);
+
   const fetchDashboardData = () => {
     patientApi.getDashboard()
       .then(d => {
@@ -56,6 +66,10 @@ export default function PatientDashboard() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    patientApi.getServiceRequests()
+      .then(res => setRequests(res || []))
+      .catch(console.error);
       
     publicApi.getQueue()
       .then(res => {
@@ -92,6 +106,67 @@ export default function PatientDashboard() {
       alert(e.response?.data?.message || "Failed to cancel appointment.");
     } finally {
       setCancelLoading(false);
+    }
+  };
+
+  // Recommendation action handlers
+  useEffect(() => {
+    if (selectedRequest && bookingDate) {
+      setBookingSlotsLoading(true);
+      setBookingMessage('');
+      setBookingSchedule(null);
+      const serviceId = selectedRequest.items?.[0]?.service_id;
+      const doctorId = selectedRequest.doctor_id;
+      
+      publicApi.getAvailableSlots(doctorId, bookingDate, serviceId)
+        .then(res => {
+          setAvailableSlots(res.slots || []);
+          if (res.message) setBookingMessage(res.message);
+        })
+        .catch(err => {
+          console.error(err);
+          setBookingMessage("Error loading available slots.");
+        })
+        .finally(() => setBookingSlotsLoading(false));
+    } else {
+      setAvailableSlots([]);
+    }
+  }, [selectedRequest, bookingDate]);
+
+  const handleDeclineRequest = async (req) => {
+    if (!confirm("Are you sure you want to decline this medical recommendation?")) return;
+    try {
+      await patientApi.declineServiceRequest(req.id);
+      alert("Recommendation declined.");
+      fetchDashboardData();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to decline request.");
+    }
+  };
+
+  const handleAcceptRequestClick = (req) => {
+    setSelectedRequest(req);
+    setBookingDate('');
+    setBookingSchedule(null);
+    setAvailableSlots([]);
+  };
+
+  const handleConfirmAcceptBooking = async () => {
+    if (!bookingSchedule) return;
+    setSubmitBookingLoading(true);
+    try {
+      await patientApi.acceptServiceRequest(selectedRequest.id, {
+        appointment_date: bookingDate,
+        start_time: bookingSchedule.start_time,
+        end_time: bookingSchedule.end_time
+      });
+      alert("Recommended services scheduled successfully!");
+      setSelectedRequest(null);
+      fetchDashboardData();
+    } catch (err) {
+      alert(err.response?.data?.message || "Booking failed.");
+    } finally {
+      setSubmitBookingLoading(false);
     }
   };
 
@@ -293,6 +368,57 @@ export default function PatientDashboard() {
         </div>
       )}
 
+      {/* Doctor Requests list */}
+      {requests.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Doctor Recommendations</h2>
+          <div className="space-y-3 mb-6">
+            {requests.map(req => (
+              <div key={req.id} className="bg-gradient-to-r from-teal-50/50 to-emerald-50/30 dark:from-slate-900 dark:to-slate-900 rounded-2xl border border-teal-100 dark:border-slate-800 p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:shadow-md transition-shadow">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-gray-900 dark:text-white">
+                      Recommended by Dr. {req.doctor?.first_name} {req.doctor?.last_name}
+                    </span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${req.priority === 'urgent' ? 'bg-red-100 text-red-700 dark:bg-red-950/20 dark:text-red-400' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'}`}>
+                      {req.priority}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <span className="font-semibold text-slate-500">Services:</span>{' '}
+                    <span className="font-bold text-slate-700 dark:text-slate-350">
+                      {req.items?.map(item => item.service?.name || item.service?.service_name || 'Service').join(', ')}
+                    </span>
+                  </p>
+                  {req.remarks && (
+                    <p className="text-xs text-gray-400 italic">
+                      "{req.remarks}"
+                    </p>
+                  )}
+                  <p className="text-xs text-teal-650 font-black">
+                    Total price: ₱{Number(req.total_price).toFixed(2)}
+                  </p>
+                </div>
+                <div className="flex gap-2 w-full md:w-auto shrink-0">
+                  <button 
+                    onClick={() => handleAcceptRequestClick(req)}
+                    className="flex-1 md:flex-none bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  >
+                    Accept & Book
+                  </button>
+                  <button 
+                    onClick={() => handleDeclineRequest(req)}
+                    className="flex-1 md:flex-none border border-slate-200 hover:bg-red-50 hover:text-red-500 text-slate-650 dark:text-slate-350 text-xs font-bold px-4 py-2.5 rounded-xl transition-all"
+                  >
+                    Decline
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Appointments list */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">My Appointments</h2>
@@ -417,6 +543,98 @@ export default function PatientDashboard() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Date & Time Selection Modal for accepting doctor recommendations */}
+      {selectedRequest && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSelectedRequest(null)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Schedule Recommended Visit</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Choose a date and time slot for your appointment with <strong className="font-semibold text-slate-750 dark:text-slate-350">Dr. {selectedRequest.doctor?.first_name} {selectedRequest.doctor?.last_name}</strong>.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Select Date</label>
+                <input 
+                  type="date"
+                  value={bookingDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={e => setBookingDate(e.target.value)}
+                  className="w-full border border-gray-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
+
+              {bookingDate && (
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Available Time Slots</label>
+                  
+                  {bookingSlotsLoading ? (
+                    <div className="flex items-center gap-3 text-xs text-slate-500 animate-pulse py-2">
+                       <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin"/>
+                       Checking slots...
+                    </div>
+                  ) : bookingMessage ? (
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/40 text-slate-500 rounded-xl border border-slate-100 dark:border-slate-800 text-xs italic">
+                      {bookingMessage}
+                    </div>
+                  ) : availableSlots.length === 0 ? (
+                    <div className="p-4 bg-red-50 dark:bg-red-950/20 text-red-750 dark:text-red-405 rounded-xl border border-red-200 dark:border-red-800 text-xs">
+                      No slots available for this doctor on this day. Please pick another date.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {availableSlots.map((sch, i) => {
+                        const formatTime = (t) => {
+                          if (!t) return '';
+                          const [h, m] = t.split(':').map(Number);
+                          const p = h >= 12 ? 'PM' : 'AM';
+                          const dh = h % 12 || 12;
+                          return `${dh}:${m.toString().padStart(2, '0')} ${p}`;
+                        };
+                        return (
+                          <button
+                            type="button"
+                            key={i}
+                            disabled={!sch.is_available}
+                            onClick={() => setBookingSchedule(sch)}
+                            className={`border-2 rounded-xl p-2.5 text-xs font-bold transition-all text-center flex flex-col items-center justify-center ${
+                              bookingSchedule?.start_time === sch.start_time
+                                ? "bg-primary text-white border-primary shadow-md shadow-primary/20"
+                                : !sch.is_available
+                                ? "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-850 text-slate-350 dark:text-slate-655 cursor-not-allowed opacity-50 line-through"
+                                : "border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-350 hover:border-primary/50"
+                            }`}
+                          >
+                            <span>{formatTime(sch.start_time)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setSelectedRequest(null)}
+                disabled={submitBookingLoading}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300 py-2.5 rounded-xl font-medium transition text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAcceptBooking}
+                disabled={submitBookingLoading || !bookingSchedule}
+                className="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2.5 rounded-xl font-bold transition text-xs disabled:opacity-40"
+              >
+                {submitBookingLoading ? "Scheduling..." : "Confirm & Schedule"}
+              </button>
+            </div>
           </div>
         </div>
       )}
