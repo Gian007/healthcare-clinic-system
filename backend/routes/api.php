@@ -26,6 +26,7 @@ Route::get('/public/queue',         [\App\Http\Controllers\Api\PublicController:
 Route::get('/public/announcements', [\App\Http\Controllers\Api\PublicController::class, 'getAnnouncements']);
 Route::get('/public/settings',      [\App\Http\Controllers\Api\PublicController::class, 'getSettings']);
 Route::get('/public/landing-page',  [\App\Http\Controllers\Api\LandingPageSettingController::class, 'index']);
+Route::get('/booking/available-slots', [ScheduleController::class, 'getAvailableSlots']);
 
 /* ─────────────── Authenticated Routes ─────────────── */
 Route::middleware('auth:sanctum')->group(function () {
@@ -33,7 +34,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me',      [AuthController::class, 'me']);
     Route::get('/services', [PublicController::class, 'getServices']);
-    Route::get('/booking/available-slots', [ScheduleController::class, 'getAvailableSlots']);
+
 
     /* ── Notifications (all roles) ── */
     Route::get('/notifications',                [NotificationController::class, 'index']);
