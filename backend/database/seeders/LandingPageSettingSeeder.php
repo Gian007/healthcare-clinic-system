@@ -26,7 +26,7 @@ class LandingPageSettingSeeder extends Seeder
                 'title' => 'About MediQueue',
                 'subtitle' => 'Smart Healthcare Availability and Queue Management System — transforming how clinics manage appointments and patients access care.',
                 'content' => '',
-                'image_url' => '',
+                'image_url' => '/Poster.png',
                 'button_text' => 'Learn More',
                 'button_link' => '#features',
                 'sort_order' => 2,

@@ -285,9 +285,7 @@ export default function Home() {
                 {about?.image_url ? (
                   <img src={about.image_url} alt="About MediQueue" className="relative rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full object-cover aspect-video" />
                 ) : (
-                  <div className="relative rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 aspect-video flex items-center justify-center shadow-2xl">
-                    <Logo size="lg" src={logoUrl} />
-                  </div>
+                  <img src="/Poster.png" alt="About MediQueue" className="relative rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full object-cover aspect-video" />
                 )}
               </div>
             </div>
