@@ -50,12 +50,12 @@ const SECTION_DEFAULTS = {
     image_url: null,
   },
   benefits: {
-    title: "Real Results for Real Clinics",
-    subtitle: "MediQueue helps clinics operate more efficiently while improving the patient experience.",
+    title: "Expected Benefits",
+    subtitle: "Real results driving better healthcare outcomes",
     content: JSON.stringify([
-      { stat: "80%", title: "Reduced Wait Times",            desc: "Patients spend less time waiting with smart queue management." },
-      { stat: "95%", title: "Patient Satisfaction",          desc: "Higher satisfaction scores through transparency and efficiency." },
-      { stat: "3×",  title: "More Appointments Handled",     desc: "Clinics can manage more patients without adding staff." },
+      { stat: "🕒", title: "Reduced Waiting Time",            desc: "Patients can monitor queue status in real-time before arriving at the clinic." },
+      { stat: "📱", title: "Patient Convenience",          desc: "Access appointments, schedules, and queue updates anytime and anywhere." },
+      { stat: "⚡",  title: "Faster Appointment Booking",     desc: "Book healthcare services quickly through a streamlined digital process." },
     ]),
   },
   cta: {

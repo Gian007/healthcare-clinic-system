@@ -128,20 +128,20 @@ class LandingPageSettingSeeder extends Seeder
                 'content' => json_encode([
                     [
                         'title' => 'Reduced Waiting Time',
-                        'desc' => 'Wait times decreased from manual scheduling to real-time live monitoring',
-                        'stat' => 'Efficiency',
+                        'desc' => 'Patients can monitor queue status in real-time before arriving at the clinic.',
+                        'stat' => '🕒',
                         'color' => 'teal'
                     ],
                     [
                         'title' => 'Patient Convenience',
-                        'desc' => 'Patients can check queue status anywhere, anytime',
-                        'stat' => 'Convenience',
+                        'desc' => 'Access appointments, schedules, and queue updates anytime and anywhere.',
+                        'stat' => '📱',
                         'color' => 'purple'
                     ],
                     [
-                        'title' => 'Faster Appointment Scheduling',
-                        'desc' => 'Book appointments in seconds, not minutes',
-                        'stat' => '3x Faster',
+                        'title' => 'Faster Appointment Booking',
+                        'desc' => 'Book healthcare services quickly through a streamlined digital process.',
+                        'stat' => '⚡',
                         'color' => 'blue'
                     ]
                 ]),
