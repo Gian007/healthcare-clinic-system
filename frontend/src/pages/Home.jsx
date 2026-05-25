@@ -11,6 +11,62 @@ import { useAuth } from "../state/auth";
 import { useAdminSettings } from "../state/adminSettings";
 import { resolveLogoUrl } from "../config/adminSettings";
 
+const SECTION_DEFAULTS = {
+  hero: {
+    button_text: "Book Appointment",
+    button_link: "/patient/book",
+  },
+  about: {
+    title: "Smart Healthcare, Smarter Queues",
+    subtitle: "MediQueue is a comprehensive clinic management platform that brings real-time visibility to healthcare availability, appointment scheduling, and patient queue management.",
+    button_text: "Learn More",
+    button_link: "#",
+    image_url: null,
+  },
+  features: {
+    title: "Platform Features",
+    subtitle: "Everything your clinic needs in one place",
+    content: JSON.stringify([
+      { icon: "clock",    title: "Real-Time Availability",    desc: "See which doctors are available right now and book instantly." },
+      { icon: "calendar", title: "Smart Scheduling",           desc: "Manage appointments, walk-ins, and follow-ups effortlessly." },
+      { icon: "users",    title: "Live Queue Management",      desc: "Monitor and manage patient queues in real time across all rooms." },
+      { icon: "bell",     title: "Announcements",              desc: "Keep patients informed with clinic-wide announcements and updates." },
+      { icon: "shield",   title: "Secure Access",              desc: "Role-based access for admin, doctors, staff, and patients." },
+      { icon: "desktop",  title: "Centralized Dashboard",      desc: "One platform for all your clinic management needs." },
+    ]),
+  },
+  how_it_works: {
+    title: "How It Works",
+    subtitle: "Three simple steps to better healthcare management",
+    content: JSON.stringify([
+      { label: "Step One",   title: "Register & Log In",       desc: "Create your patient account and verify your identity to get started." },
+      { label: "Step Two",   title: "Book an Appointment",     desc: "Choose your service, select a doctor, and pick your preferred date and time." },
+      { label: "Step Three", title: "Attend & Get Care",       desc: "Show up, track your queue position in real time, and receive quality care." },
+    ]),
+  },
+  professionals: {
+    title: "Our Medical Professionals",
+    subtitle: "Meet our team of certified doctors and specialists dedicated to your health.",
+    image_url: null,
+  },
+  benefits: {
+    title: "Real Results for Real Clinics",
+    subtitle: "MediQueue helps clinics operate more efficiently while improving the patient experience.",
+    content: JSON.stringify([
+      { stat: "80%", title: "Reduced Wait Times",            desc: "Patients spend less time waiting with smart queue management." },
+      { stat: "95%", title: "Patient Satisfaction",          desc: "Higher satisfaction scores through transparency and efficiency." },
+      { stat: "3×",  title: "More Appointments Handled",     desc: "Clinics can manage more patients without adding staff." },
+    ]),
+  },
+  cta: {
+    title: "Ready to Get Started?",
+    subtitle: "Join MediQueue today and experience smarter, faster healthcare.",
+    button_text: "Book Appointment",
+    button_link: "/patient/book",
+  },
+};
+
+
 export default function Home() {
   const nav = useNavigate();
   const { user } = useAuth();
@@ -56,10 +112,13 @@ export default function Home() {
     .finally(() => setLoading(false));
   }, []);
 
-  const getSection = (key) => landingSettings.find(s => s.section_key === key);
+  const getSection = (key) => {
+    const found = landingSettings.find(s => s.section_key === key);
+    return found ?? SECTION_DEFAULTS[key] ?? null;
+  };
   const isVisible = (key) => {
     if (landingSettings.length === 0) return true; // show all sections when DB has no data
-    const s = getSection(key);
+    const s = landingSettings.find(s => s.section_key === key);
     return s && s.is_visible;
   };
   const parseJson = (content) => {
