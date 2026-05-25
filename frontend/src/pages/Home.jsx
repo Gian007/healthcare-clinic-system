@@ -283,9 +283,9 @@ export default function Home() {
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-3xl blur-3xl opacity-10 dark:opacity-20" />
                 {about?.image_url ? (
-                  <img src={about.image_url} alt="About MediQueue" className="relative rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full object-cover aspect-video" />
+                  <img src={about.image_url} alt="About MediQueue" className="relative rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full h-auto object-contain" />
                 ) : (
-                  <img src="/Poster.png" alt="About MediQueue" className="relative rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full object-cover aspect-video" />
+                  <img src="/Poster.png" alt="About MediQueue" className="relative rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full h-auto object-contain" />
                 )}
               </div>
             </div>
