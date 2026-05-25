@@ -21,7 +21,7 @@ export default function Schedule() {
   const [patientAppointments, setPatientAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(() => {
-    return new Date().toISOString().split("T")[0];
+    return new Date().toLocaleDateString('en-CA');
   });
 
   useEffect(() => {
@@ -120,7 +120,7 @@ export default function Schedule() {
   };
 
   const checkDateAvailability = (dateStr) => {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = new Date().toLocaleDateString('en-CA');
     const dateAnnouncement = getAnnouncementOnDate(dateStr);
     const isHoliday = dateAnnouncement && (dateAnnouncement.type === "Clinic Closed" || dateAnnouncement.type === "Holiday" || dateAnnouncement.type === "Emergency");
 
@@ -175,7 +175,7 @@ export default function Schedule() {
       let checkDate = new Date();
       // Start checking from today
       for (let i = 0; i < 60; i++) {
-        const dStr = checkDate.toISOString().split("T")[0];
+        const dStr = checkDate.toLocaleDateString('en-CA');
         const { isAvailable: nextAvail, hasMyAppointment: nextAppt } = checkDateAvailability(dStr);
         if (nextAvail || nextAppt) {
           setSelectedDate(dStr);
@@ -406,7 +406,7 @@ export default function Schedule() {
               ) : (
                 <div className="space-y-4">
                   {selectedDateShifts.map((shift) => {
-                    const isFuture = selectedDate >= new Date().toISOString().split("T")[0];
+                    const isFuture = selectedDate >= new Date().toLocaleDateString('en-CA');
                     const isFull = shift.available_slots <= 0;
                     
                     return (

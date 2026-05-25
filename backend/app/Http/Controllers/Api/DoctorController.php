@@ -513,11 +513,13 @@ class DoctorController extends Controller
 
         $request->validate([
             'patient_id'             => 'required|exists:patients,patient_id',
+            'referred_doctor_id'     => 'nullable|exists:doctors,doctor_id',
             'related_appointment_id' => 'nullable|exists:appointments,appointment_id',
             'remarks'                => 'nullable|string',
             'priority'               => 'required|in:normal,urgent',
             'service_ids'            => 'required|array|min:1',
             'service_ids.*'          => 'required|exists:services,id',
+            'preferred_schedule'     => 'nullable|string',
         ]);
 
         $services = \App\Models\Service::whereIn('id', $request->service_ids)->get();
@@ -525,12 +527,14 @@ class DoctorController extends Controller
 
         $serviceRequest = \App\Models\DoctorServiceRequest::create([
             'doctor_id'              => $doctor->doctor_id,
+            'referred_doctor_id'     => $request->referred_doctor_id,
             'patient_id'             => $request->patient_id,
             'related_appointment_id' => $request->related_appointment_id,
             'remarks'                => $request->remarks,
             'priority'               => $request->priority,
             'total_price'            => $totalPrice,
             'status'                 => 'pending',
+            'preferred_schedule'     => $request->preferred_schedule,
         ]);
 
         foreach ($services as $srv) {

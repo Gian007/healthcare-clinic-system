@@ -249,7 +249,7 @@ export default function StaffWalkIn() {
                   disabled={Boolean(form.patient_id)}
                   className={`rounded-lg border px-4 py-2 text-sm disabled:opacity-70 ${input}`}
                   required={!form.patient_id}
-                  max={new Date().toISOString().split("T")[0]}
+                  max={new Date().toLocaleDateString('en-CA')}
                 />
 
                 <input

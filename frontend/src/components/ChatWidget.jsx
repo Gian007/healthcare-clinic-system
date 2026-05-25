@@ -33,12 +33,9 @@ function Avatar() {
     <div style={{
       width: 28, height: 28, borderRadius: "50%",
       background: "#E1F5EE", display: "flex",
-      alignItems: "center", justifyContent: "center", flexShrink: 0,
+      alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden"
     }}>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0F6E56" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="4"/>
-        <path d="M9 9h6M9 12h4M9 15h2"/>
-      </svg>
+      <img src="/Ailogo.png" onError={(e) => { e.target.onerror = null; e.target.src = '/AiLogo.png'; }} alt="AI Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
     </div>
   );
 }
@@ -78,6 +75,7 @@ function getBubbleStyle(role) {
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(() => localStorage.getItem("hideAiWidget") !== "true");
   const [msgs, setMsgs] = useState([
     { role: "assistant", content: "Hi! I'm the MediQueue assistant. I can help you with clinic info, services, schedules, and appointments. How can I help?" },
   ]);
@@ -89,12 +87,24 @@ export default function ChatWidget() {
   const inputRef = useRef(null);
 
   useEffect(() => {
+    const handleStorage = () => setIsVisible(localStorage.getItem("hideAiWidget") !== "true");
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("aiWidgetToggled", handleStorage);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("aiWidgetToggled", handleStorage);
+    }
+  }, []);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs, loading]);
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
+
+  if (!isVisible) return null;
 
   const send = async (text) => {
     const message = (text || inputVal).trim();
@@ -151,7 +161,7 @@ export default function ChatWidget() {
         .mq-quick:hover { background: #0F6E56 !important; color: #fff !important; border-color: #0F6E56 !important; }
       `}</style>
 
-      <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
+      <div style={{ position: "fixed", bottom: 80, right: 24, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
 
         {open && (
           <div className="mq-panel" style={{
@@ -257,10 +267,11 @@ export default function ChatWidget() {
           aria-label={open ? "Close chat" : "Open chat"}
           style={{
             width: 52, height: 52, borderRadius: "50%",
-            background: "#0F6E56", border: "none", cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
+            background: open ? "#0F6E56" : "#E1F5EE", border: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
             boxShadow: "0 4px 16px rgba(15,110,86,0.35)",
             transition: "transform 0.2s, background 0.2s",
+            padding: open ? undefined : 0,
           }}
         >
           {open ? (
@@ -269,9 +280,7 @@ export default function ChatWidget() {
               <line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           ) : (
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
+            <img src="/Ailogo.png" onError={(e) => { e.target.onerror = null; e.target.src = '/AiLogo.png'; }} alt="AI Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           )}
         </button>
       </div>

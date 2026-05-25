@@ -9,13 +9,18 @@ class DoctorServiceRequest extends Model
     protected $table = 'doctor_service_requests';
 
     protected $fillable = [
-        'doctor_id', 'patient_id', 'related_appointment_id',
-        'remarks', 'priority', 'total_price', 'status'
+        'doctor_id', 'referred_doctor_id', 'patient_id', 'related_appointment_id',
+        'remarks', 'priority', 'total_price', 'status', 'preferred_schedule'
     ];
 
     public function doctor()
     {
         return $this->belongsTo(Doctor::class, 'doctor_id', 'doctor_id');
+    }
+
+    public function referredDoctor()
+    {
+        return $this->belongsTo(Doctor::class, 'referred_doctor_id', 'doctor_id');
     }
 
     public function patient()

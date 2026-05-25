@@ -93,7 +93,11 @@ export default function Home() {
       setStatus(statusData);
       setLandingSettings(landingData);
       
-      const activeDocs = doctorsData.filter(d => d.status === 'Active' || d.status === 'Available');
+      const activeDocs = doctorsData.filter(d => {
+        if (!statusData?.is_open_now) return false;
+        return (d.status === 'Active' || d.status === 'Available') && d.is_tapped_in;
+      });
+
       const mappedDocs = activeDocs.map(d => ({
         name: `Dr. ${d.first_name} ${d.last_name}`,
         specialty: d.specialization?.name || "General Medicine",
@@ -252,7 +256,7 @@ export default function Home() {
                      <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Clinic Status</div>
                   </div>
                   <div className="text-lg font-black text-slate-900 dark:text-white mt-1">
-                     {status?.hours ? "Open Now" : "Closed"}
+                     {status?.is_open_now ? "Open Now" : "Closed"}
                   </div>
                   <div className="text-xs font-semibold text-slate-500 mt-1">
                      {servicesCount > 0 ? `${servicesCount} Services Available` : "Checking services..."}

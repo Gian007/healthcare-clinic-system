@@ -31,7 +31,8 @@ export default function ClinicCalendar() {
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(() => {
-    return new Date().toISOString().split("T")[0];
+    const d = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Manila"}));
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
   
   // Detail card expand/collapse status
@@ -236,7 +237,8 @@ export default function ClinicCalendar() {
               const dateAppointments = getAppointmentsOnDate(cell.dateStr);
               const dateAnnouncement = getAnnouncementOnDate(cell.dateStr);
               const isHoliday = dateAnnouncement && (dateAnnouncement.type === "Clinic Closed" || dateAnnouncement.type === "Holiday" || dateAnnouncement.type === "Emergency");
-              const todayStr = new Date().toISOString().split("T")[0];
+              const dNow = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Manila"}));
+              const todayStr = `${dNow.getFullYear()}-${String(dNow.getMonth() + 1).padStart(2, "0")}-${String(dNow.getDate()).padStart(2, "0")}`;
 
               // Priority Color Scheme logic:
               // 1. Yellow if user has appointment on this date (Patient & Doctor only)

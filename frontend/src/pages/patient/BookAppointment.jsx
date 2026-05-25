@@ -1,11 +1,12 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaCheck, FaArrowRight, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaArrowLeft, FaCheck, FaArrowRight, FaChevronLeft, FaChevronRight, FaClinicMedical, FaStethoscope, FaBolt, FaShieldAlt, FaExclamationTriangle, FaCreditCard, FaWallet, FaReceipt, FaDownload, FaHome, FaSpinner, FaMobileAlt } from "react-icons/fa";
 import { useAuth } from "../../state/auth";
 import * as publicApi from "../../api/publicApi";
 import * as patientApi from "../../api/patientApi";
+import confetti from "canvas-confetti";
 
-const steps = ["Type of Concern", "Doctor", "Date & Time", "Reason", "Confirm"];
+const steps = ["Select Service", "Doctor", "Date & Time", "Reason", "Confirm"];
 
 const CONCERN_MAPPING = {
   "General Consultation": "General Illness / Wellness Checkup",
@@ -20,11 +21,22 @@ const CONCERN_MAPPING = {
   "Flu Immunization Shot": "Vaccination & Flu Shots"
 };
 
+const getLocalDateString = (date = new Date()) => {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 export default function BookAppointment() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState("gcash");
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentStep, setPaymentStep] = useState(null); // 'connecting', 'verifying', 'processing'
+  const [successData, setSuccessData] = useState(null);
 
   const [services, setServices] = useState([]);
   const [doctors, setDoctors] = useState([]);
@@ -66,6 +78,11 @@ export default function BookAppointment() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotMessage, setSlotMessage] = useState("");
 
+  // Concern search, sorting & category filtering states
+  const [concernSearchTerm, setConcernSearchTerm] = useState("");
+  const [concernSortBy, setConcernSortBy] = useState("az");
+  const [concernCategory, setConcernCategory] = useState("All");
+
   useEffect(() => {
     Promise.all([
       publicApi.getServices(),
@@ -106,9 +123,65 @@ export default function BookAppointment() {
     return doctors.filter(d => {
       const matchesSearch = searchTerm.trim() === "" ||
         `${d.first_name} ${d.last_name}`.toLowerCase().includes(searchTerm.trim().toLowerCase());
-      return matchesSearch;
+      if (!matchesSearch) return false;
+
+      if (selectedServices.length > 0) {
+        const service = selectedServices[0];
+        const serviceId = service.id || service.service_id;
+        const specId = service.required_specialization || service.required_specialization_id;
+
+        const matchesSpec = specId && (
+          Number(d.specialization_id) === Number(specId) || 
+          (d.specialization && Number(d.specialization.id || d.specialization.specialization_id) === Number(specId))
+        );
+        
+        const matchesServiceLink = d.services && d.services.some(srv => Number(srv.id || srv.service_id) === Number(serviceId));
+
+        return matchesSpec || matchesServiceLink;
+      }
+      return true;
     });
   }, [doctors, selectedServices, searchTerm]);
+
+  // Filtered and sorted concern services for step 1
+  const filteredAndSortedServices = useMemo(() => {
+    return services
+      .filter(s => {
+        const name = CONCERN_MAPPING[s.service_name] || s.service_name || s.name || "";
+        const matchesSearch = name.toLowerCase().includes(concernSearchTerm.toLowerCase()) || 
+          (s.description && s.description.toLowerCase().includes(concernSearchTerm.toLowerCase()));
+        
+        if (!matchesSearch) return false;
+
+        // If the service requires doctor prescription, only show it when searched
+        if (s.service_type === 'doctor_requested' && concernSearchTerm.trim() === "") {
+          return false;
+        }
+        
+        if (concernCategory === 'All') {
+          return true;
+        }
+        if (concernCategory === 'Consultation') {
+          return s.service_type === 'consultation';
+        }
+        if (concernCategory === 'Direct Services') {
+          return s.service_type === 'direct_service';
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const nameA = CONCERN_MAPPING[a.service_name] || a.service_name || a.name || "";
+        const nameB = CONCERN_MAPPING[b.service_name] || b.service_name || b.name || "";
+        const priceA = Number(a.base_fee || a.price || 0);
+        const priceB = Number(b.base_fee || b.price || 0);
+        
+        if (concernSortBy === 'az') return nameA.localeCompare(nameB);
+        if (concernSortBy === 'za') return nameB.localeCompare(nameA);
+        if (concernSortBy === 'price_low') return priceA - priceB;
+        if (concernSortBy === 'price_high') return priceB - priceA;
+        return 0;
+      });
+  }, [services, concernSearchTerm, concernSortBy, concernCategory]);
 
 
   const primaryService = selectedServices[0];
@@ -117,14 +190,14 @@ export default function BookAppointment() {
   const stepsList = useMemo(() => {
     if (!requiresDoctor) {
       return [
-        { label: "Type of Concern", stepNum: 1 },
+        { label: "Select Service", stepNum: 1 },
         { label: "Date & Time", stepNum: 3 },
         { label: "Reason", stepNum: 4 },
         { label: "Confirm", stepNum: 5 }
       ];
     }
     return [
-      { label: "Type of Concern", stepNum: 1 },
+      { label: "Select Service", stepNum: 1 },
       { label: "Doctor", stepNum: 2 },
       { label: "Date & Time", stepNum: 3 },
       { label: "Reason", stepNum: 4 },
@@ -149,15 +222,74 @@ export default function BookAppointment() {
     sessionStorage.setItem("booking_step", targetStep);
   };
 
+  const [consultationConflictMsg, setConsultationConflictMsg] = useState("");
+
   const handleToggleService = (s) => {
-    // Single select to prevent selecting mixed types (Consultation vs Direct Service)
-    const newServices = [s];
-    setSelectedServices(newServices);
-    setSelectedDoctor(null); 
-    setSelectedSchedule(null);
-    sessionStorage.setItem("booking_services", JSON.stringify(newServices));
-    sessionStorage.removeItem("booking_doctor");
-    sessionStorage.removeItem("booking_schedule");
+    if (s.service_type === 'doctor_requested') return;
+
+    const isConsultation = s.service_type === 'consultation';
+    const isDirectService = s.service_type === 'direct_service';
+
+    const alreadySelected = selectedServices.some(srv => (srv.id || srv.service_id) === (s.id || s.service_id));
+
+    if (alreadySelected) {
+      // Deselect
+      const newServices = selectedServices.filter(srv => (srv.id || srv.service_id) !== (s.id || s.service_id));
+      setSelectedServices(newServices);
+      setConsultationConflictMsg("");
+      sessionStorage.setItem("booking_services", JSON.stringify(newServices));
+      // If deselected and now nothing requires doctor, reset
+      if (newServices.length === 0 || !newServices[0].requires_doctor) {
+        setSelectedDoctor(null);
+        setSelectedSchedule(null);
+        sessionStorage.removeItem("booking_doctor");
+        sessionStorage.removeItem("booking_schedule");
+      }
+      return;
+    }
+
+    if (isConsultation) {
+      // Consultations: single select only
+      const hasOtherConsultation = selectedServices.some(srv => srv.service_type === 'consultation');
+      if (hasOtherConsultation) {
+        setConsultationConflictMsg("Only one consultation service can be booked per appointment. Additional consultations must be booked separately.");
+        return;
+      }
+      const hasDirectService = selectedServices.some(srv => srv.service_type === 'direct_service');
+      if (hasDirectService) {
+        setConsultationConflictMsg("Consultation services cannot be combined with direct services. Please book them separately.");
+        return;
+      }
+      // Replace with only this consultation
+      const newServices = [s];
+      setSelectedServices(newServices);
+      setConsultationConflictMsg("");
+      setSelectedDoctor(null);
+      setSelectedSchedule(null);
+      sessionStorage.setItem("booking_services", JSON.stringify(newServices));
+      sessionStorage.removeItem("booking_doctor");
+      sessionStorage.removeItem("booking_schedule");
+      return;
+    }
+
+    if (isDirectService) {
+      // Cannot mix with consultations
+      const hasConsultation = selectedServices.some(srv => srv.service_type === 'consultation');
+      if (hasConsultation) {
+        setConsultationConflictMsg("Direct services cannot be combined with a consultation. Please book them separately.");
+        return;
+      }
+      // Multi-select: add to the list
+      const newServices = [...selectedServices, s];
+      setSelectedServices(newServices);
+      setConsultationConflictMsg("");
+      setSelectedDoctor(null);
+      setSelectedSchedule(null);
+      sessionStorage.setItem("booking_services", JSON.stringify(newServices));
+      sessionStorage.removeItem("booking_doctor");
+      sessionStorage.removeItem("booking_schedule");
+      return;
+    }
   };
 
   const handleSelectDoctor = (d) => {
@@ -214,34 +346,142 @@ export default function BookAppointment() {
        return;
     }
     
-    setLoading(true);
+    setPaymentLoading(true);
+    setPaymentStep("connecting");
+
+    // Helper sleep function for simulating payment gateway states
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
     try {
+       // Step 1: Connecting (1000ms)
+       await sleep(1000);
+       setPaymentStep("verifying");
+
+       // Step 2: Verifying details (1000ms)
+       await sleep(1000);
+       setPaymentStep("processing");
+
+       // Step 3: Processing payment (1000ms)
+       await sleep(1000);
+
+       const totalFee = selectedServices.reduce((sum, s) => sum + Number(s.base_fee || s.price || 0), 0);
        const concernsText = selectedServices.map(s => s.name || s.service_name).join(', ');
        const finalReason = `Concerns: ${concernsText}. ${reason}`;
-       await patientApi.bookAppointment({
+       
+       const nicePaymentMethodName = paymentMethod === "gcash" ? "GCash" : paymentMethod === "maya" ? "Maya" : "Credit/Debit Card";
+
+       const serviceIds = selectedServices.map(s => s.id || s.service_id);
+
+       const response = await patientApi.bookAppointment({
          doctor_id: requiresDoctor ? selectedDoctor.doctor_id : null,
-         service_id: selectedServices[0].id || selectedServices[0].service_id,
+         service_ids: serviceIds,
          schedule_id: requiresDoctor ? selectedSchedule.schedule_id : null,
          appointment_date: selectedDate,
          start_time: selectedSchedule.start_time,
          end_time: selectedSchedule.end_time,
-         reason_for_visit: finalReason
+         reason_for_visit: finalReason,
+         payment_method: nicePaymentMethodName,
+         payment_status: "Paid",
+         amount_paid: totalFee
        });
-       
+
+       const createdAppt = response.appointment;
+
+       // Session storage cleanup
        sessionStorage.removeItem("booking_step");
        sessionStorage.removeItem("booking_services");
        sessionStorage.removeItem("booking_doctor");
        sessionStorage.removeItem("booking_date");
        sessionStorage.removeItem("booking_schedule");
        sessionStorage.removeItem("booking_reason");
-       
-       alert("Appointment booked successfully!");
-       navigate("/patient");
+
+       const finalDateTime = `${new Date(selectedDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${formatTime(selectedSchedule.start_time)}`;
+
+       const successObj = {
+         appointment_id: createdAppt?.appointment_id || createdAppt?.id || "N/A",
+         service_name: selectedServices.map(s => CONCERN_MAPPING[s.service_name] || s.name || s.service_name).join(', '),
+         doctor_name: requiresDoctor ? `Dr. ${selectedDoctor?.first_name} ${selectedDoctor?.last_name}` : "Clinic Staff (Direct Service)",
+         date_time: finalDateTime,
+         fee: totalFee,
+         payment_method: nicePaymentMethodName,
+         payment_reference: createdAppt?.payment_reference || "TXN-SIMULATED"
+       };
+
+       setSuccessData(successObj);
+
+       // Confetti celebration!
+       confetti({
+         particleCount: 150,
+         spread: 85,
+         origin: { y: 0.6 }
+       });
+
+       // Trigger browser notification
+       if ("Notification" in window) {
+         if (Notification.permission === "granted") {
+           new Notification("Appointment Booked Successfully!", {
+             body: `Your appointment for ${successObj.service_name} on ${successObj.date_time} is confirmed and paid.`,
+           });
+         } else if (Notification.permission !== "denied") {
+           Notification.requestPermission().then((permission) => {
+             if (permission === "granted") {
+               new Notification("Appointment Booked Successfully!", {
+                 body: `Your appointment for ${successObj.service_name} on ${successObj.date_time} is confirmed and paid.`,
+               });
+             }
+           });
+         }
+       }
+
     } catch (e) {
-       alert(e.response?.data?.message || "Booking failed. Please try again.");
+       alert(e.response?.data?.message || "Payment or Booking failed. Please check details and try again.");
     } finally {
-       setLoading(false);
+       setPaymentLoading(false);
+       setPaymentStep(null);
     }
+  };
+
+  const formatTime = (t) => {
+    if (!t) return '';
+    const [h, m] = t.split(':').map(Number);
+    const p = h >= 12 ? 'PM' : 'AM';
+    const dh = h % 12 || 12;
+    return `${dh}:${m.toString().padStart(2, '0')} ${p}`;
+  };
+
+  const downloadReceipt = () => {
+    if (!successData) return;
+    const receiptContent = `================================================
+                 MEDIQUEUE CLINIC
+                 OFFICIAL RECEIPT
+================================================
+Receipt No: MQ-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${successData.appointment_id}
+Date Issued: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+------------------------------------------------
+Patient Name: ${user ? `${user.first_name} ${user.last_name}` : 'Valued Patient'}
+Service: ${successData.service_name}
+Doctor: ${successData.doctor_name}
+Schedule: ${successData.date_time}
+------------------------------------------------
+Consultation Fee: ₱${Number(successData.fee).toFixed(2)}
+Payment Method: ${successData.payment_method}
+Payment Status: PAID
+Reference No: ${successData.payment_reference}
+================================================
+           Thank you for your payment!
+     Please present this receipt at the clinic.
+================================================
+`;
+
+    const blob = new Blob([receiptContent], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `MediQueue-Receipt-${successData.appointment_id}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const getDayOfWeek = (dateString) => {
@@ -252,11 +492,11 @@ export default function BookAppointment() {
   };
 
   const checkDateBookability = (dateStr) => {
-    const hasPatientAppt = patientAppointments.some(a => a.appointment_date === dateStr && a.booking_status !== 'Cancelled');
-    if (hasPatientAppt) return { disabled: false, reason: "You have an appointment on this day", status: "yellow", isFull: false };
-
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getLocalDateString();
     if (dateStr < todayStr) return { disabled: true, reason: "Past date", status: "unavailable", isFull: false };
+
+    const hasPatientAppt = patientAppointments.some(a => a.appointment_date === dateStr && a.booking_status !== 'Cancelled');
+    if (hasPatientAppt) return { disabled: true, reason: "You have an appointment on this day", status: "yellow", isFull: false };
 
     const holiday = announcements.find(a => 
       a.date === dateStr && 
@@ -302,11 +542,11 @@ export default function BookAppointment() {
   };
   useEffect(() => {
     if (step === 3 && !dataLoading) {
-      const currentAvail = checkDateBookability(selectedDate || new Date().toISOString().split("T")[0]);
-      if (currentAvail.disabled && currentAvail.status !== "yellow") {
+      const currentAvail = checkDateBookability(selectedDate || getLocalDateString());
+      if (currentAvail.disabled) {
         let checkDate = new Date();
         for (let i = 0; i < 60; i++) {
-          const dStr = checkDate.toISOString().split("T")[0];
+          const dStr = getLocalDateString(checkDate);
           const avail = checkDateBookability(dStr);
           if (!avail.disabled || avail.status === "yellow") {
             handleSetDate(dStr);
@@ -337,7 +577,7 @@ export default function BookAppointment() {
 
     const cells = [];
     const today = new Date();
-    const todayStr = today.toISOString().split("T")[0];
+    const todayStr = getLocalDateString(today);
 
     // Previous month padding days
     for (let i = firstDayIndex; i > 0; i--) {
@@ -400,14 +640,147 @@ export default function BookAppointment() {
 
   if (dataLoading) return <div className="text-center p-10 text-gray-500">Loading booking form...</div>;
 
+  if (paymentLoading) {
+    const paymentMethodLabel = paymentMethod === "gcash" ? "GCash" : paymentMethod === "maya" ? "Maya" : "Credit/Debit Card";
+    return (
+      <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 transition-all duration-300 animate-in fade-in">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-sm w-full text-center border border-slate-100 dark:border-slate-800 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-primary/20">
+            <div className="h-full bg-primary" style={{ width: paymentStep === 'connecting' ? '33%' : paymentStep === 'verifying' ? '66%' : '100%', transition: 'width 1s ease-in-out' }} />
+          </div>
+
+          <div className="mb-6 flex justify-center">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary animate-spin">
+              <FaSpinner className="text-3xl" />
+            </div>
+          </div>
+
+          <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">Simulating Payment</h3>
+          <p className="text-xs text-slate-400 mb-6 uppercase tracking-widest font-black">Method: {paymentMethodLabel}</p>
+
+          <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 mb-2">
+            {paymentStep === "connecting" && (
+              <p className="text-sm font-semibold text-slate-600 dark:text-slate-355 animate-pulse">
+                Connecting to {paymentMethodLabel} secure gateway...
+              </p>
+            )}
+            {paymentStep === "verifying" && (
+              <p className="text-sm font-semibold text-slate-600 dark:text-slate-355 animate-pulse">
+                Verifying account & simulating OTP check...
+              </p>
+            )}
+            {paymentStep === "processing" && (
+              <p className="text-sm font-semibold text-slate-600 dark:text-slate-355 animate-pulse">
+                Processing payment of ₱{selectedServices.reduce((sum, s) => sum + Number(s.base_fee || s.price || 0), 0).toFixed(2)}...
+              </p>
+            )}
+          </div>
+          
+          <p className="text-[10px] text-slate-400 mt-4 italic">
+            This is a simulated secure sandbox environment.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (successData) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-8 animate-in fade-in zoom-in-95 duration-500">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-slate-800 p-8 text-center relative overflow-hidden">
+          {/* Top Decorative Confetti Accent */}
+          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-500" />
+          
+          {/* Animated Big Green Checkmark */}
+          <div className="mx-auto w-24 h-24 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border-4 border-emerald-500 flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/10 animate-bounce">
+            <FaCheck className="text-4xl text-emerald-500" />
+          </div>
+
+          <h1 className="text-2xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">✓ Appointment Successfully Booked</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+            An email confirmation and official receipt have been sent to your email address.
+          </p>
+
+          {/* Receipt / Details Card */}
+          <div className="bg-slate-50 dark:bg-slate-850 border border-gray-150 dark:border-slate-800 rounded-2xl p-6 text-left space-y-4 mb-8">
+            <div className="flex items-center gap-2 pb-3 border-b border-gray-200/50 dark:border-slate-800">
+              <FaReceipt className="text-primary text-lg" />
+              <span className="font-bold text-xs uppercase text-gray-450 dark:text-slate-500 tracking-wider">Booking Details</span>
+            </div>
+            
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Appointment Number</span>
+              <span className="font-bold text-gray-800 dark:text-gray-205">#{successData.appointment_id}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Service Name</span>
+              <span className="font-bold text-gray-800 dark:text-gray-205">{successData.service_name}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Doctor Name</span>
+              <span className="font-bold text-gray-800 dark:text-gray-205">{successData.doctor_name}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Date & Time</span>
+              <span className="font-bold text-gray-800 dark:text-gray-205">{successData.date_time}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Consultation Fee</span>
+              <span className="font-black text-emerald-600 dark:text-emerald-450">₱{Number(successData.fee).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm items-center">
+              <span className="text-gray-500">Payment Status</span>
+              <span className="inline-flex items-center gap-1 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-black">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                PAID
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Payment Method</span>
+              <span className="font-semibold text-gray-850 dark:text-gray-205">{successData.payment_method}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Reference Number</span>
+              <span className="font-mono text-xs text-gray-650 dark:text-gray-400 select-all font-semibold">{successData.payment_reference}</span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="grid gap-3">
+            <button
+              onClick={() => navigate("/patient")}
+              className="w-full bg-primary text-white py-3.5 rounded-xl font-bold hover:scale-[1.01] active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+            >
+              <FaHome /> Return to Dashboard
+            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => navigate("/patient")}
+                className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-3.5 rounded-xl font-semibold transition flex items-center justify-center gap-2 border border-gray-200/40 dark:border-slate-700"
+              >
+                View Appointment
+              </button>
+              <button
+                onClick={downloadReceipt}
+                className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-3.5 rounded-xl font-semibold transition flex items-center justify-center gap-2 border border-gray-200/40 dark:border-slate-700"
+              >
+                <FaDownload /> Download Receipt
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="max-w-3xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Book Appointment</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Follow the steps below to schedule your visit</p>
 
-        <div className="mb-6 p-4 bg-teal-500/10 dark:bg-teal-500/5 text-teal-850 dark:text-teal-300 rounded-xl border border-teal-500/20 dark:border-teal-800/30 text-xs flex items-center gap-2 shadow-sm font-semibold">
-          🛡️ <span className="font-bold text-teal-950 dark:text-teal-200">Anti-Spam Policy:</span> To ensure genuine patient bookings, an appointment fee is required. The fee is applied to your consultation visit.
+        <div className="mb-6 p-4 bg-teal-500/10 dark:bg-teal-500/5 text-teal-850 dark:text-teal-300 rounded-xl border border-teal-500/20 dark:border-teal-800/30 text-xs flex items-start gap-2 shadow-sm font-semibold">
+          <FaShieldAlt className="text-teal-600 dark:text-teal-400 mt-0.5 shrink-0 text-sm" /> <span><span className="font-bold text-teal-950 dark:text-teal-200">Anti-Spam Policy:</span> To ensure genuine patient bookings, an appointment fee is required. The fee is applied to your consultation visit.</span>
         </div>
 
         {user?.verification_status === "Under Review" && (
@@ -444,43 +817,168 @@ export default function BookAppointment() {
           {/* STEP 1: Type of Concern */}
           {step === 1 && (
             <>
-              <h2 className="font-semibold text-lg mb-4 text-gray-900 dark:text-white">Type of Concern</h2>
-              <p className="text-sm text-gray-500 mb-6">Select one or more concerns. A doctor will provide a complete diagnostic during your visit.</p>
-              {services.length === 0 ? <p className="text-gray-500">No concerns available.</p> : (
-                <div className="grid md:grid-cols-2 gap-4">
-                  {services.map((s) => {
-                    const isSelected = selectedServices.some(srv => srv.service_id === s.service_id);
+              <h2 className="font-semibold text-lg mb-1 text-gray-900 dark:text-white">Select Service Category</h2>
+              <p className="text-sm text-gray-500 mb-4">Choose your service type. <span className="font-semibold text-primary">Consultations</span> are single-select only. <span className="font-semibold text-blue-600">Direct Services</span> can be multi-selected in one booking.</p>
+              {/* Search, Sort, and Category Controls */}
+              <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 mb-6 space-y-3.5">
+                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+                  {/* Search Concern */}
+                  <div className="relative w-full sm:w-80">
+                    <input 
+                      type="text" 
+                      placeholder="Search concern or symptom..." 
+                      value={concernSearchTerm}
+                      onChange={(e) => setConcernSearchTerm(e.target.value)}
+                      className="w-full bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 dark:text-white rounded-xl px-4 py-2.5 text-xs outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+
+                  {/* Sort Dropdown */}
+                  <div className="relative w-full sm:w-48">
+                    <select 
+                      value={concernSortBy}
+                      onChange={(e) => setConcernSortBy(e.target.value)}
+                      className="w-full bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 dark:text-white rounded-xl px-4 py-2.5 text-xs outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+                    >
+                      <option value="az">Sort: A to Z</option>
+                      <option value="za">Sort: Z to A</option>
+                      <option value="price_low">Price: Low to High</option>
+                      <option value="price_high">Price: High to Low</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Category Selection Chips */}
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-250/20 dark:border-slate-800/60">
+                  {[
+                    { id: 'All', label: 'All Concerns', Icon: FaClinicMedical },
+                    { id: 'Consultation', label: 'Consultations', Icon: FaStethoscope },
+                    { id: 'Direct Services', label: 'Direct Services', Icon: FaBolt }
+                  ].map((cat) => {
+                    const isActive = concernCategory === cat.id;
+                    const ChipIcon = cat.Icon;
                     return (
-                      <div
-                        key={s.service_id}
-                        onClick={() => handleToggleService(s)}
-                        className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${
-                          isSelected
-                            ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-sm scale-[1.01]"
-                            : "border-gray-200 dark:border-slate-800 hover:border-primary/50 bg-white dark:bg-slate-800"
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setConcernCategory(cat.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all border ${
+                          isActive 
+                            ? 'bg-primary text-white border-primary shadow-sm' 
+                            : 'bg-white hover:bg-slate-100 text-slate-600 border-gray-300 dark:bg-slate-800 dark:text-slate-350 dark:border-slate-700'
                         }`}
                       >
-                        <div className="flex justify-between items-start mb-2 gap-4">
-                          <div>
-                            <h3 className={`font-bold text-base ${isSelected ? "text-primary" : "text-gray-900 dark:text-white"}`}>
-                              {CONCERN_MAPPING[s.service_name] || s.service_name}
-                            </h3>
-                            <span className="inline-block mt-2 text-[10px] font-bold bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 px-2.5 py-1 rounded-lg border border-teal-100 dark:border-teal-900/30">
-                              Booking Fee: ₱{Number(s.base_fee).toFixed(2)}
-                            </span>
-                          </div>
-                          <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 mt-0.5 ${
-                            isSelected ? "bg-primary border-primary text-white" : "border-gray-300 dark:border-gray-600"
-                          }`}>
-                            {isSelected && <FaCheck className="text-xs" />}
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">{s.description || "Consultation for this concern"}</p>
-                      </div>
+                        <ChipIcon size={11} className={isActive ? "text-white" : "text-gray-400"} />
+                        <span>{cat.label}</span>
+                      </button>
                     );
                   })}
                 </div>
-              )}
+              </div>
+
+            {consultationConflictMsg && (
+              <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 text-sm font-semibold flex items-start gap-2">
+                <FaExclamationTriangle className="shrink-0 mt-0.5" />
+                {consultationConflictMsg}
+              </div>
+            )}
+
+            {/* Selected service summary bar */}
+            {selectedServices.length > 0 && (
+              <div className="mb-4 p-3 bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl flex flex-wrap gap-2 items-center">
+                <span className="text-xs font-bold text-primary uppercase tracking-wide">Selected ({selectedServices.length}):</span>
+                {selectedServices.map(s => (
+                  <span key={s.id || s.service_id} className="flex items-center gap-1 bg-primary text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+                    {s.service_type === 'consultation' ? '👨‍⚕️' : '⚡'} {s.service_name || s.name}
+                    <button onClick={(e) => { e.stopPropagation(); handleToggleService(s); }} className="ml-1 opacity-70 hover:opacity-100">✕</button>
+                  </span>
+                ))}
+                <span className="ml-auto text-xs font-black text-primary">Total: ₱{selectedServices.reduce((sum, s) => sum + Number(s.base_fee || s.price || 0), 0).toFixed(2)}</span>
+              </div>
+            )}
+
+            {filteredAndSortedServices.length === 0 ? (
+              <div className="p-10 text-center border border-dashed border-gray-200 dark:border-slate-800 rounded-2xl text-gray-500">
+                No services match your query or filters.
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {filteredAndSortedServices.map((s) => {
+                  const isSelected = selectedServices.some(srv => (srv.id || srv.service_id) === (s.id || s.service_id));
+                  const isDoctorRequested = s.service_type === 'doctor_requested';
+                  const isConsultation = s.service_type === 'consultation';
+                  const isDirectService = s.service_type === 'direct_service';
+
+                  // Determine if this card is disabled due to conflict
+                  const hasConsultationSelected = selectedServices.some(srv => srv.service_type === 'consultation');
+                  const hasDirectSelected = selectedServices.some(srv => srv.service_type === 'direct_service');
+                  const isConflicted = !isSelected && !isDoctorRequested && (
+                    (isConsultation && (hasConsultationSelected || hasDirectSelected)) ||
+                    (isDirectService && hasConsultationSelected)
+                  );
+
+                  return (
+                    <div
+                      key={s.service_id || s.id}
+                      onClick={() => !isConflicted && handleToggleService(s)}
+                      title={isDoctorRequested ? "Doctor recommendation required. Please schedule a consultation first." : isConflicted ? "Cannot combine with currently selected services." : undefined}
+                      className={`border-2 rounded-xl p-5 transition-all relative ${
+                        isDoctorRequested
+                          ? "border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/30 opacity-60 cursor-not-allowed"
+                          : isConflicted
+                          ? "border-gray-200 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-800/20 opacity-40 cursor-not-allowed"
+                          : isSelected
+                          ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-sm scale-[1.01] cursor-pointer"
+                          : "border-gray-200 dark:border-slate-800 hover:border-primary/50 bg-white dark:bg-slate-800 cursor-pointer"
+                      }`}
+                    >
+                      {/* Type Badge */}
+                      <div className="absolute top-3 right-3">
+                        {isDoctorRequested && (
+                          <span className="text-[9px] font-black bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-800">🧪 Doctor Recommended</span>
+                        )}
+                        {isConsultation && (
+                          <span className="text-[9px] font-black bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 px-2 py-0.5 rounded-full border border-teal-200 dark:border-teal-800">👨‍⚕️ Consultation</span>
+                        )}
+                        {isDirectService && (
+                          <span className="text-[9px] font-black bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">⚡ Direct Service</span>
+                        )}
+                      </div>
+
+                      <div className="flex justify-between items-start mb-2 gap-4 pr-24">
+                        <div>
+                          <h3 className={`font-bold text-base ${isDoctorRequested ? "text-gray-400 dark:text-slate-500 line-through" : isSelected ? "text-primary" : "text-gray-900 dark:text-white"}`}>
+                            {CONCERN_MAPPING[s.service_name] || s.service_name}
+                          </h3>
+                          <span className="inline-block mt-2 text-[10px] font-bold bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 px-2.5 py-1 rounded-lg border border-teal-100 dark:border-teal-900/30">
+                            {isConsultation ? 'Consultation Fee' : 'Service Fee'}: ₱{Number(s.base_fee || s.price || 0).toFixed(2)}
+                          </span>
+                          {isDoctorRequested && (
+                            <span className="mt-1 text-[9px] font-black text-red-500 dark:text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <FaExclamationTriangle className="shrink-0" /> Doctor recommendation required.
+                            </span>
+                          )}
+                          {isConsultation && !isDoctorRequested && (
+                            <span className="mt-1 text-[9px] font-semibold text-teal-500 dark:text-teal-400 flex items-center gap-1">Single select only</span>
+                          )}
+                          {isDirectService && (
+                            <span className="mt-1 text-[9px] font-semibold text-blue-500 dark:text-blue-400 flex items-center gap-1">Can be combined with other direct services</span>
+                          )}
+                        </div>
+                        {!isDoctorRequested && (
+                          <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 mt-0.5 ${
+                            isSelected ? "bg-primary border-primary text-white" : "border-gray-300 dark:border-gray-600"
+                          } ${isConsultation ? "rounded-full" : ""}`}>
+                            {isSelected && <FaCheck className="text-xs" />}
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">{s.description || "Service available at the clinic"}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             </>
           )}
@@ -705,47 +1203,136 @@ export default function BookAppointment() {
           {step === 5 && (
             <>
               <h2 className="font-semibold text-lg mb-4 text-gray-900 dark:text-white">Booking Summary</h2>
-              <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl p-6 space-y-3 text-sm sm:text-base">
+              
+              {/* Summary Details */}
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-3.5 text-sm mb-6">
                 <div className="flex justify-between gap-4">
-                  <span className="text-gray-600 dark:text-gray-400 shrink-0">Concerns</span>
-                  <span className="font-semibold text-gray-900 dark:text-white text-right">{selectedServices.map(s => CONCERN_MAPPING[s.service_name] || s.name || s.service_name).join(', ')}</span>
+                  <span className="text-gray-500">Services</span>
+                  <span className="font-bold text-gray-800 dark:text-gray-200 text-right">{selectedServices.map(s => CONCERN_MAPPING[s.service_name] || s.name || s.service_name).join(', ')}</span>
                 </div>
                 {requiresDoctor && (
                   <div className="flex justify-between gap-4">
-                    <span className="text-gray-600 dark:text-gray-400 shrink-0">Doctor</span>
-                    <span className="font-semibold text-gray-900 dark:text-white text-right">Dr. {selectedDoctor?.first_name} {selectedDoctor?.last_name}</span>
+                    <span className="text-gray-500">Doctor</span>
+                    <span className="font-bold text-gray-800 dark:text-gray-200 text-right">Dr. {selectedDoctor?.first_name} {selectedDoctor?.last_name}</span>
                   </div>
                 )}
                 <div className="flex justify-between gap-4">
-                  <span className="text-gray-600 dark:text-gray-400 shrink-0">Date</span>
-                  <span className="font-semibold text-gray-900 dark:text-white text-right">{selectedDate ? new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : ''}</span>
+                  <span className="text-gray-500">Date</span>
+                  <span className="font-bold text-gray-800 dark:text-gray-200 text-right">{selectedDate ? new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : ''}</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-gray-600 dark:text-gray-400 shrink-0">Time</span>
-                  <span className="font-semibold text-gray-900 dark:text-white text-right">{selectedSchedule?.start_time} - {selectedSchedule?.end_time}</span>
+                  <span className="text-gray-500">Time Slot</span>
+                  <span className="font-bold text-gray-800 dark:text-gray-200 text-right">{selectedSchedule?.start_time} - {selectedSchedule?.end_time}</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-gray-600 dark:text-gray-400 shrink-0">Reason</span>
-                  <span className="font-semibold text-gray-900 dark:text-white text-right break-words">{reason}</span>
+                  <span className="text-gray-500">Reason</span>
+                  <span className="font-bold text-gray-800 dark:text-gray-200 text-right break-words max-w-[70%]">{reason}</span>
                 </div>
-                <div className="border-t border-primary/20 pt-3 mt-3 flex justify-between gap-4 items-center">
-                  <span className="font-bold text-gray-800 dark:text-gray-200">Appointment Fee</span>
-                  <span className="font-black text-lg text-primary">₱{selectedServices.length > 0 ? selectedServices[0].base_fee : 0}</span>
+              </div>
+
+              {/* Payment Method Selector */}
+              <h3 className="font-semibold text-sm uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">Select Payment Method</h3>
+              <div className="grid sm:grid-cols-3 gap-3 mb-6">
+                {/* GCash */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("gcash")}
+                  className={`flex items-center gap-3 border-2 rounded-xl p-4 text-left transition-all ${
+                    paymentMethod === "gcash"
+                      ? "border-sky-500 bg-sky-500/5 dark:bg-sky-500/10 shadow-sm"
+                      : "border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 bg-white dark:bg-slate-900"
+                  }`}
+                >
+                  <div className={`w-9 h-9 rounded-lg grid place-items-center ${paymentMethod === "gcash" ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"}`}>
+                    <FaWallet size={16} />
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs block text-slate-900 dark:text-white">GCash</span>
+                    <span className="text-[10px] text-slate-400">Mobile Wallet</span>
+                  </div>
+                </button>
+
+                {/* Maya */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("maya")}
+                  className={`flex items-center gap-3 border-2 rounded-xl p-4 text-left transition-all ${
+                    paymentMethod === "maya"
+                      ? "border-emerald-500 bg-emerald-500/5 dark:bg-emerald-500/10 shadow-sm"
+                      : "border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 bg-white dark:bg-slate-900"
+                  }`}
+                >
+                  <div className={`w-9 h-9 rounded-lg grid place-items-center ${paymentMethod === "maya" ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"}`}>
+                    <FaMobileAlt size={16} />
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs block text-slate-900 dark:text-white">Maya</span>
+                    <span className="text-[10px] text-slate-400">PayMaya Wallet</span>
+                  </div>
+                </button>
+
+                {/* Credit Card */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("card")}
+                  className={`flex items-center gap-3 border-2 rounded-xl p-4 text-left transition-all ${
+                    paymentMethod === "card"
+                      ? "border-indigo-500 bg-indigo-500/5 dark:bg-indigo-500/10 shadow-sm"
+                      : "border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 bg-white dark:bg-slate-900"
+                  }`}
+                >
+                  <div className={`w-9 h-9 rounded-lg grid place-items-center ${paymentMethod === "card" ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"}`}>
+                    <FaCreditCard size={16} />
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs block text-slate-900 dark:text-white">Card</span>
+                    <span className="text-[10px] text-slate-400">Credit / Debit</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Payment Details */}
+              <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-2xl p-5 mb-8 space-y-3">
+                {selectedServices.map((s, i) => (
+                  <div key={i} className="flex justify-between items-center text-sm">
+                    <span className="text-slate-600 dark:text-slate-400 truncate max-w-[60%]">
+                      {s.service_type === 'consultation' ? '👨‍⚕️' : '⚡'} {s.service_name || s.name}
+                    </span>
+                    <span className="font-bold text-slate-700 dark:text-slate-300">₱{Number(s.base_fee || s.price || 0).toFixed(2)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between items-center text-sm border-t border-primary/20 pt-3">
+                  <span className="font-black text-slate-700 dark:text-slate-300">{selectedServices[0]?.service_type === 'consultation' ? 'Consultation Fee' : 'Total Service Fee'}</span>
+                  <span className="font-black text-lg text-primary">₱{selectedServices.reduce((sum, s) => sum + Number(s.base_fee || s.price || 0), 0).toFixed(2)}</span>
                 </div>
-                <p className="text-xs text-primary/80 mt-2 font-medium">
-                  * Note: An appointment fee is required to prevent spam bookings. You will be redirected to the payment gateway after confirmation.
+                <div className="flex justify-between items-center text-sm border-t border-primary/10 pt-3">
+                  <span className="font-bold text-slate-700 dark:text-slate-300">Payment Status</span>
+                  <span className="inline-flex items-center gap-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-3 py-1 rounded-full text-xs font-black">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    PENDING
+                  </span>
+                </div>
+                <p className="text-[11px] text-primary/80 mt-1 leading-normal font-semibold">
+                  * Note: An anti-spam reservation fee is required to confirm your schedule. Payment is non-refundable but fully deductible from your clinic bill.
                 </p>
               </div>
-              <div className="mt-8 flex justify-between">
-                <button onClick={back} className="inline-flex items-center gap-2 px-5 py-3 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition">
+
+              {/* Back / Proceed Buttons */}
+              <div className="mt-8 flex justify-between gap-4">
+                <button
+                  type="button"
+                  onClick={back}
+                  className="inline-flex items-center gap-2 px-5 py-3 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition font-bold text-xs uppercase"
+                >
                   <FaArrowLeft /> Back
                 </button>
                 <button
-                  disabled={loading || user?.verification_status === "Pending" || user?.verification_status === "Rejected"}
+                  type="button"
+                  disabled={paymentLoading || user?.verification_status === "Pending" || user?.verification_status === "Rejected"}
                   onClick={submitBooking}
-                  className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-medium disabled:opacity-40 hover:opacity-90 transition"
+                  className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-bold hover:scale-[1.01] active:scale-95 transition-all text-xs uppercase shadow-md shadow-primary/10 disabled:opacity-40"
                 >
-                  <FaCheck /> {loading ? "Processing..." : "Confirm Booking"}
+                  <FaCheck /> {paymentLoading ? "Processing..." : "Proceed to Payment"}
                 </button>
               </div>
             </>

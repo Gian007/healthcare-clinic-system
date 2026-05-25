@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreign('doctor_id')->references('doctor_id')->on('doctors');
             $table->date('attendance_date');
             $table->time('time_in');
-            $table->time('time_out');
+            $table->time('time_out')->nullable();
             $table->enum('attendance_status', ['Present', 'Late', 'Absent', 'Completed']);
             $table->timestamps();
         });

@@ -6,6 +6,22 @@ class Appointment extends Model
 {
     protected static function booted()
     {
+        static::created(function ($appointment) {
+            if ($appointment->booking_status === 'Confirmed') {
+                dispatch(function() use ($appointment) {
+                    try {
+                        $appointment->refresh();
+                        if ($appointment->patient && $appointment->patient->email) {
+                            \Illuminate\Support\Facades\Mail::to($appointment->patient->email)
+                                ->send(new \App\Mail\AppointmentStatusMail($appointment, 'Confirmed', 'Your appointment has been confirmed after successful payment.'));
+                        }
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::error('Failed to send appointment creation email: ' . $e->getMessage());
+                    }
+                })->afterResponse();
+            }
+        });
+
         static::updated(function ($appointment) {
             if ($appointment->isDirty('booking_status')) {
                 $status = $appointment->booking_status;
@@ -41,7 +57,8 @@ class Appointment extends Model
         'patient_id', 'doctor_id', 'service_id', 'schedule_id',
         'appointment_date', 'start_time', 'end_time',
         'appointment_type', 'reason_for_visit',
-        'booking_status', 'checkin_deadline', 'attendance_status', 'reminder_sent'
+        'booking_status', 'checkin_deadline', 'attendance_status', 'reminder_sent',
+        'payment_method', 'payment_status', 'amount_paid', 'payment_reference'
     ];
 
     public function patient()
@@ -54,7 +71,7 @@ class Appointment extends Model
     }
     public function service()
     {
-        return $this->belongsTo(Service::class, 'service_id', 'service_id');
+        return $this->belongsTo(Service::class, 'service_id', 'id');
     }
     public function schedule()
     {

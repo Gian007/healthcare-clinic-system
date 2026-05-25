@@ -17,6 +17,7 @@ const links = [
   { name: "Appointments", path: "/staff/appointments", icon: FaCalendarCheck },
   { name: "Walk-in Registration", path: "/staff/walk-in", icon: FaClinicMedical },
   { name: "Patients", path: "/staff/patients", icon: FaUsers },
+  { name: "Services", path: "/staff/services", icon: FaClipboardList },
   { name: "Hospital Schedule", path: "/staff/schedule", icon: FaCalendarCheck },
   { name: "Clinic Calendar", path: "/staff/calendar", icon: FaCalendarCheck },
   { name: "Notifications", path: "/staff/notifications", icon: FaBell },

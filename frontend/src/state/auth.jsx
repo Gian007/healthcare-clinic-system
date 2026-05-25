@@ -67,6 +67,7 @@ export function AuthProvider({ children }) {
         } finally {
           setUser(null);
           localStorage.removeItem("token");
+          sessionStorage.clear();
         }
       },
     };

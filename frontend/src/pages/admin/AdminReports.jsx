@@ -12,8 +12,8 @@ function StatBox({ label, value, color }) {
 }
 
 export default function AdminReports() {
-  const today = new Date().toISOString().split('T')[0];
-  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
+  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString('en-CA');
 
   const [from, setFrom]       = useState(firstOfMonth);
   const [to, setTo]           = useState(today);

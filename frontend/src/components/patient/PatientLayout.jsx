@@ -5,13 +5,14 @@ import { useAdminSettings } from "../../state/adminSettings";
 import { resolveLogoUrl } from "../../config/adminSettings";
 import * as notifApi from "../../api/notificationApi";
 import {
-  FaCalendarAlt, FaBell, FaUser, FaSignOutAlt, FaBars, FaTimes, FaHome, FaMoon, FaSun, FaChevronLeft, FaChevronRight, FaListOl
+  FaCalendarAlt, FaBell, FaUser, FaSignOutAlt, FaBars, FaTimes, FaHome, FaMoon, FaSun, FaChevronLeft, FaChevronRight, FaListOl, FaClipboardList, FaRobot
 } from "react-icons/fa";
 import Logo from "../Logo";
 
 const links = [
   { to: "/patient", label: "Dashboard", icon: FaHome, end: true, key: "dashboard" },
   { to: "/patient/book", label: "Book Appointment", icon: FaCalendarAlt, key: "bookAppointment" },
+  { to: "/patient/services", label: "Services", icon: FaClipboardList, key: "services" },
   { to: "/patient/calendar", label: "Calendar", icon: FaCalendarAlt, key: "calendar" },
   { to: "/patient/queue", label: "Live Queue", icon: FaListOl, key: "queue" },
   { to: "/patient/profile", label: "Profile", icon: FaUser, key: "profile" },
@@ -23,6 +24,7 @@ export default function PatientLayout() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [dark, setDark] = useState(() => localStorage.getItem("clinicTheme") === "dark");
+  const [aiEnabled, setAiEnabled] = useState(() => localStorage.getItem("hideAiWidget") !== "true");
   const [notifications, setNotifications] = useState([]);
   const { user, logout } = useAuth();
   const { settings } = useAdminSettings();
@@ -54,6 +56,13 @@ export default function PatientLayout() {
   useEffect(() => {
     localStorage.setItem("patientSidebarCollapsed", collapsed ? "true" : "false");
   }, [collapsed]);
+
+  const toggleAi = () => {
+    const newVal = !aiEnabled;
+    setAiEnabled(newVal);
+    localStorage.setItem("hideAiWidget", !newVal ? "true" : "false");
+    window.dispatchEvent(new Event("aiWidgetToggled"));
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -140,6 +149,21 @@ export default function PatientLayout() {
               {dark ? <FaSun size={16} className="text-amber-400 shrink-0" /> : <FaMoon size={16} className="shrink-0" />}
               <span className={`transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden ${collapsed ? "lg:opacity-0 lg:w-0" : "opacity-100 w-auto"}`}>
                 {dark ? 'Light Mode' : 'Dark Mode'}
+              </span>
+            </button>
+
+            <button
+              onClick={toggleAi}
+              className={`w-full flex items-center rounded-xl p-2.5 text-xs font-bold ${
+                aiEnabled ? "text-primary" : "text-gray-400 dark:text-gray-500"
+              } hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-all ${
+                collapsed ? "lg:justify-center" : "gap-3 px-4"
+              }`}
+              title={collapsed ? (aiEnabled ? "Disable AI" : "Enable AI") : ""}
+            >
+              <FaRobot size={16} className="shrink-0" />
+              <span className={`transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden ${collapsed ? "lg:opacity-0 lg:w-0" : "opacity-100 w-auto"}`}>
+                {aiEnabled ? "AI Enabled" : "AI Disabled"}
               </span>
             </button>
 

@@ -1,20 +1,20 @@
-import { FaClock } from "react-icons/fa";
+import { FaClock, FaStethoscope, FaFlask, FaClipboardList } from "react-icons/fa";
 
 export default function ServiceCard({ service, onViewDetails }) {
   // Helper for category badge
   const getCategoryInfo = () => {
     const nameLower = service.name.toLowerCase();
     
-    // Consultation Services: 👨‍⚕️ Consultation
+    // Consultation Services
     if (service.service_type === 'consultation' || nameLower.includes('consultation') || nameLower.includes('checkup')) {
       return {
         label: 'Consultation',
-        emoji: '👨‍⚕️',
+        Icon: FaStethoscope,
         class: 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50'
       };
     }
     
-    // Laboratory Services: 🧪 Laboratory
+    // Laboratory Services
     const isLab = nameLower.includes('test') || 
                   nameLower.includes('blood') || 
                   nameLower.includes('urinalysis') || 
@@ -27,20 +27,21 @@ export default function ServiceCard({ service, onViewDetails }) {
     if (isLab) {
       return {
         label: 'Laboratory',
-        emoji: '🧪',
+        Icon: FaFlask,
         class: 'bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-900/50'
       };
     }
     
-    // Medical Requirement Services: 📋 Medical Requirement
+    // Medical Requirement Services
     return {
       label: 'Medical Requirement',
-      emoji: '📋',
+      Icon: FaClipboardList,
       class: 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/50'
     };
   };
 
   const category = getCategoryInfo();
+  const CategoryIcon = category.Icon;
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800 p-6 flex flex-col justify-between h-full hover:shadow-md hover:-translate-y-1 transition-all duration-300 group">
@@ -48,7 +49,7 @@ export default function ServiceCard({ service, onViewDetails }) {
         {/* Category Badge */}
         <div className="flex items-center">
           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${category.class}`}>
-            <span>{category.emoji}</span>
+            <CategoryIcon size={12} className="shrink-0 animate-pulse" />
             <span>{category.label}</span>
           </span>
         </div>

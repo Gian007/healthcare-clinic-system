@@ -90,6 +90,7 @@ export default function App() {
   location.pathname.startsWith("/staff/") ||
   location.pathname.startsWith("/admin/") ||
   location.pathname.startsWith("/doctor/") ||
+  location.pathname.includes("/book") ||
   ["/staff", "/admin", "/doctor"].includes(location.pathname);
 
   return (
@@ -122,6 +123,7 @@ export default function App() {
           >
             <Route index element={<PatientDashboard />} />
             <Route path="book" element={<BookAppointment />} />
+            <Route path="services" element={<Services />} />
             <Route path="calendar" element={<ClinicCalendar />} />
             <Route path="queue" element={<Queue />} />
             <Route path="profile" element={<PatientProfile />} />
@@ -141,6 +143,7 @@ export default function App() {
             <Route path="scan" element={<StaffScan />} />
             <Route path="appointments" element={<StaffAppointments />} />
             <Route path="walk-in" element={<StaffWalkIn />} />
+            <Route path="services" element={<Services />} />
             <Route path="patients" element={<StaffPatients />} />
             <Route path="schedule" element={<StaffSchedule />} />
             <Route path="calendar" element={<ClinicCalendar />} />

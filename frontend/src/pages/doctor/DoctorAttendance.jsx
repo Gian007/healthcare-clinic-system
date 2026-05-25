@@ -15,7 +15,7 @@ export default function DoctorAttendance() {
       .then(data => {
         setHistory(data);
         // Find if today already has a record
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = new Date().toLocaleDateString('en-CA');
         const todayRecord = data.find(item => item.date === todayStr);
         if (todayRecord) {
           setToday({
@@ -164,8 +164,8 @@ export default function DoctorAttendance() {
             <span>
               {today.time_out !== '--:--' && today.time_in !== '--:--'
                 ? computeWorkingHours(
-                    history.find(h => h.date === new Date().toISOString().split('T')[0])?.time_in, 
-                    history.find(h => h.date === new Date().toISOString().split('T')[0])?.time_out
+                    history.find(h => h.date === new Date().toLocaleDateString('en-CA'))?.time_in, 
+                    history.find(h => h.date === new Date().toLocaleDateString('en-CA'))?.time_out
                   ) + ' Hours'
                 : (today.present ? 'Ongoing Shift...' : 'Not Clocked In')}
             </span>

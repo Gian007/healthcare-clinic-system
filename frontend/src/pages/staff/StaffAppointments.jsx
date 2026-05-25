@@ -114,7 +114,7 @@ export default function StaffAppointments() {
                             Confirm
                           </button>
                         )}
-                        {a.booking_status !== 'Cancelled' && a.booking_status !== 'Completed' && (
+                        {a.booking_status === 'Pending' && (
                           <button 
                             onClick={() => handleUpdateStatus(a.appointment_id, 'Cancelled')}
                             disabled={actionLoading}

@@ -230,17 +230,45 @@ class PatientController extends Controller
 
     public function store(Request $request)
     {
-        $service = \App\Models\Service::findOrFail($request->service_id);
+        // Accept either service_ids (array) for direct services, or service_id (single) for consultation
+        $serviceIds = $request->input('service_ids', []);
+        if (empty($serviceIds) && $request->input('service_id')) {
+            $serviceIds = [$request->input('service_id')];
+        }
+
+        if (empty($serviceIds)) {
+            return response()->json(['message' => 'At least one service must be selected.'], 422);
+        }
+
+        // Validate all services exist
+        $services = \App\Models\Service::whereIn('id', $serviceIds)->get();
+        if ($services->count() !== count($serviceIds)) {
+            return response()->json(['message' => 'One or more services are invalid.'], 422);
+        }
+
+        // Check: only one consultation allowed
+        $consultationServices = $services->where('service_type', 'consultation');
+        if ($consultationServices->count() > 1) {
+            return response()->json(['message' => 'Only one consultation service can be booked per appointment. Additional consultations must be booked separately.'], 422);
+        }
+
+        // Check: cannot mix consultation with direct services
+        $directServices = $services->where('service_type', 'direct_service');
+        if ($consultationServices->count() > 0 && $directServices->count() > 0) {
+            return response()->json(['message' => 'Consultation services cannot be combined with direct services in one booking. Please book them separately.'], 422);
+        }
+
+        $primaryService = $services->first();
+        $requiresDoctor = (bool) $primaryService->requires_doctor;
 
         $rules = [
-            'service_id'       => 'required|exists:services,id',
             'appointment_date' => 'required|date',
             'start_time'       => 'required',
             'end_time'         => 'required',
             'reason_for_visit' => 'required|string',
         ];
 
-        if ($service->requires_doctor) {
+        if ($requiresDoctor) {
             $rules['doctor_id']   = 'required|exists:doctors,doctor_id';
             $rules['schedule_id'] = 'required|exists:doctor_schedules,schedule_id';
         } else {
@@ -248,17 +276,20 @@ class PatientController extends Controller
             $rules['schedule_id'] = 'nullable|exists:doctor_schedules,schedule_id';
         }
 
+        $rules['payment_method']    = 'nullable|string';
+        $rules['payment_status']    = 'nullable|string';
+        $rules['amount_paid']       = 'nullable|numeric';
+        $rules['payment_reference'] = 'nullable|string';
+
         $request->validate($rules);
 
         $nowInManila = Carbon::now('Asia/Manila');
         $appointmentDate = Carbon::parse($request->appointment_date);
-        
-        // Ensure date is not in the past (date-wise) in Asia/Manila
+
         if ($appointmentDate->format('Y-m-d') < $nowInManila->format('Y-m-d')) {
             return response()->json(['message' => 'The appointment date cannot be in the past.'], 422);
         }
 
-        // If today, ensure the time slot is not in the past
         if ($appointmentDate->format('Y-m-d') === $nowInManila->format('Y-m-d')) {
             $slotDateTime = Carbon::parse($appointmentDate->format('Y-m-d') . ' ' . $request->start_time, 'Asia/Manila');
             if ($slotDateTime->lt($nowInManila)) {
@@ -266,56 +297,65 @@ class PatientController extends Controller
             }
         }
 
-        // Double-booking/capacity check (ensure slot is not already booked, excluding Cancelled or Rejected ones)
-        if ($service->requires_doctor) {
+        // Double-booking check
+        if ($requiresDoctor) {
             $count = Appointment::where('doctor_id', $request->doctor_id)
                 ->where('appointment_date', $request->appointment_date)
                 ->where('start_time', $request->start_time)
                 ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
                 ->count();
-            
             if ($count >= 1) {
-                return response()->json(['message' => 'This time slot is already fully booked.'], 422);
-            }
-        } else {
-            // Direct service check (capacity: max 5 bookings per slot)
-            $count = Appointment::where('service_id', $request->service_id)
-                ->where('appointment_date', $request->appointment_date)
-                ->where('start_time', $request->start_time)
-                ->whereNotIn('booking_status', ['Cancelled', 'Rejected'])
-                ->count();
-            
-            if ($count >= 5) {
                 return response()->json(['message' => 'This time slot is already fully booked.'], 422);
             }
         }
 
-        $patient = $request->user();
+        $patient  = $request->user();
+        $isPaid   = $request->payment_status === 'Paid';
+        $payRef   = $request->payment_reference ?? ($isPaid ? 'TXN-' . strtoupper(substr(md5(uniqid(rand(), true)), 0, 10)) : null);
+        $totalFee = $request->amount_paid ?? $services->sum('price');
 
-        $appointment = Appointment::create([
-            'patient_id'       => $patient->patient_id,
-            'doctor_id'        => $service->requires_doctor ? $request->doctor_id : null,
-            'service_id'       => $request->service_id,
-            'schedule_id'      => $service->requires_doctor ? $request->schedule_id : null,
-            'appointment_date' => $request->appointment_date,
-            'start_time'       => $request->start_time,
-            'end_time'         => $request->end_time,
-            'appointment_type' => 'Online',
-            'reason_for_visit' => $request->reason_for_visit,
-            'booking_status'   => 'Pending',
-            'checkin_deadline' => now()->addDays(1),
-        ]);
+        $createdAppointments = [];
 
-        // Notify patient
+        foreach ($services as $service) {
+            $appointment = Appointment::create([
+                'patient_id'       => $patient->patient_id,
+                'doctor_id'        => $requiresDoctor ? $request->doctor_id : null,
+                'service_id'       => $service->id,
+                'schedule_id'      => $requiresDoctor ? $request->schedule_id : null,
+                'appointment_date' => $request->appointment_date,
+                'start_time'       => $request->start_time,
+                'end_time'         => $request->end_time,
+                'appointment_type' => 'Online',
+                'reason_for_visit' => $request->reason_for_visit,
+                'booking_status'   => $isPaid ? 'Confirmed' : 'Pending',
+                'checkin_deadline' => now()->addDays(1),
+                'payment_method'   => $request->payment_method,
+                'payment_status'   => $isPaid ? 'Paid' : 'Pending',
+                'amount_paid'      => round($service->price, 2),
+                'payment_reference'=> $payRef,
+            ]);
+            $createdAppointments[] = $appointment;
+        }
+
+        $firstAppt = $createdAppointments[0];
+
+        // Notify patient once
+        $serviceNames = $services->pluck('name')->join(', ');
         SystemNotification::create([
             'notifiable_type' => 'patient',
             'notifiable_id'   => $patient->patient_id,
-            'title'           => 'Appointment Booked Successfully',
-            'body'            => "Your appointment has been submitted and is pending confirmation. Date: {$request->appointment_date} at {$request->start_time}.",
+            'title'           => $isPaid ? 'Appointment Confirmed & Paid' : 'Appointment Booked Successfully',
+            'body'            => $isPaid
+                ? "Your appointment for {$serviceNames} has been confirmed. Date: {$request->appointment_date} at {$request->start_time}."
+                : "Your appointment for {$serviceNames} has been submitted and is pending confirmation. Date: {$request->appointment_date} at {$request->start_time}.",
             'type'            => 'success',
         ]);
 
-        return response()->json(['message' => 'Appointment booked successfully.', 'appointment' => $appointment->load(['doctor', 'service'])]);
+        return response()->json([
+            'message'     => 'Appointment booked successfully.',
+            'appointment' => $firstAppt->load(['doctor', 'service']),
+            'appointments'=> collect($createdAppointments)->map(fn($a) => $a->load(['doctor', 'service'])),
+        ]);
     }
 
     public function cancelAppointment(Request $request, $id)
@@ -417,7 +457,7 @@ class PatientController extends Controller
     public function getServiceRequests(Request $request)
     {
         $patient = $request->user();
-        $requests = \App\Models\DoctorServiceRequest::with(['doctor', 'items.service'])
+        $requests = \App\Models\DoctorServiceRequest::with(['doctor', 'referredDoctor', 'items.service'])
             ->where('patient_id', $patient->patient_id)
             ->where('status', 'pending')
             ->orderBy('created_at', 'desc')
@@ -428,7 +468,7 @@ class PatientController extends Controller
     public function acceptServiceRequest(Request $request, $id)
     {
         $patient = $request->user();
-        $serviceRequest = \App\Models\DoctorServiceRequest::with(['items.service', 'doctor'])
+        $serviceRequest = \App\Models\DoctorServiceRequest::with(['items.service', 'doctor', 'referredDoctor'])
             ->where('patient_id', $patient->patient_id)
             ->where('status', 'pending')
             ->findOrFail($id);
@@ -445,7 +485,7 @@ class PatientController extends Controller
         foreach ($serviceRequest->items as $item) {
             $appointment = Appointment::create([
                 'patient_id'       => $patient->patient_id,
-                'doctor_id'        => $serviceRequest->doctor_id,
+                'doctor_id'        => $serviceRequest->referred_doctor_id ?? $serviceRequest->doctor_id,
                 'service_id'       => $item->service_id,
                 'schedule_id'      => null, // Recommended items don't strictly require regular schedule linking
                 'appointment_date' => $request->appointment_date,

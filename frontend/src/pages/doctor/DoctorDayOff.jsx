@@ -200,7 +200,7 @@ export default function DoctorDayOff(){
                 type="date" 
                 className="w-full p-3 rounded-xl border dark:bg-slate-800 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none" 
                 value={form.date} 
-                min={new Date().toISOString().split('T')[0]}
+                min={new Date().toLocaleDateString('en-CA')}
                 onChange={e => setForm({ ...form, date: e.target.value })}
               />
             </div>

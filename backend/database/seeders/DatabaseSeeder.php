@@ -17,6 +17,17 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // Prevent duplicate seeding by clearing tables first
+        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        \App\Models\Specialization::truncate();
+        \App\Models\Service::truncate();
+        \App\Models\Staff::truncate();
+        \App\Models\Doctor::truncate();
+        \App\Models\DoctorService::truncate();
+        \App\Models\DoctorSchedule::truncate();
+        \App\Models\Patient::truncate();
+        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
         // 0. Seed Default Rooms
         $settings = SystemSetting::getAdminPortalSettings();
         $settings['rooms'] = [
@@ -52,6 +63,17 @@ class DatabaseSeeder extends Seeder
             ],
         ];
         SystemSetting::saveAdminPortalSettings($settings);
+
+        \App\Models\ClinicOperatingHour::truncate();
+        $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        foreach ($days as $day) {
+            \App\Models\ClinicOperatingHour::create([
+                'day_of_week' => $day,
+                'is_open' => !in_array($day, ['Sunday']),
+                'open_time' => '08:00',
+                'close_time' => '17:00'
+            ]);
+        }
 
         // 1. Create Specializations
         $generalSpec = Specialization::create([
@@ -181,50 +203,6 @@ class DatabaseSeeder extends Seeder
             'is_active'                => true
         ]);
 
-        $s9 = Service::create([
-            'name'                     => 'CBC Blood Test',
-            'description'              => 'Complete blood count laboratory test.',
-            'price'                    => 250.00,
-            'estimated_duration'       => 15,
-            'service_type'             => 'direct_service',
-            'requires_doctor'          => false,
-            'is_publicly_bookable'     => true,
-            'is_active'                => true
-        ]);
-
-        $s10 = Service::create([
-            'name'                     => 'Urinalysis',
-            'description'              => 'Urine laboratory test for common medical screening.',
-            'price'                    => 150.00,
-            'estimated_duration'       => 10,
-            'service_type'             => 'direct_service',
-            'requires_doctor'          => false,
-            'is_publicly_bookable'     => true,
-            'is_active'                => true
-        ]);
-
-        $s11 = Service::create([
-            'name'                     => 'Chest X-Ray',
-            'description'              => 'Chest imaging service commonly used for medical requirements.',
-            'price'                    => 600.00,
-            'estimated_duration'       => 20,
-            'service_type'             => 'direct_service',
-            'requires_doctor'          => false,
-            'is_publicly_bookable'     => true,
-            'is_active'                => true
-        ]);
-
-        $s12 = Service::create([
-            'name'                     => 'ECG Test',
-            'description'              => 'Electrocardiogram test for checking heart rhythm.',
-            'price'                    => 500.00,
-            'estimated_duration'       => 20,
-            'service_type'             => 'direct_service',
-            'requires_doctor'          => false,
-            'is_publicly_bookable'     => true,
-            'is_active'                => true
-        ]);
-
         $s13 = Service::create([
             'name'                     => 'Medical Certificate Request',
             'description'              => 'Request for medical certificate processing after basic assessment.',
@@ -236,12 +214,56 @@ class DatabaseSeeder extends Seeder
             'is_active'                => true
         ]);
 
-        // --- DOCTOR REQUESTED SERVICES ---
         $s14 = Service::create([
-            'name'                     => 'Follow-up Laboratory Panel',
-            'description'              => 'Laboratory package recommended by a doctor after consultation.',
-            'price'                    => 1000.00,
-            'estimated_duration'       => 45,
+            'name'                     => 'Vaccination',
+            'description'              => 'Routine immunizations, flu shots, and vaccine administration.',
+            'price'                    => 400.00,
+            'estimated_duration'       => 15,
+            'service_type'             => 'direct_service',
+            'requires_doctor'          => false,
+            'is_publicly_bookable'     => true,
+            'is_active'                => true
+        ]);
+
+        // --- DIAGNOSTIC / LABORATORY SERVICES (NOT PUBLICLY BOOKABLE) ---
+        $s9 = Service::create([
+            'name'                     => 'CBC Blood Test',
+            'description'              => 'Complete blood count laboratory test.',
+            'price'                    => 250.00,
+            'estimated_duration'       => 15,
+            'service_type'             => 'doctor_requested',
+            'requires_doctor'          => true,
+            'is_publicly_bookable'     => false,
+            'is_active'                => true
+        ]);
+
+        $s10 = Service::create([
+            'name'                     => 'Urinalysis',
+            'description'              => 'Urine laboratory test for common medical screening.',
+            'price'                    => 150.00,
+            'estimated_duration'       => 10,
+            'service_type'             => 'doctor_requested',
+            'requires_doctor'          => true,
+            'is_publicly_bookable'     => false,
+            'is_active'                => true
+        ]);
+
+        $s11 = Service::create([
+            'name'                     => 'Chest X-Ray',
+            'description'              => 'Chest imaging service commonly used for medical requirements.',
+            'price'                    => 600.00,
+            'estimated_duration'       => 20,
+            'service_type'             => 'doctor_requested',
+            'requires_doctor'          => true,
+            'is_publicly_bookable'     => false,
+            'is_active'                => true
+        ]);
+
+        $s12 = Service::create([
+            'name'                     => 'ECG Test',
+            'description'              => 'Electrocardiogram test for checking heart rhythm.',
+            'price'                    => 500.00,
+            'estimated_duration'       => 20,
             'service_type'             => 'doctor_requested',
             'requires_doctor'          => true,
             'is_publicly_bookable'     => false,
@@ -249,10 +271,10 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $s15 = Service::create([
-            'name'                     => 'Additional Diagnostic Review',
-            'description'              => 'Additional diagnostic service requested by the attending doctor.',
-            'price'                    => 700.00,
-            'estimated_duration'       => 30,
+            'name'                     => 'Blood Chemistry',
+            'description'              => 'Blood test panel evaluating metabolic indicators and organ health.',
+            'price'                    => 800.00,
+            'estimated_duration'       => 20,
             'service_type'             => 'doctor_requested',
             'requires_doctor'          => true,
             'is_publicly_bookable'     => false,
@@ -260,8 +282,53 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $s16 = Service::create([
-            'name'                     => 'Follow-up Checkup',
-            'description'              => 'Doctor-requested follow-up visit after initial consultation.',
+            'name'                     => 'Ultrasound',
+            'description'              => 'Diagnostic imaging procedure using sound waves.',
+            'price'                    => 1200.00,
+            'estimated_duration'       => 30,
+            'service_type'             => 'doctor_requested',
+            'requires_doctor'          => true,
+            'is_publicly_bookable'     => false,
+            'is_active'                => true
+        ]);
+
+        // --- PROCEDURES / SURGERY REQUESTS (NOT PUBLICLY BOOKABLE) ---
+        $s17 = Service::create([
+            'name'                     => 'Tooth Extraction',
+            'description'              => 'Clinical removal of tooth under local anesthesia.',
+            'price'                    => 800.00,
+            'estimated_duration'       => 30,
+            'service_type'             => 'doctor_requested',
+            'requires_doctor'          => true,
+            'is_publicly_bookable'     => false,
+            'is_active'                => true
+        ]);
+
+        $s18 = Service::create([
+            'name'                     => 'Minor Surgery',
+            'description'              => 'Outpatient minor surgical excision or wound closure.',
+            'price'                    => 3000.00,
+            'estimated_duration'       => 60,
+            'service_type'             => 'doctor_requested',
+            'requires_doctor'          => true,
+            'is_publicly_bookable'     => false,
+            'is_active'                => true
+        ]);
+
+        $s19 = Service::create([
+            'name'                     => 'Biopsy',
+            'description'              => 'Excision of tissue sample for diagnostic pathology review.',
+            'price'                    => 2500.00,
+            'estimated_duration'       => 45,
+            'service_type'             => 'doctor_requested',
+            'requires_doctor'          => true,
+            'is_publicly_bookable'     => false,
+            'is_active'                => true
+        ]);
+
+        $s20 = Service::create([
+            'name'                     => 'Wound Care Procedure',
+            'description'              => 'Debridement, dressing change, and wound care management.',
             'price'                    => 400.00,
             'estimated_duration'       => 20,
             'service_type'             => 'doctor_requested',
@@ -269,6 +336,30 @@ class DatabaseSeeder extends Seeder
             'is_publicly_bookable'     => false,
             'is_active'                => true
         ]);
+
+        $s21 = Service::create([
+            'name'                     => 'Dental Procedure',
+            'description'              => 'Advanced restorative or root canal treatment.',
+            'price'                    => 1500.00,
+            'estimated_duration'       => 45,
+            'service_type'             => 'doctor_requested',
+            'requires_doctor'          => true,
+            'is_publicly_bookable'     => false,
+            'is_active'                => true
+        ]);
+
+        // --- FOLLOW-UP CONSULTATIONS ---
+        $s22 = Service::create([
+            'name'                     => 'Follow-Up Consultation',
+            'description'              => 'Doctor-requested follow-up checkup for patient review.',
+            'price'                    => 400.00,
+            'estimated_duration'       => 20,
+            'service_type'             => 'doctor_requested',
+            'requires_doctor'          => true,
+            'is_publicly_bookable'     => false,
+            'is_active'                => true
+        ]);
+
 
         // 3. Create Admin & Staff Account
         Staff::create([
@@ -397,9 +488,9 @@ class DatabaseSeeder extends Seeder
         // 7. Seed 5 Patients
         // 3 not verified (patient1-3), 2 verified (patient4-5)
         $patientsData = [
-            ['first_name' => 'Juan', 'last_name' => 'Dela Cruz', 'email' => 'patient1@clinic.com', 'verified' => 'Pending'],
-            ['first_name' => 'Jane', 'last_name' => 'Smith', 'email' => 'patient2@clinic.com', 'verified' => 'Pending'],
-            ['first_name' => 'Alice', 'last_name' => 'Green', 'email' => 'patient3@clinic.com', 'verified' => 'Pending'],
+            ['first_name' => 'Juan', 'last_name' => 'Dela Cruz', 'email' => 'patient1@clinic.com', 'verified' => 'Approved'],
+            ['first_name' => 'Jane', 'last_name' => 'Smith', 'email' => 'patient2@clinic.com', 'verified' => 'Approved'],
+            ['first_name' => 'Alice', 'last_name' => 'Green', 'email' => 'patient3@clinic.com', 'verified' => 'Approved'],
             ['first_name' => 'Bob', 'last_name' => 'Baker', 'email' => 'patient4@clinic.com', 'verified' => 'Approved'],
             ['first_name' => 'Charlie', 'last_name' => 'Miller', 'email' => 'patient5@clinic.com', 'verified' => 'Approved'],
         ];

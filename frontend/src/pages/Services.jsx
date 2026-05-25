@@ -13,7 +13,11 @@ import {
   FaLock, 
   FaStethoscope, 
   FaSearch, 
-  FaSort 
+  FaSort,
+  FaFlask,
+  FaClipboardList,
+  FaBolt,
+  FaClinicMedical
 } from "react-icons/fa";
 
 // Helper for category badge
@@ -23,7 +27,7 @@ const getServiceCategory = (service) => {
   if (service.service_type === 'consultation' || nameLower.includes('consultation') || nameLower.includes('checkup')) {
     return {
       label: 'Consultation',
-      emoji: '👨‍⚕️',
+      Icon: FaStethoscope,
       class: 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50'
     };
   }
@@ -40,14 +44,14 @@ const getServiceCategory = (service) => {
   if (isLab) {
     return {
       label: 'Laboratory',
-      emoji: '🧪',
+      Icon: FaFlask,
       class: 'bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-900/50'
     };
   }
   
   return {
     label: 'Medical Requirement',
-    emoji: '📋',
+    Icon: FaClipboardList,
     class: 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/50'
   };
 };
@@ -75,6 +79,7 @@ export default function Services() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('az');
   const [category, setCategory] = useState('All');
+  const [subCategory, setSubCategory] = useState('All');
 
   // Modal States
   const [selectedService, setSelectedService] = useState(null);
@@ -140,7 +145,7 @@ export default function Services() {
         for (let i = 0; i < daysToCheck; i++) {
           const checkDate = new Date();
           checkDate.setDate(today.getDate() + i);
-          const dateStr = checkDate.toISOString().split('T')[0];
+          const dateStr = checkDate.toLocaleDateString('en-CA');
           const dayName = daysOfWeek[checkDate.getDay()];
 
           if (dayName === 'Sunday') continue; // Clinic is closed on Sundays
@@ -221,22 +226,37 @@ export default function Services() {
   const filteredServices = services
     .filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.desc.toLowerCase().includes(searchTerm.toLowerCase()))
     .filter(s => {
-      // Hide doctor requested (non-public) services for normal users
-      if (!isAdmin && s.service_type === 'doctor_requested') return false;
-
       if (category === 'All') {
-        return s.service_type === 'consultation' || s.service_type === 'direct_service';
+        return true;
       }
       if (category === 'Doctor Requested Only') {
         return s.service_type === 'doctor_requested';
       }
 
-      const sCat = getServiceCategory(s).label;
-      if (category === 'Consultation') return sCat === 'Consultation';
-      if (category === 'Laboratory') return sCat === 'Laboratory';
-      if (category === 'Medical Requirement') return sCat === 'Medical Requirement';
+      if (category === 'Consultation') {
+        return s.service_type === 'consultation';
+      }
+      if (category === 'Direct Services') {
+        return s.service_type === 'direct_service';
+      }
+      if (category === 'Doctor Requested') {
+        return s.service_type === 'doctor_requested';
+      }
 
       return true;
+    })
+    .filter(s => {
+      if (subCategory === 'All') return true;
+      const nameLower = s.name.toLowerCase();
+      if (subCategory === 'Cardiology') return nameLower.includes('cardio') || nameLower.includes('heart') || nameLower.includes('ecg');
+      if (subCategory === 'Dental') return nameLower.includes('dental') || nameLower.includes('teeth') || nameLower.includes('tooth') || nameLower.includes('extraction');
+      if (subCategory === 'Ophthalmology') return nameLower.includes('ophthal') || nameLower.includes('eye') || nameLower.includes('vision');
+      if (subCategory === 'General') return nameLower.includes('general') || nameLower.includes('basic') || nameLower.includes('common') || nameLower.includes('medical exam') || nameLower.includes('certificate') || nameLower.includes('vaccine') || nameLower.includes('vaccination') || nameLower.includes('wound') || nameLower.includes('follow-up');
+      if (subCategory === 'Pediatric') return nameLower.includes('pedia') || nameLower.includes('child') || nameLower.includes('kid');
+      if (subCategory === 'OB-Gyne') return nameLower.includes('ob-gyne') || nameLower.includes('women') || nameLower.includes('maternity') || nameLower.includes('ultrasound');
+      if (subCategory === 'Laboratory') return nameLower.includes('lab') || nameLower.includes('blood') || nameLower.includes('cbc') || nameLower.includes('x-ray') || nameLower.includes('urinalysis') || nameLower.includes('test') || nameLower.includes('diagnostic');
+      if (subCategory === 'Procedures') return nameLower.includes('surgery') || nameLower.includes('biopsy') || nameLower.includes('procedure') || nameLower.includes('excision');
+      return false;
     })
     .sort((a, b) => {
       if (sortBy === 'az') return a.name.localeCompare(b.name);
@@ -247,18 +267,22 @@ export default function Services() {
     });
 
   const categoriesList = [
-    { id: 'All', label: 'All Services', emoji: '✨' },
-    { id: 'Consultation', label: 'Consultations', emoji: '👨‍⚕️' },
-    { id: 'Laboratory', label: 'Laboratory', emoji: '🧪' },
-    { id: 'Medical Requirement', label: 'Medical Requirements', emoji: '📋' }
+    { id: 'All', label: 'All Services', Icon: FaClinicMedical },
+    { id: 'Consultation', label: 'Consultations', Icon: FaStethoscope },
+    { id: 'Direct Services', label: 'Direct Services', Icon: FaBolt },
+    { id: 'Doctor Requested', label: 'Doctor Recommended', Icon: FaUserMd }
   ];
 
+  if (isActive => false) { // dummy check to keep type definitions clean
+  }
+
   if (isAdmin) {
-    categoriesList.push({ id: 'Doctor Requested Only', label: 'Doctor Requested (Admin)', emoji: '🩺' });
+    categoriesList.push({ id: 'Doctor Requested Only', label: 'Doctor Requested (Admin)', Icon: FaUserMd });
   }
 
   // Only patients or guests (which will redirect to login) see booking CTAs
-  const canBook = !user || user.role === 'patient';
+  const isDashboardView = window.location.pathname.includes('/patient/') || window.location.pathname.includes('/staff/');
+  const canBook = (!user || user.role === 'patient') && !isDashboardView;
 
   return (
     <div className="bg-neutralbg dark:bg-slate-950 min-h-screen">
@@ -312,6 +336,7 @@ export default function Services() {
           <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/60">
             {categoriesList.map((cat) => {
               const isActive = category === cat.id;
+              const FilterIcon = cat.Icon;
               return (
                 <button
                   key={cat.id}
@@ -322,11 +347,37 @@ export default function Services() {
                       : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/60 dark:bg-slate-850 dark:hover:bg-slate-800 dark:text-slate-300 dark:border-slate-805'
                   }`}
                 >
-                  <span>{cat.emoji}</span>
+                  <FilterIcon size={14} className={isActive ? "text-white" : "text-slate-500"} />
                   <span>{cat.label}</span>
                 </button>
               );
             })}
+          </div>
+          {/* Sub Categories for Easy Navigation */}
+          <div className="flex flex-wrap gap-2 pt-3">
+            {[
+              { id: 'All', label: 'All Specialties' },
+              { id: 'General', label: 'General Care' },
+              { id: 'Cardiology', label: 'Heart & Cardio' },
+              { id: 'Dental', label: 'Teeth & Dental' },
+              { id: 'Ophthalmology', label: 'Eye & Vision' },
+              { id: 'Pediatric', label: 'Kids & Pedia' },
+              { id: 'OB-Gyne', label: 'Women & OB-Gyne' },
+              { id: 'Laboratory', label: 'Laboratory & Tests' },
+              { id: 'Procedures', label: 'Surgery & Procedures' }
+            ].map(sub => (
+              <button
+                key={sub.id}
+                onClick={() => setSubCategory(sub.id)}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
+                  subCategory === sub.id 
+                    ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-200 dark:text-slate-900 dark:border-slate-200' 
+                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800'
+                }`}
+              >
+                {sub.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -351,7 +402,7 @@ export default function Services() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800 p-12 text-center shadow-sm">
             <p className="text-slate-500 dark:text-slate-400 font-medium">No services found matching your criteria.</p>
             <button 
-              onClick={() => { setCategory('All'); setSearchTerm(''); }}
+              onClick={() => { setCategory('All'); setSubCategory('All'); setSearchTerm(''); }}
               className="mt-4 text-xs font-bold text-primary hover:underline"
             >
               Reset filters
@@ -392,10 +443,16 @@ export default function Services() {
               
               {/* Category & Badge */}
               <div className="flex items-center gap-2 flex-wrap">
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${getServiceCategory(selectedService).class}`}>
-                  <span>{getServiceCategory(selectedService).emoji}</span>
-                  <span>{getServiceCategory(selectedService).label}</span>
-                </span>
+                {(() => {
+                  const catInfo = getServiceCategory(selectedService);
+                  const ModalIcon = catInfo.Icon;
+                  return (
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${catInfo.class}`}>
+                      <ModalIcon size={12} className="shrink-0" />
+                      <span>{catInfo.label}</span>
+                    </span>
+                  );
+                })()}
                 
                 {/* Doctor Consult/Direct badge */}
                 {selectedService.requires_doctor ? (
@@ -406,7 +463,7 @@ export default function Services() {
                 ) : (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-semibold bg-teal-50 text-teal-700 border border-teal-100 dark:bg-teal-950/20 dark:text-teal-400 dark:border-teal-900/40">
                     <FaCheck size={10} />
-                    <span>Direct Booking</span>
+                    <span>Direct Service</span>
                   </span>
                 )}
               </div>
@@ -483,7 +540,7 @@ export default function Services() {
               </div>
 
               {/* Footer CTA */}
-              {canBook && (
+              {canBook && selectedService.service_type !== 'doctor_requested' && (
                 <div className="pt-2">
                   {selectedService.service_type === 'consultation' ? (
                     <button
@@ -491,7 +548,7 @@ export default function Services() {
                       className="w-full bg-primary hover:bg-primary/95 text-white font-extrabold py-3.5 px-6 rounded-xl shadow-md hover:shadow-lg transition-all text-sm flex items-center justify-center gap-2 active:scale-[0.99]"
                     >
                       <FaUserMd size={14} />
-                      <span>Book Appointment</span>
+                      <span>Book Consultation</span>
                     </button>
                   ) : (
                     <button
@@ -505,8 +562,18 @@ export default function Services() {
                 </div>
               )}
 
+              {/* Doctor recommendation required notice */}
+              {selectedService.service_type === 'doctor_requested' && (
+                <div className="flex items-center justify-center gap-2 p-3.5 bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200/50 dark:border-amber-900/30 text-center text-amber-700 dark:text-amber-400">
+                  <FaLock size={12} className="text-amber-500 flex-shrink-0" />
+                  <span className="text-xs font-bold">
+                    Doctor recommendation required. Please schedule a consultation first.
+                  </span>
+                </div>
+              )}
+
               {/* Non-patient fallback notice */}
-              {!canBook && (
+              {!canBook && !isDashboardView && user && user.role !== 'patient' && (
                 <div className="flex items-center justify-center gap-2 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200/50 dark:border-slate-800 text-center">
                   <FaLock size={12} className="text-slate-400" />
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
